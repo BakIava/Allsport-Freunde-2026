@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #16a34a;
+  --color-primary-foreground: #ffffff;
+  --color-fussball: #16a34a;
+  --color-fitness: #ea580c;
+  --color-schwimmen: #2563eb;
+  --color-background: #ffffff;
+  --color-foreground: #0a0a0a;
+  --color-muted: #f5f5f5;
+  --color-muted-foreground: #737373;
+  --color-border: #e5e5e5;
+  --color-ring: #16a34a;
+  --color-card: #ffffff;
+  --color-card-foreground: #0a0a0a;
+  --color-destructive: #dc2626;
+  --color-accent: #f5f5f5;
+  --color-accent-foreground: #0a0a0a;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
