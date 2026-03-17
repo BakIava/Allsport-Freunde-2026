@@ -3,6 +3,11 @@ import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { getAdminUser } from "./db";
 
+// Auto-generate a secret for local development if AUTH_SECRET is not set
+if (!process.env.AUTH_SECRET) {
+  process.env.AUTH_SECRET = "local-dev-secret-allsport-freunde-2026-change-in-production";
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: {
     signIn: "/admin/login",
