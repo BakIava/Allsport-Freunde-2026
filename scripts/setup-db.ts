@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { sql } from "@vercel/postgres";
+import { hashSync } from "bcryptjs";
 
 async function setup() {
   console.log("Erstelle Tabellen in Vercel Postgres...\n");
@@ -35,6 +36,28 @@ async function setup() {
     )
   `;
   console.log("  ✓ Tabelle 'registrations' erstellt");
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS admin_users (
+      id SERIAL PRIMARY KEY,
+      username VARCHAR(100) UNIQUE NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `;
+  console.log("  ✓ Tabelle 'admin_users' erstellt");
+
+  // Insert default admin user
+  const username = process.env.ADMIN_USERNAME || "admin";
+  const password = process.env.ADMIN_PASSWORD || "admin";
+  const passwordHash = hashSync(password, 10);
+
+  await sql`
+    INSERT INTO admin_users (username, password_hash)
+    VALUES (${username}, ${passwordHash})
+    ON CONFLICT (username) DO UPDATE SET password_hash = ${passwordHash}
+  `;
+  console.log(`  ✓ Admin-User '${username}' erstellt`);
 
   console.log("\nDatenbank-Setup abgeschlossen!");
 }

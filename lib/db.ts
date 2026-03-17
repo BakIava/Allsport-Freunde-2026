@@ -1,9 +1,17 @@
 import { sql } from "@vercel/postgres";
-import type { EventWithRegistrations } from "./types";
+import type {
+  EventWithRegistrations,
+  AdminUser,
+  AdminStats,
+  EventCreateInput,
+  RegistrationWithEvent,
+} from "./types";
 
 function isPostgresConfigured(): boolean {
   return !!process.env.POSTGRES_URL;
 }
+
+// ─── Public API ──────────────────────────────────────────
 
 export async function getEvents(): Promise<EventWithRegistrations[]> {
   if (!isPostgresConfigured()) {
@@ -86,4 +94,185 @@ export async function createRegistration(data: {
     INSERT INTO registrations (event_id, first_name, last_name, email, phone, guests)
     VALUES (${data.event_id}, ${data.first_name}, ${data.last_name}, ${data.email}, ${data.phone}, ${data.guests})
   `;
+}
+
+// ─── Auth ────────────────────────────────────────────────
+
+export async function getAdminUser(username: string): Promise<AdminUser | null> {
+  if (!isPostgresConfigured()) {
+    const { getLocalAdminUser } = await import("./local-data");
+    return getLocalAdminUser(username);
+  }
+
+  const { rows } = await sql`
+    SELECT * FROM admin_users WHERE username = ${username}
+  `;
+  return (rows[0] as AdminUser) ?? null;
+}
+
+// ─── Admin: Stats ────────────────────────────────────────
+
+export async function getAdminStats(): Promise<AdminStats> {
+  if (!isPostgresConfigured()) {
+    const { getLocalAdminStats } = await import("./local-data");
+    return getLocalAdminStats();
+  }
+
+  const { rows: totalEventsRows } = await sql`SELECT COUNT(*)::int AS count FROM events`;
+  const { rows: upcomingRows } = await sql`SELECT COUNT(*)::int AS count FROM events WHERE date >= CURRENT_DATE`;
+  const { rows: totalRegsRows } = await sql`SELECT COALESCE(SUM(guests + 1), 0)::int AS count FROM registrations`;
+  const { rows: utilRows } = await sql`
+    SELECT
+      CASE WHEN SUM(e.max_participants) = 0 THEN 0
+      ELSE ROUND((COALESCE(SUM(r.total), 0)::numeric / SUM(e.max_participants)::numeric) * 100)
+      END AS avg
+    FROM events e
+    LEFT JOIN (
+      SELECT event_id, SUM(guests + 1) AS total FROM registrations GROUP BY event_id
+    ) r ON e.id = r.event_id
+    WHERE e.date >= CURRENT_DATE
+  `;
+
+  return {
+    total_events: (totalEventsRows[0] as { count: number }).count,
+    upcoming_events: (upcomingRows[0] as { count: number }).count,
+    total_registrations: (totalRegsRows[0] as { count: number }).count,
+    avg_utilization: Number((utilRows[0] as { avg: string | number }).avg) || 0,
+  };
+}
+
+// ─── Admin: Events ───────────────────────────────────────
+
+export async function getAllEvents(): Promise<EventWithRegistrations[]> {
+  if (!isPostgresConfigured()) {
+    const { getLocalAllEvents } = await import("./local-data");
+    return getLocalAllEvents();
+  }
+
+  const { rows } = await sql`
+    SELECT
+      e.*,
+      COALESCE(SUM(r.guests + 1), 0)::int AS current_participants
+    FROM events e
+    LEFT JOIN registrations r ON e.id = r.event_id
+    GROUP BY e.id
+    ORDER BY e.date DESC, e.time DESC
+  `;
+  return rows as EventWithRegistrations[];
+}
+
+export async function getEventFull(id: number): Promise<EventWithRegistrations | null> {
+  if (!isPostgresConfigured()) {
+    const { getLocalEventFull } = await import("./local-data");
+    return getLocalEventFull(id);
+  }
+
+  const { rows } = await sql`
+    SELECT
+      e.*,
+      COALESCE(SUM(r.guests + 1), 0)::int AS current_participants
+    FROM events e
+    LEFT JOIN registrations r ON e.id = r.event_id
+    WHERE e.id = ${id}
+    GROUP BY e.id
+  `;
+  return (rows[0] as EventWithRegistrations) ?? null;
+}
+
+export async function createEvent(data: EventCreateInput): Promise<{ id: number }> {
+  if (!isPostgresConfigured()) {
+    const { createLocalEvent } = await import("./local-data");
+    return createLocalEvent(data);
+  }
+
+  const { rows } = await sql`
+    INSERT INTO events (title, category, description, date, time, location, price, dress_code, max_participants)
+    VALUES (${data.title}, ${data.category}, ${data.description}, ${data.date}, ${data.time}, ${data.location}, ${data.price}, ${data.dress_code}, ${data.max_participants})
+    RETURNING id
+  `;
+  return rows[0] as { id: number };
+}
+
+export async function updateEvent(id: number, data: EventCreateInput): Promise<void> {
+  if (!isPostgresConfigured()) {
+    const { updateLocalEvent } = await import("./local-data");
+    updateLocalEvent(id, data);
+    return;
+  }
+
+  await sql`
+    UPDATE events SET
+      title = ${data.title},
+      category = ${data.category},
+      description = ${data.description},
+      date = ${data.date},
+      time = ${data.time},
+      location = ${data.location},
+      price = ${data.price},
+      dress_code = ${data.dress_code},
+      max_participants = ${data.max_participants}
+    WHERE id = ${id}
+  `;
+}
+
+export async function deleteEvent(id: number): Promise<void> {
+  if (!isPostgresConfigured()) {
+    const { deleteLocalEvent } = await import("./local-data");
+    deleteLocalEvent(id);
+    return;
+  }
+
+  await sql`DELETE FROM registrations WHERE event_id = ${id}`;
+  await sql`DELETE FROM events WHERE id = ${id}`;
+}
+
+// ─── Admin: Registrations ────────────────────────────────
+
+export async function getAllRegistrations(): Promise<RegistrationWithEvent[]> {
+  if (!isPostgresConfigured()) {
+    const { getLocalAllRegistrations } = await import("./local-data");
+    return getLocalAllRegistrations();
+  }
+
+  const { rows } = await sql`
+    SELECT
+      r.*,
+      e.title AS event_title,
+      e.date AS event_date,
+      e.category AS event_category
+    FROM registrations r
+    JOIN events e ON r.event_id = e.id
+    ORDER BY r.created_at DESC
+  `;
+  return rows as RegistrationWithEvent[];
+}
+
+export async function getEventRegistrations(eventId: number): Promise<RegistrationWithEvent[]> {
+  if (!isPostgresConfigured()) {
+    const { getLocalEventRegistrations } = await import("./local-data");
+    return getLocalEventRegistrations(eventId);
+  }
+
+  const { rows } = await sql`
+    SELECT
+      r.*,
+      e.title AS event_title,
+      e.date AS event_date,
+      e.category AS event_category
+    FROM registrations r
+    JOIN events e ON r.event_id = e.id
+    WHERE r.event_id = ${eventId}
+    ORDER BY r.created_at DESC
+  `;
+  return rows as RegistrationWithEvent[];
+}
+
+export async function deleteRegistration(id: number): Promise<void> {
+  if (!isPostgresConfigured()) {
+    const { deleteLocalRegistration } = await import("./local-data");
+    deleteLocalRegistration(id);
+    return;
+  }
+
+  await sql`DELETE FROM registrations WHERE id = ${id}`;
 }

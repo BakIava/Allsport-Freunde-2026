@@ -10,6 +10,7 @@ Moderner Onepager für den gemeinnützigen Sportverein **Allsport Freunde 2026 e
 - **shadcn/ui** (manuell integriert)
 - **Vercel Postgres** (@vercel/postgres)
 - **Framer Motion** für Animationen
+- **NextAuth.js v5** (Auth.js) für Authentifizierung
 - **Lucide React** für Icons
 
 ## Lokale Entwicklung
@@ -53,6 +54,20 @@ Die App läuft dann unter [http://localhost:3000](http://localhost:3000).
 
 7. **Deployen:** `git push` – Vercel baut automatisch
 
+## Admin-Bereich
+
+Der Admin-Bereich ist unter `/admin` erreichbar und durch Login geschützt.
+
+**Standard-Login:** `admin` / `admin`
+
+Funktionen:
+- **Dashboard** mit Statistiken und letzten Anmeldungen
+- **Event-Verwaltung** – Erstellen, Bearbeiten, Löschen mit Filter und Suche
+- **Anmeldungs-Verwaltung** – Übersicht, Filterung, CSV-Export, Löschen
+- Responsive Sidebar-Navigation
+
+Die Admin-Credentials können über Environment Variables überschrieben werden (`ADMIN_USERNAME`, `ADMIN_PASSWORD`).
+
 ## Features
 
 - Responsiver Onepager mit Hero, Über uns, Events, FAQ und Footer
@@ -62,11 +77,22 @@ Die App läuft dann unter [http://localhost:3000](http://localhost:3000).
 - Duplikat-Prüfung bei Anmeldungen
 - Smooth Scrolling und dezente Scroll-Animationen
 - Komplett auf Deutsch
+- Admin-Bereich mit Login, Dashboard, Event- und Anmeldungsverwaltung
 
 ## API-Endpunkte
 
+### Öffentlich
 - `GET /api/events` – Alle kommenden Events mit Teilnehmerzahlen
 - `POST /api/registrations` – Neue Anmeldung erstellen
+
+### Admin (geschützt)
+- `GET /api/admin/stats` – Dashboard-Statistiken
+- `GET/POST /api/admin/events` – Events auflisten / erstellen
+- `GET/PUT/DELETE /api/admin/events/[id]` – Event lesen / bearbeiten / löschen
+- `GET /api/admin/events/[id]/registrations` – Anmeldungen pro Event
+- `GET /api/admin/registrations` – Alle Anmeldungen
+- `DELETE /api/admin/registrations/[id]` – Anmeldung löschen
+- `GET /api/admin/registrations/export` – CSV-Export
 
 ## Projektstruktur
 
@@ -86,12 +112,31 @@ Die App läuft dann unter [http://localhost:3000](http://localhost:3000).
   RegistrationModal.tsx        # Anmelde-Dialog
   GeneralInfo.tsx              # FAQ-Bereich
   Footer.tsx                   # Footer mit Kontakt
+/app
+  /admin
+    layout.tsx                   # Admin-Layout mit Sidebar
+    page.tsx                     # Dashboard
+    /login/page.tsx              # Login-Seite
+    /events/page.tsx             # Event-Übersicht
+    /events/new/page.tsx         # Neues Event
+    /events/[id]/edit/page.tsx   # Event bearbeiten
+    /events/[id]/registrations/  # Anmeldungen pro Event
+    /registrations/page.tsx      # Alle Anmeldungen
+  /api/admin/                    # Geschützte Admin-API-Routes
+/components/admin
+  Sidebar.tsx                    # Sidebar-Navigation
+  StatsCards.tsx                 # Dashboard-Statistiken
+  EventForm.tsx                  # Event-Formular
+  EventTable.tsx                 # Event-Tabelle mit Filter
+  RegistrationTable.tsx          # Anmeldungs-Tabelle
+  RecentRegistrations.tsx        # Letzte Anmeldungen
 /lib
-  db.ts                        # Datenbank-Abstraktionsschicht
-  local-data.ts                # In-Memory-Fallback für lokale Entwicklung
-  types.ts                     # TypeScript Typen
-  utils.ts                     # Hilfsfunktionen
+  auth.ts                        # NextAuth-Konfiguration
+  db.ts                          # Datenbank-Abstraktionsschicht
+  local-data.ts                  # In-Memory-Fallback für lokale Entwicklung
+  types.ts                       # TypeScript Typen
+  utils.ts                       # Hilfsfunktionen
 /scripts
-  setup-db.ts                  # Erstellt Tabellen in Vercel Postgres
-  seed.ts                      # Fügt Beispiel-Events ein
+  setup-db.ts                    # Erstellt Tabellen + Admin-User
+  seed.ts                        # Fügt Beispiel-Events ein
 ```
