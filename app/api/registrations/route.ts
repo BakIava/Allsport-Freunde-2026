@@ -1,4 +1,9 @@
-import { getDb } from "@/lib/db";
+import {
+  getEvent,
+  getRegistrationCount,
+  findRegistration,
+  createRegistration,
+} from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import type { RegistrationRequest } from "@/lib/types";
 
@@ -30,12 +35,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = getDb();
-
     // Check if event exists
-    const event = db
-      .prepare("SELECT * FROM events WHERE id = ?")
-      .get(event_id) as { id: number; max_participants: number; title: string } | undefined;
+    const event = await getEvent(event_id);
 
     if (!event) {
       return NextResponse.json(
@@ -45,9 +46,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for duplicate registration
-    const existing = db
-      .prepare("SELECT id FROM registrations WHERE event_id = ? AND email = ?")
-      .get(event_id, email.toLowerCase().trim());
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = await findRegistration(event_id, normalizedEmail);
 
     if (existing) {
       return NextResponse.json(
@@ -57,12 +57,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check available spots
-    const currentCount = db
-      .prepare("SELECT COALESCE(SUM(guests + 1), 0) as count FROM registrations WHERE event_id = ?")
-      .get(event_id) as { count: number };
-
+    const currentCount = await getRegistrationCount(event_id);
     const spotsNeeded = 1 + guests;
-    const spotsAvailable = event.max_participants - currentCount.count;
+    const spotsAvailable = event.max_participants - currentCount;
 
     if (spotsNeeded > spotsAvailable) {
       return NextResponse.json(
@@ -77,10 +74,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Create registration
-    db.prepare(
-      `INSERT INTO registrations (event_id, first_name, last_name, email, phone, guests)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(event_id, first_name.trim(), last_name.trim(), email.toLowerCase().trim(), phone.trim(), guests);
+    await createRegistration({
+      event_id,
+      first_name: first_name.trim(),
+      last_name: last_name.trim(),
+      email: normalizedEmail,
+      phone: phone.trim(),
+      guests,
+    });
 
     return NextResponse.json(
       {
