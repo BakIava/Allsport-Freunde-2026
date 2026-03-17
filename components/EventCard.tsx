@@ -95,7 +95,8 @@ export default function EventCard({ event, index, onRegister }: EventCardProps) 
             <div className="flex justify-between text-sm mb-1.5">
               <span className="text-gray-500">Belegung</span>
               <span className={`font-medium ${isFull ? "text-red-600" : "text-gray-700"}`}>
-                {event.current_participants} von {event.max_participants} Plätzen
+                {event.current_participants} von {event.max_participants} Plätzen belegt
+                {event.pending_participants ? ` (${event.pending_participants} ausstehend)` : ""}
               </span>
             </div>
             <Progress

@@ -5,6 +5,8 @@ import type {
   AdminStats,
   EventCreateInput,
   RegistrationWithEvent,
+  RegistrationStatusInfo,
+  RegistrationStatus,
 } from "./types";
 
 function isPostgresConfigured(): boolean {
@@ -22,7 +24,8 @@ export async function getEvents(): Promise<EventWithRegistrations[]> {
   const { rows } = await sql`
     SELECT
       e.*,
-      COALESCE(SUM(r.guests + 1), 0)::int AS current_participants
+      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
+      COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
     WHERE e.date >= CURRENT_DATE
@@ -34,7 +37,7 @@ export async function getEvents(): Promise<EventWithRegistrations[]> {
 
 export async function getEvent(
   id: number
-): Promise<{ id: number; max_participants: number; title: string } | null> {
+): Promise<{ id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string } | null> {
   if (!isPostgresConfigured()) {
     const { getLocalEvent } = await import("./local-data");
     const event = getLocalEvent(id);
@@ -42,7 +45,7 @@ export async function getEvent(
   }
 
   const { rows } = await sql`SELECT * FROM events WHERE id = ${id}`;
-  return (rows[0] as { id: number; max_participants: number; title: string }) ?? null;
+  return (rows[0] as { id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string }) ?? null;
 }
 
 export async function getRegistrationCount(eventId: number): Promise<number> {
@@ -54,7 +57,7 @@ export async function getRegistrationCount(eventId: number): Promise<number> {
   const { rows } = await sql`
     SELECT COALESCE(SUM(guests + 1), 0)::int AS count
     FROM registrations
-    WHERE event_id = ${eventId}
+    WHERE event_id = ${eventId} AND status = 'approved'
   `;
   return (rows[0] as { count: number }).count;
 }
@@ -83,6 +86,7 @@ export async function createRegistration(data: {
   email: string;
   phone: string;
   guests: number;
+  status_token: string;
 }): Promise<void> {
   if (!isPostgresConfigured()) {
     const { createLocalRegistration } = await import("./local-data");
@@ -91,9 +95,31 @@ export async function createRegistration(data: {
   }
 
   await sql`
-    INSERT INTO registrations (event_id, first_name, last_name, email, phone, guests)
-    VALUES (${data.event_id}, ${data.first_name}, ${data.last_name}, ${data.email}, ${data.phone}, ${data.guests})
+    INSERT INTO registrations (event_id, first_name, last_name, email, phone, guests, status, status_token)
+    VALUES (${data.event_id}, ${data.first_name}, ${data.last_name}, ${data.email}, ${data.phone}, ${data.guests}, 'pending', ${data.status_token})
   `;
+}
+
+// ─── Status Page ─────────────────────────────────────────
+
+export async function getRegistrationByToken(token: string): Promise<RegistrationStatusInfo | null> {
+  if (!isPostgresConfigured()) {
+    const { getLocalRegistrationByToken } = await import("./local-data");
+    return getLocalRegistrationByToken(token);
+  }
+
+  const { rows } = await sql`
+    SELECT
+      r.id, r.first_name, r.last_name, r.email, r.guests,
+      r.status, r.status_note, r.status_changed_at, r.created_at,
+      e.title AS event_title, e.date AS event_date, e.time AS event_time,
+      e.location AS event_location, e.category AS event_category,
+      e.price AS event_price, e.dress_code AS event_dress_code
+    FROM registrations r
+    JOIN events e ON r.event_id = e.id
+    WHERE r.status_token = ${token}
+  `;
+  return (rows[0] as RegistrationStatusInfo) ?? null;
 }
 
 // ─── Auth ────────────────────────────────────────────────
@@ -121,6 +147,7 @@ export async function getAdminStats(): Promise<AdminStats> {
   const { rows: totalEventsRows } = await sql`SELECT COUNT(*)::int AS count FROM events`;
   const { rows: upcomingRows } = await sql`SELECT COUNT(*)::int AS count FROM events WHERE date >= CURRENT_DATE`;
   const { rows: totalRegsRows } = await sql`SELECT COALESCE(SUM(guests + 1), 0)::int AS count FROM registrations`;
+  const { rows: pendingRows } = await sql`SELECT COALESCE(SUM(guests + 1), 0)::int AS count FROM registrations WHERE status = 'pending'`;
   const { rows: utilRows } = await sql`
     SELECT
       CASE WHEN SUM(e.max_participants) = 0 THEN 0
@@ -128,7 +155,7 @@ export async function getAdminStats(): Promise<AdminStats> {
       END AS avg
     FROM events e
     LEFT JOIN (
-      SELECT event_id, SUM(guests + 1) AS total FROM registrations GROUP BY event_id
+      SELECT event_id, SUM(guests + 1) AS total FROM registrations WHERE status = 'approved' GROUP BY event_id
     ) r ON e.id = r.event_id
     WHERE e.date >= CURRENT_DATE
   `;
@@ -137,6 +164,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     total_events: (totalEventsRows[0] as { count: number }).count,
     upcoming_events: (upcomingRows[0] as { count: number }).count,
     total_registrations: (totalRegsRows[0] as { count: number }).count,
+    pending_registrations: (pendingRows[0] as { count: number }).count,
     avg_utilization: Number((utilRows[0] as { avg: string | number }).avg) || 0,
   };
 }
@@ -152,7 +180,8 @@ export async function getAllEvents(): Promise<EventWithRegistrations[]> {
   const { rows } = await sql`
     SELECT
       e.*,
-      COALESCE(SUM(r.guests + 1), 0)::int AS current_participants
+      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
+      COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
     GROUP BY e.id
@@ -170,7 +199,8 @@ export async function getEventFull(id: number): Promise<EventWithRegistrations |
   const { rows } = await sql`
     SELECT
       e.*,
-      COALESCE(SUM(r.guests + 1), 0)::int AS current_participants
+      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
+      COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
     WHERE e.id = ${id}
@@ -275,4 +305,66 @@ export async function deleteRegistration(id: number): Promise<void> {
   }
 
   await sql`DELETE FROM registrations WHERE id = ${id}`;
+}
+
+// ─── Admin: Status Changes ──────────────────────────────
+
+export async function updateRegistrationStatus(
+  id: number,
+  status: RegistrationStatus,
+  note?: string
+): Promise<RegistrationWithEvent | null> {
+  if (!isPostgresConfigured()) {
+    const { updateLocalRegistrationStatus } = await import("./local-data");
+    return updateLocalRegistrationStatus(id, status, note);
+  }
+
+  await sql`
+    UPDATE registrations SET
+      status = ${status},
+      status_changed_at = NOW(),
+      status_note = ${note || null}
+    WHERE id = ${id}
+  `;
+
+  const { rows } = await sql`
+    SELECT r.*, e.title AS event_title, e.date AS event_date, e.category AS event_category
+    FROM registrations r
+    JOIN events e ON r.event_id = e.id
+    WHERE r.id = ${id}
+  `;
+  return (rows[0] as RegistrationWithEvent) ?? null;
+}
+
+export async function getRegistrationWithEvent(id: number): Promise<RegistrationWithEvent | null> {
+  if (!isPostgresConfigured()) {
+    const { getLocalRegistrationWithEvent } = await import("./local-data");
+    return getLocalRegistrationWithEvent(id);
+  }
+
+  const { rows } = await sql`
+    SELECT r.*, e.title AS event_title, e.date AS event_date, e.category AS event_category
+    FROM registrations r
+    JOIN events e ON r.event_id = e.id
+    WHERE r.id = ${id}
+  `;
+  return (rows[0] as RegistrationWithEvent) ?? null;
+}
+
+export async function bulkUpdateRegistrationStatus(
+  ids: number[],
+  status: RegistrationStatus,
+  note?: string
+): Promise<RegistrationWithEvent[]> {
+  if (!isPostgresConfigured()) {
+    const { bulkUpdateLocalRegistrationStatus } = await import("./local-data");
+    return bulkUpdateLocalRegistrationStatus(ids, status, note);
+  }
+
+  const results: RegistrationWithEvent[] = [];
+  for (const id of ids) {
+    const result = await updateRegistrationStatus(id, status, note);
+    if (result) results.push(result);
+  }
+  return results;
 }

@@ -6,6 +6,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import StatusBadge from "@/components/status/StatusBadge";
 import type { RegistrationWithEvent } from "@/lib/types";
 
 export default function RecentRegistrations() {
@@ -48,20 +49,22 @@ export default function RecentRegistrations() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Vorname</TableHead>
-                  <TableHead>Nachname</TableHead>
+                  <TableHead>Name</TableHead>
                   <TableHead className="hidden sm:table-cell">E-Mail</TableHead>
                   <TableHead className="hidden md:table-cell">Event</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="hidden sm:table-cell">Datum</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {registrations.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell>{r.first_name}</TableCell>
-                    <TableCell>{r.last_name}</TableCell>
+                    <TableCell className="font-medium">{r.first_name} {r.last_name}</TableCell>
                     <TableCell className="hidden sm:table-cell">{r.email}</TableCell>
                     <TableCell className="hidden md:table-cell max-w-[200px] truncate">{r.event_title}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={r.status || "pending"} />
+                    </TableCell>
                     <TableCell className="hidden sm:table-cell">{formatDateTime(r.created_at)}</TableCell>
                   </TableRow>
                 ))}

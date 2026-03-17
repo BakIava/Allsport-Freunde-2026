@@ -31,6 +31,10 @@ async function setup() {
       email VARCHAR(255) NOT NULL,
       phone VARCHAR(50),
       guests INTEGER NOT NULL DEFAULT 0,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      status_token VARCHAR(255),
+      status_changed_at TIMESTAMP,
+      status_note TEXT,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       UNIQUE(event_id, email)
     )

@@ -4,6 +4,8 @@ import {
   findRegistration,
   createRegistration,
 } from "@/lib/db";
+import { sendRegistrationReceivedEmail } from "@/lib/email";
+import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import type { RegistrationRequest } from "@/lib/types";
 
@@ -73,7 +75,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create registration
+    // Create registration with status token
+    const statusToken = randomUUID();
     await createRegistration({
       event_id,
       first_name: first_name.trim(),
@@ -81,12 +84,26 @@ export async function POST(request: NextRequest) {
       email: normalizedEmail,
       phone: phone.trim(),
       guests,
+      status_token: statusToken,
+    });
+
+    // Fire-and-forget email
+    sendRegistrationReceivedEmail({
+      to: normalizedEmail,
+      firstName: first_name.trim(),
+      lastName: last_name.trim(),
+      eventTitle: event.title,
+      eventDate: event.date,
+      eventTime: event.time,
+      eventLocation: event.location,
+      statusToken,
     });
 
     return NextResponse.json(
       {
         message: "Anmeldung erfolgreich!",
         event_title: event.title,
+        status_token: statusToken,
       },
       { status: 201 }
     );

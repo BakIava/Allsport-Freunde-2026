@@ -137,9 +137,10 @@ async function seed() {
     console.log(`  ✓ Event erstellt: ${event.title} (ID: ${eventId})`);
 
     for (let i = 1; i <= event.registrations; i++) {
+      const token = `seed-token-${eventId}-${i}`;
       await sql`
-        INSERT INTO registrations (event_id, first_name, last_name, email, phone, guests)
-        VALUES (${eventId}, ${event.reg_prefix}, ${String(i)}, ${`${event.reg_email_prefix}${i}@beispiel.de`}, ${`${event.reg_phone_prefix}${String(i).padStart(8, "0")}`}, ${0})
+        INSERT INTO registrations (event_id, first_name, last_name, email, phone, guests, status, status_token)
+        VALUES (${eventId}, ${event.reg_prefix}, ${String(i)}, ${`${event.reg_email_prefix}${i}@beispiel.de`}, ${`${event.reg_phone_prefix}${String(i).padStart(8, "0")}`}, ${0}, ${"approved"}, ${token})
       `;
     }
 

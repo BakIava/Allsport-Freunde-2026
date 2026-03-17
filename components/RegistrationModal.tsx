@@ -38,6 +38,7 @@ export default function RegistrationModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [statusToken, setStatusToken] = useState<string | null>(null);
 
   const resetForm = () => {
     setFormData({
@@ -50,6 +51,7 @@ export default function RegistrationModal({
     });
     setError(null);
     setSuccess(false);
+    setStatusToken(null);
   };
 
   const handleClose = (open: boolean) => {
@@ -93,6 +95,7 @@ export default function RegistrationModal({
       }
 
       setSuccess(true);
+      setStatusToken(data.status_token || null);
       onSuccess();
     } catch {
       setError("Verbindungsfehler. Bitte versuche es erneut.");
@@ -110,13 +113,13 @@ export default function RegistrationModal({
           <div className="text-center py-6">
             <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-gray-900 mb-2">
-              Anmeldung erfolgreich!
+              Anmeldung eingegangen!
             </h3>
             <p className="text-gray-600 mb-1">
-              Du bist jetzt angemeldet für:
+              Deine Anmeldung wird nun geprüft:
             </p>
             <p className="font-semibold text-gray-900 mb-4">{event.title}</p>
-            <div className="text-sm text-gray-500 space-y-1 mb-6">
+            <div className="text-sm text-gray-500 space-y-1 mb-4">
               <p>
                 {new Date(event.date + "T00:00:00").toLocaleDateString("de-DE", {
                   weekday: "long",
@@ -131,6 +134,19 @@ export default function RegistrationModal({
                 <p>+ {formData.guests} Begleitperson{formData.guests > 1 ? "en" : ""}</p>
               )}
             </div>
+            <p className="text-sm text-amber-600 bg-amber-50 rounded-lg p-3 mb-4">
+              Du erhältst eine E-Mail, sobald deine Anmeldung bestätigt wurde.
+            </p>
+            {statusToken && (
+              <a
+                href={`/status/${statusToken}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:underline block mb-4"
+              >
+                Status deiner Anmeldung ansehen
+              </a>
+            )}
             <Button onClick={() => handleClose(false)} className="rounded-full">
               Schließen
             </Button>

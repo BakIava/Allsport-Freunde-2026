@@ -84,9 +84,10 @@ export default function EventRegistrationsPage() {
           </div>
           <div className="mt-4">
             <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-muted-foreground">Auslastung</span>
+              <span className="text-muted-foreground">Auslastung (bestätigt)</span>
               <span className="font-medium">
                 {event.current_participants} / {event.max_participants} Plätzen belegt
+                {event.pending_participants ? ` (${event.pending_participants} ausstehend)` : ""}
               </span>
             </div>
             <Progress value={percentage} />
