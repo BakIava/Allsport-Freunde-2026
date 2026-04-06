@@ -1,4 +1,4 @@
-import { sql } from "@vercel/postgres";
+import { neon } from "@neondatabase/serverless";
 import type {
   EventWithRegistrations,
   AdminUser,
@@ -9,8 +9,18 @@ import type {
   RegistrationStatus,
 } from "./types";
 
+function getDatabaseUrl(): string | undefined {
+  return process.env.POSTGRES_URL || process.env.DATABASE_URL;
+}
+
 function isPostgresConfigured(): boolean {
-  return !!process.env.POSTGRES_URL;
+  return !!getDatabaseUrl();
+}
+
+function getSQL() {
+  const url = getDatabaseUrl();
+  if (!url) throw new Error("Keine Datenbank-URL konfiguriert");
+  return neon(url);
 }
 
 // ─── Public API ──────────────────────────────────────────
@@ -21,7 +31,8 @@ export async function getEvents(): Promise<EventWithRegistrations[]> {
     return getLocalEvents();
   }
 
-  const { rows } = await sql`
+  const sql = getSQL();
+  const rows = await sql`
     SELECT
       e.*,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
@@ -44,7 +55,8 @@ export async function getEvent(
     return event ?? null;
   }
 
-  const { rows } = await sql`SELECT * FROM events WHERE id = ${id}`;
+  const sql = getSQL();
+  const rows = await sql`SELECT * FROM events WHERE id = ${id}`;
   return (rows[0] as { id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string }) ?? null;
 }
 
@@ -54,7 +66,8 @@ export async function getRegistrationCount(eventId: number): Promise<number> {
     return getLocalRegistrationCount(eventId);
   }
 
-  const { rows } = await sql`
+  const sql = getSQL();
+  const rows = await sql`
     SELECT COALESCE(SUM(guests + 1), 0)::int AS count
     FROM registrations
     WHERE event_id = ${eventId} AND status = 'approved'
@@ -72,7 +85,8 @@ export async function findRegistration(
     return reg ? { id: reg.id } : null;
   }
 
-  const { rows } = await sql`
+  const sql = getSQL();
+  const rows = await sql`
     SELECT id FROM registrations
     WHERE event_id = ${eventId} AND email = ${email}
   `;
@@ -94,6 +108,7 @@ export async function createRegistration(data: {
     return;
   }
 
+  const sql = getSQL();
   await sql`
     INSERT INTO registrations (event_id, first_name, last_name, email, phone, guests, status, status_token)
     VALUES (${data.event_id}, ${data.first_name}, ${data.last_name}, ${data.email}, ${data.phone}, ${data.guests}, 'pending', ${data.status_token})
@@ -108,7 +123,8 @@ export async function getRegistrationByToken(token: string): Promise<Registratio
     return getLocalRegistrationByToken(token);
   }
 
-  const { rows } = await sql`
+  const sql = getSQL();
+  const rows = await sql`
     SELECT
       r.id, r.first_name, r.last_name, r.email, r.guests,
       r.status, r.status_note, r.status_changed_at, r.created_at,
@@ -130,7 +146,8 @@ export async function getAdminUser(username: string): Promise<AdminUser | null> 
     return getLocalAdminUser(username);
   }
 
-  const { rows } = await sql`
+  const sql = getSQL();
+  const rows = await sql`
     SELECT * FROM admin_users WHERE username = ${username}
   `;
   return (rows[0] as AdminUser) ?? null;
@@ -144,11 +161,12 @@ export async function getAdminStats(): Promise<AdminStats> {
     return getLocalAdminStats();
   }
 
-  const { rows: totalEventsRows } = await sql`SELECT COUNT(*)::int AS count FROM events`;
-  const { rows: upcomingRows } = await sql`SELECT COUNT(*)::int AS count FROM events WHERE date >= CURRENT_DATE`;
-  const { rows: totalRegsRows } = await sql`SELECT COALESCE(SUM(guests + 1), 0)::int AS count FROM registrations`;
-  const { rows: pendingRows } = await sql`SELECT COALESCE(SUM(guests + 1), 0)::int AS count FROM registrations WHERE status = 'pending'`;
-  const { rows: utilRows } = await sql`
+  const sql = getSQL();
+  const totalEventsRows = await sql`SELECT COUNT(*)::int AS count FROM events`;
+  const upcomingRows = await sql`SELECT COUNT(*)::int AS count FROM events WHERE date >= CURRENT_DATE`;
+  const totalRegsRows = await sql`SELECT COALESCE(SUM(guests + 1), 0)::int AS count FROM registrations`;
+  const pendingRows = await sql`SELECT COALESCE(SUM(guests + 1), 0)::int AS count FROM registrations WHERE status = 'pending'`;
+  const utilRows = await sql`
     SELECT
       CASE WHEN SUM(e.max_participants) = 0 THEN 0
       ELSE ROUND((COALESCE(SUM(r.total), 0)::numeric / SUM(e.max_participants)::numeric) * 100)
@@ -177,7 +195,8 @@ export async function getAllEvents(): Promise<EventWithRegistrations[]> {
     return getLocalAllEvents();
   }
 
-  const { rows } = await sql`
+  const sql = getSQL();
+  const rows = await sql`
     SELECT
       e.*,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
@@ -196,7 +215,8 @@ export async function getEventFull(id: number): Promise<EventWithRegistrations |
     return getLocalEventFull(id);
   }
 
-  const { rows } = await sql`
+  const sql = getSQL();
+  const rows = await sql`
     SELECT
       e.*,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
@@ -215,7 +235,8 @@ export async function createEvent(data: EventCreateInput): Promise<{ id: number 
     return createLocalEvent(data);
   }
 
-  const { rows } = await sql`
+  const sql = getSQL();
+  const rows = await sql`
     INSERT INTO events (title, category, description, date, time, location, price, dress_code, max_participants)
     VALUES (${data.title}, ${data.category}, ${data.description}, ${data.date}, ${data.time}, ${data.location}, ${data.price}, ${data.dress_code}, ${data.max_participants})
     RETURNING id
@@ -230,6 +251,7 @@ export async function updateEvent(id: number, data: EventCreateInput): Promise<v
     return;
   }
 
+  const sql = getSQL();
   await sql`
     UPDATE events SET
       title = ${data.title},
@@ -252,6 +274,7 @@ export async function deleteEvent(id: number): Promise<void> {
     return;
   }
 
+  const sql = getSQL();
   await sql`DELETE FROM registrations WHERE event_id = ${id}`;
   await sql`DELETE FROM events WHERE id = ${id}`;
 }
@@ -264,7 +287,8 @@ export async function getAllRegistrations(): Promise<RegistrationWithEvent[]> {
     return getLocalAllRegistrations();
   }
 
-  const { rows } = await sql`
+  const sql = getSQL();
+  const rows = await sql`
     SELECT
       r.*,
       e.title AS event_title,
@@ -283,7 +307,8 @@ export async function getEventRegistrations(eventId: number): Promise<Registrati
     return getLocalEventRegistrations(eventId);
   }
 
-  const { rows } = await sql`
+  const sql = getSQL();
+  const rows = await sql`
     SELECT
       r.*,
       e.title AS event_title,
@@ -304,6 +329,7 @@ export async function deleteRegistration(id: number): Promise<void> {
     return;
   }
 
+  const sql = getSQL();
   await sql`DELETE FROM registrations WHERE id = ${id}`;
 }
 
@@ -319,6 +345,7 @@ export async function updateRegistrationStatus(
     return updateLocalRegistrationStatus(id, status, note);
   }
 
+  const sql = getSQL();
   await sql`
     UPDATE registrations SET
       status = ${status},
@@ -327,7 +354,7 @@ export async function updateRegistrationStatus(
     WHERE id = ${id}
   `;
 
-  const { rows } = await sql`
+  const rows = await sql`
     SELECT r.*, e.title AS event_title, e.date AS event_date, e.category AS event_category
     FROM registrations r
     JOIN events e ON r.event_id = e.id
@@ -342,7 +369,8 @@ export async function getRegistrationWithEvent(id: number): Promise<Registration
     return getLocalRegistrationWithEvent(id);
   }
 
-  const { rows } = await sql`
+  const sql = getSQL();
+  const rows = await sql`
     SELECT r.*, e.title AS event_title, e.date AS event_date, e.category AS event_category
     FROM registrations r
     JOIN events e ON r.event_id = e.id
