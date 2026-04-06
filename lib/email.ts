@@ -8,8 +8,17 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-const fromEmail = process.env.EMAIL_FROM || "Allsport Freunde <noreply@allsport-freunde.de>";
+const fromEmail = process.env.EMAIL_FROM || "Allsport Freunde <noreply@allsport-freunde.com>";
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+function formatDateDE(date: string): string {
+  return new Date(date).toLocaleDateString("de-DE", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
 
 interface EmailData {
   to: string;
@@ -53,7 +62,7 @@ export async function sendRegistrationReceivedEmail(data: EmailData) {
     RegistrationReceivedEmail({
       firstName: data.firstName,
       eventTitle: data.eventTitle,
-      eventDate: data.eventDate,
+      eventDate: formatDateDE(data.eventDate),
       eventTime: data.eventTime,
       eventLocation: data.eventLocation,
       statusUrl,
@@ -61,7 +70,7 @@ export async function sendRegistrationReceivedEmail(data: EmailData) {
   );
 }
 
-export async function sendRegistrationApprovedEmail(data: EmailData) {
+export async function sendRegistrationApprovedEmail(data: EmailData) {  
   const statusUrl = `${appUrl}/status/${data.statusToken}`;
   const subject = `Anmeldung bestätigt – ${data.eventTitle}`;
 
@@ -71,7 +80,7 @@ export async function sendRegistrationApprovedEmail(data: EmailData) {
     RegistrationApprovedEmail({
       firstName: data.firstName,
       eventTitle: data.eventTitle,
-      eventDate: data.eventDate,
+      eventDate: formatDateDE(data.eventDate),
       eventTime: data.eventTime,
       eventLocation: data.eventLocation,
       statusUrl,
@@ -89,7 +98,7 @@ export async function sendRegistrationCancelledEmail(data: EmailData) {
     RegistrationCancelledEmail({
       firstName: data.firstName,
       eventTitle: data.eventTitle,
-      eventDate: data.eventDate,
+      eventDate: formatDateDE(data.eventDate),
       eventTime: data.eventTime,
       eventLocation: data.eventLocation,
       statusUrl,
@@ -109,7 +118,7 @@ export async function sendRegistrationRejectedEmail(
     RegistrationRejectedEmail({
       firstName: data.firstName,
       eventTitle: data.eventTitle,
-      eventDate: data.eventDate,
+      eventDate: formatDateDE(data.eventDate),
       eventTime: data.eventTime,
       eventLocation: data.eventLocation,
       statusUrl,
