@@ -17,7 +17,7 @@ export interface EventWithRegistrations extends Event {
   pending_participants?: number;
 }
 
-export type RegistrationStatus = "pending" | "approved" | "rejected";
+export type RegistrationStatus = "pending" | "approved" | "rejected" | "cancelled";
 
 export interface Registration {
   id: number;

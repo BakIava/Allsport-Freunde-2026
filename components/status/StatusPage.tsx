@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StatusBadge from "./StatusBadge";
 import { Calendar, Clock, MapPin, Euro, Shirt, User, Users, Mail } from "lucide-react";
@@ -33,6 +34,35 @@ function formatDateTime(d: string) {
 }
 
 export default function StatusPage({ info }: { info: RegistrationStatusInfo }) {
+  const [status, setStatus] = useState(info.status);
+  const [statusChangedAt, setStatusChangedAt] = useState(info.status_changed_at);
+  const [cancelling, setCancelling] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canCancel = status === "pending" || status === "approved";
+
+  async function handleCancel() {
+    setCancelling(true);
+    setError(null);
+    try {
+      const token = window.location.pathname.split("/").pop();
+      const res = await fetch(`/api/status/${token}/cancel`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? "Fehler beim Stornieren.");
+      } else {
+        setStatus("cancelled");
+        setStatusChangedAt(new Date().toISOString());
+        setConfirmOpen(false);
+      }
+    } catch {
+      setError("Netzwerkfehler. Bitte versuche es erneut.");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-lg mx-auto space-y-6">
@@ -45,21 +75,21 @@ export default function StatusPage({ info }: { info: RegistrationStatusInfo }) {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Status</CardTitle>
-              <StatusBadge status={info.status} />
+              <StatusBadge status={status} />
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {info.status === "pending" && (
+            {status === "pending" && (
               <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3">
                 Deine Anmeldung wird derzeit geprüft. Du erhältst eine E-Mail, sobald sie bestätigt oder abgelehnt wurde.
               </p>
             )}
-            {info.status === "approved" && (
+            {status === "approved" && (
               <p className="text-sm text-green-700 bg-green-50 rounded-lg p-3">
                 Deine Anmeldung wurde bestätigt! Wir freuen uns auf dich.
               </p>
             )}
-            {info.status === "rejected" && (
+            {status === "rejected" && (
               <div className="text-sm text-red-700 bg-red-50 rounded-lg p-3 space-y-1">
                 <p>Deine Anmeldung wurde leider abgelehnt.</p>
                 {info.status_note && (
@@ -67,10 +97,54 @@ export default function StatusPage({ info }: { info: RegistrationStatusInfo }) {
                 )}
               </div>
             )}
-            {info.status_changed_at && (
-              <p className="text-xs text-gray-400">
-                Zuletzt aktualisiert: {formatDateTime(info.status_changed_at)}
+            {status === "cancelled" && (
+              <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                Deine Anmeldung wurde storniert.
               </p>
+            )}
+            {statusChangedAt && (
+              <p className="text-xs text-gray-400">
+                Zuletzt aktualisiert: {formatDateTime(statusChangedAt)}
+              </p>
+            )}
+
+            {canCancel && !confirmOpen && (
+              <button
+                onClick={() => setConfirmOpen(true)}
+                className="mt-2 w-full text-sm text-gray-500 border border-gray-200 rounded-lg py-2 px-4 hover:bg-gray-50 hover:text-red-600 hover:border-red-200 transition-colors"
+              >
+                Anmeldung stornieren
+              </button>
+            )}
+
+            {canCancel && confirmOpen && (
+              <div className="border border-red-200 bg-red-50 rounded-lg p-4 space-y-3">
+                <p className="text-sm text-red-700 font-medium">
+                  Möchtest du deine Anmeldung wirklich stornieren?
+                </p>
+                <p className="text-xs text-red-600">
+                  Diese Aktion kann nicht rückgängig gemacht werden.
+                </p>
+                {error && (
+                  <p className="text-xs text-red-700 font-medium">{error}</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCancel}
+                    disabled={cancelling}
+                    className="flex-1 text-sm bg-red-600 text-white rounded-lg py-2 px-4 hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  >
+                    {cancelling ? "Wird storniert…" : "Ja, stornieren"}
+                  </button>
+                  <button
+                    onClick={() => { setConfirmOpen(false); setError(null); }}
+                    disabled={cancelling}
+                    className="flex-1 text-sm border border-gray-200 text-gray-600 rounded-lg py-2 px-4 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
