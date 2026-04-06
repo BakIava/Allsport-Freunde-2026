@@ -34,7 +34,7 @@ export function RegistrationApprovedEmail({
         <Container style={container}>
           <Text style={heading}>Anmeldung bestätigt! &#127881;</Text>
           <Text style={text}>
-            Hallo {firstName},
+            Assalamu Alaikum {firstName},
           </Text>
           <Text style={text}>
             großartige Neuigkeiten! Deine Anmeldung zu{" "}

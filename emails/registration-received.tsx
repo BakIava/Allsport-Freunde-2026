@@ -34,7 +34,7 @@ export function RegistrationReceivedEmail({
         <Container style={container}>
           <Text style={heading}>Anmeldung eingegangen</Text>
           <Text style={text}>
-            Hallo {firstName},
+            Assalamu Alaikum {firstName},
           </Text>
           <Text style={text}>
             vielen Dank für deine Anmeldung zu <strong>{eventTitle}</strong>!

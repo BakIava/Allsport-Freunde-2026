@@ -36,7 +36,7 @@ export function RegistrationRejectedEmail({
         <Container style={container}>
           <Text style={heading}>Anmeldung abgelehnt</Text>
           <Text style={text}>
-            Hallo {firstName},
+            Assalamu Alaikum {firstName},
           </Text>
           <Text style={text}>
             leider müssen wir dir mitteilen, dass deine Anmeldung zu{" "}

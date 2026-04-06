@@ -34,7 +34,7 @@ export function RegistrationCancelledEmail({
         <Container style={container}>
           <Text style={heading}>Anmeldung storniert</Text>
           <Text style={text}>
-            Hallo {firstName},
+            Assalamu Alaikum {firstName},
           </Text>
           <Text style={text}>
             deine Anmeldung zu <strong>{eventTitle}</strong> wurde erfolgreich storniert.

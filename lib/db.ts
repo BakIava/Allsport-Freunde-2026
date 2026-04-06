@@ -34,7 +34,7 @@ export async function getEvents(): Promise<EventWithRegistrations[]> {
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      e.*,
+      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.created_at,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
       COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants
     FROM events e
@@ -56,7 +56,7 @@ export async function getEvent(
   }
 
   const sql = getSQL();
-  const rows = await sql`SELECT * FROM events WHERE id = ${id}`;
+  const rows = await sql`SELECT id, max_participants, title, TO_CHAR(date, 'YYYY-MM-DD') AS date, time::text AS time, location, price, dress_code, category FROM events WHERE id = ${id}`;
   return (rows[0] as { id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string }) ?? null;
 }
 
@@ -215,7 +215,7 @@ export async function getAllEvents(): Promise<EventWithRegistrations[]> {
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      e.*,
+      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.created_at,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
       COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants
     FROM events e
@@ -235,7 +235,7 @@ export async function getEventFull(id: number): Promise<EventWithRegistrations |
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      e.*,
+      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.created_at,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
       COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants
     FROM events e
@@ -329,7 +329,7 @@ export async function getEventRegistrations(eventId: number): Promise<Registrati
     SELECT
       r.*,
       e.title AS event_title,
-      e.date AS event_date,
+      TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
       e.category AS event_category
     FROM registrations r
     JOIN events e ON r.event_id = e.id
@@ -372,7 +372,7 @@ export async function updateRegistrationStatus(
   `;
 
   const rows = await sql`
-    SELECT r.*, e.title AS event_title, e.date AS event_date, e.category AS event_category
+    SELECT r.*, e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.category AS event_category
     FROM registrations r
     JOIN events e ON r.event_id = e.id
     WHERE r.id = ${id}
@@ -388,7 +388,7 @@ export async function getRegistrationWithEvent(id: number): Promise<Registration
 
   const sql = getSQL();
   const rows = await sql`
-    SELECT r.*, e.title AS event_title, e.date AS event_date, e.category AS event_category
+    SELECT r.*, e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.category AS event_category
     FROM registrations r
     JOIN events e ON r.event_id = e.id
     WHERE r.id = ${id}
