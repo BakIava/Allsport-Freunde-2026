@@ -1,5 +1,4 @@
 import { hashSync } from "bcryptjs";
-import { randomUUID } from "crypto";
 import type {
   EventWithRegistrations,
   Registration,
@@ -47,7 +46,7 @@ function initSeedRegistrations() {
         phone: `0151${String(i).padStart(8, "0")}`,
         guests: 0,
         status: m.status,
-        status_token: randomUUID(),
+        status_token: crypto.randomUUID(),
         status_changed_at: m.status === "approved" ? new Date().toISOString() : null,
         status_note: null,
         created_at: new Date().toISOString(),
