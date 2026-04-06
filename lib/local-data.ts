@@ -157,6 +157,16 @@ export function getLocalRegistrationByToken(token: string): RegistrationStatusIn
   };
 }
 
+export function cancelLocalRegistrationByToken(token: string): RegistrationStatusInfo | null {
+  const reg = localRegistrations.find((r) => r.status_token === token);
+  if (!reg || (reg.status !== "pending" && reg.status !== "approved")) return null;
+  reg.status = "cancelled";
+  reg.status_changed_at = new Date().toISOString();
+  reg.status_note = null;
+  recomputeParticipants(reg.event_id);
+  return getLocalRegistrationByToken(token);
+}
+
 // ─── Auth ────────────────────────────────────────────────
 
 export function getLocalAdminUser(username: string): AdminUser | null {

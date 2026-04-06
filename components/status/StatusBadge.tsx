@@ -14,6 +14,10 @@ const statusConfig: Record<RegistrationStatus, { label: string; className: strin
     label: "Abgelehnt",
     className: "bg-red-100 text-red-800 hover:bg-red-100",
   },
+  cancelled: {
+    label: "Storniert",
+    className: "bg-gray-100 text-gray-600 hover:bg-gray-100",
+  },
 };
 
 export default function StatusBadge({ status }: { status: RegistrationStatus }) {

@@ -37,3 +37,7 @@ next-env.d.ts
 
 # database
 /data/
+.vercel
+
+.env.local
+.env

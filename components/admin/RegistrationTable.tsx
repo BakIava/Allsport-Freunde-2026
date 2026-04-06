@@ -309,7 +309,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
                   <TableCell className="hidden sm:table-cell">{formatDateTime(r.created_at)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      {r.status !== "approved" && (
+                      {r.status !== "approved" && r.status !== 'cancelled' && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -319,7 +319,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
                           <CheckCircle2 className="w-4 h-4 text-green-500" />
                         </Button>
                       )}
-                      {r.status !== "rejected" && (
+                      {r.status !== "rejected" && r.status !== 'cancelled' && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -329,7 +329,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
                           <XCircle className="w-4 h-4 text-red-500" />
                         </Button>
                       )}
-                      {r.status !== "pending" && (
+                      {r.status !== "pending" && r.status !== 'cancelled' && (
                         <Button
                           variant="ghost"
                           size="icon"

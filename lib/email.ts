@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { RegistrationReceivedEmail } from "@/emails/registration-received";
 import { RegistrationApprovedEmail } from "@/emails/registration-approved";
 import { RegistrationRejectedEmail } from "@/emails/registration-rejected";
+import { RegistrationCancelledEmail } from "@/emails/registration-cancelled";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -68,6 +69,24 @@ export async function sendRegistrationApprovedEmail(data: EmailData) {
     subject,
     data.to,
     RegistrationApprovedEmail({
+      firstName: data.firstName,
+      eventTitle: data.eventTitle,
+      eventDate: data.eventDate,
+      eventTime: data.eventTime,
+      eventLocation: data.eventLocation,
+      statusUrl,
+    })
+  );
+}
+
+export async function sendRegistrationCancelledEmail(data: EmailData) {
+  const statusUrl = `${appUrl}/status/${data.statusToken}`;
+  const subject = `Anmeldung storniert – ${data.eventTitle}`;
+
+  sendEmail(
+    subject,
+    data.to,
+    RegistrationCancelledEmail({
       firstName: data.firstName,
       eventTitle: data.eventTitle,
       eventDate: data.eventDate,

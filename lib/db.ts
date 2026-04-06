@@ -138,6 +138,23 @@ export async function getRegistrationByToken(token: string): Promise<Registratio
   return (rows[0] as RegistrationStatusInfo) ?? null;
 }
 
+export async function cancelRegistrationByToken(token: string): Promise<RegistrationStatusInfo | null> {
+  if (!isPostgresConfigured()) {
+    const { cancelLocalRegistrationByToken } = await import("./local-data");
+    return cancelLocalRegistrationByToken(token);
+  }
+
+  const sql = getSQL();
+  await sql`
+    UPDATE registrations SET
+      status = 'cancelled',
+      status_changed_at = NOW(),
+      status_note = NULL
+    WHERE status_token = ${token} AND status IN ('pending', 'approved')
+  `;
+  return getRegistrationByToken(token);
+}
+
 // ─── Auth ────────────────────────────────────────────────
 
 export async function getAdminUser(username: string): Promise<AdminUser | null> {
