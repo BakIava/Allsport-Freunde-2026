@@ -1,9 +1,16 @@
 import "dotenv/config";
-import { sql } from "@vercel/postgres";
+import { neon } from "@neondatabase/serverless";
 import { hashSync } from "bcryptjs";
 
+const dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+if (!dbUrl) {
+  console.error("Fehler: POSTGRES_URL oder DATABASE_URL ist nicht gesetzt.");
+  process.exit(1);
+}
+const sql = neon(dbUrl);
+
 async function setup() {
-  console.log("Erstelle Tabellen in Vercel Postgres...\n");
+  console.log("Erstelle Tabellen in Neon Postgres...\n");
 
   await sql`
     CREATE TABLE IF NOT EXISTS events (
