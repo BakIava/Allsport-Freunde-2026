@@ -12,6 +12,8 @@ import type {
   PublishEventResult,
   EventTemplate,
   EventTemplateInput,
+  EventImage,
+  EventImageInput,
 } from "./types";
 
 const NOW = new Date().toISOString();
@@ -30,6 +32,10 @@ let localEvents = [...seedEvents];
 let localRegistrations: Registration[] = [];
 let nextRegistrationId = 1;
 let nextEventId = 9;
+
+// ─── Images ──────────────────────────────────────────────
+let localImages: EventImage[] = [];
+let nextImageId = 1;
 
 function initSeedRegistrations() {
   const mapping: { eventId: number; count: number; prefix: string; emailPrefix: string; status: RegistrationStatus }[] = [
@@ -91,12 +97,32 @@ function toRegistrationWithEvent(r: Registration): RegistrationWithEvent {
   };
 }
 
+function getImagesForEvent(eventId: number): EventImage[] {
+  return localImages
+    .filter((i) => i.event_id === eventId)
+    .sort((a, b) => a.position - b.position);
+}
+
+export function setLocalEventImages(eventId: number, images: EventImageInput[]): void {
+  localImages = localImages.filter((i) => i.event_id !== eventId);
+  images.forEach((img, idx) => {
+    localImages.push({
+      id: nextImageId++,
+      event_id: eventId,
+      url: img.url,
+      alt_text: img.alt_text,
+      position: img.position ?? idx,
+    });
+  });
+}
+
 // ─── Public ──────────────────────────────────────────────
 
 export function getLocalEvents(): EventWithRegistrations[] {
   return localEvents
     .filter((e) => e.status === "published" && e.date >= new Date().toISOString().split("T")[0])
-    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+    .map((e) => ({ ...e, images: getImagesForEvent(e.id) }));
 }
 
 export function getLocalEvent(id: number) {
@@ -202,11 +228,15 @@ export function getLocalAdminStats(): AdminStats {
 // ─── Admin: Events ───────────────────────────────────────
 
 export function getLocalAllEvents(): EventWithRegistrations[] {
-  return [...localEvents].sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
+  return [...localEvents]
+    .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time))
+    .map((e) => ({ ...e, images: getImagesForEvent(e.id) }));
 }
 
 export function getLocalEventFull(id: number): EventWithRegistrations | null {
-  return localEvents.find((e) => e.id === id) ?? null;
+  const event = localEvents.find((e) => e.id === id);
+  if (!event) return null;
+  return { ...event, images: getImagesForEvent(id) };
 }
 
 export function createLocalEvent(data: EventCreateInput & { publish?: boolean }): { id: number } {
@@ -214,6 +244,9 @@ export function createLocalEvent(data: EventCreateInput & { publish?: boolean })
   const status = data.publish ? "published" : "draft";
   const published_at = data.publish ? new Date().toISOString() : null;
   localEvents.push({ id, ...data, status, cancellation_reason: null, published_at, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 0 });
+  if (data.images?.length) {
+    setLocalEventImages(id, data.images);
+  }
   return { id };
 }
 
@@ -239,14 +272,17 @@ export function unpublishLocalEvent(id: number): PublishEventResult {
 export function resetLocalData(
   events: EventWithRegistrations[] = [],
   registrations: Registration[] = [],
-  templates: EventTemplate[] = []
+  templates: EventTemplate[] = [],
+  images: EventImage[] = []
 ): void {
   localEvents = [...events];
   localRegistrations = [...registrations];
   localTemplates = [...templates];
+  localImages = [...images];
   nextRegistrationId = registrations.length > 0 ? Math.max(...registrations.map((r) => r.id)) + 1 : 1;
   nextEventId = events.length > 0 ? Math.max(...events.map((e) => e.id)) + 1 : 1;
   nextTemplateId = templates.length > 0 ? Math.max(...templates.map((t) => t.id)) + 1 : 1;
+  nextImageId = images.length > 0 ? Math.max(...images.map((i) => i.id)) + 1 : 1;
 }
 
 export function cancelLocalEvent(id: number, reason?: string): CancelEventResult {
@@ -271,9 +307,13 @@ export function cancelLocalEvent(id: number, reason?: string): CancelEventResult
 export function updateLocalEvent(id: number, data: EventCreateInput): void {
   const event = localEvents.find((e) => e.id === id);
   if (event) Object.assign(event, data);
+  if (data.images !== undefined) {
+    setLocalEventImages(id, data.images);
+  }
 }
 
 export function deleteLocalEvent(id: number): void {
+  localImages = localImages.filter((i) => i.event_id !== id);
   localRegistrations = localRegistrations.filter((r) => r.event_id !== id);
   localEvents = localEvents.filter((e) => e.id !== id);
 }

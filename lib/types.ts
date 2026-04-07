@@ -17,9 +17,24 @@ export interface Event {
   created_at: string;
 }
 
+export interface EventImage {
+  id: number;
+  event_id: number;
+  url: string;
+  alt_text: string;
+  position: number;
+}
+
+export interface EventImageInput {
+  url: string;
+  alt_text: string;
+  position: number;
+}
+
 export interface EventWithRegistrations extends Event {
   current_participants: number;
   pending_participants?: number;
+  images?: EventImage[];
 }
 
 export type RegistrationStatus = "pending" | "approved" | "rejected" | "cancelled";
@@ -137,4 +152,5 @@ export interface EventCreateInput {
   price: string;
   dress_code: string;
   max_participants: number;
+  images?: EventImageInput[];
 }

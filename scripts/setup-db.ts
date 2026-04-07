@@ -84,6 +84,19 @@ async function setup() {
   `;
   console.log("  ✓ Tabelle 'event_templates' erstellt");
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS event_images (
+      id SERIAL PRIMARY KEY,
+      event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      url TEXT NOT NULL,
+      alt_text VARCHAR(500) NOT NULL DEFAULT '',
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_event_images_event_id ON event_images(event_id)`;
+  console.log("  ✓ Tabelle 'event_images' erstellt");
+
   // Insert default admin user
   const username = process.env.ADMIN_USERNAME || "admin";
   const password = process.env.ADMIN_PASSWORD || "admin";
