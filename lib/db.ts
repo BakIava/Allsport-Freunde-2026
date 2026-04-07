@@ -466,12 +466,16 @@ export async function getCheckinStatus(eventId: number): Promise<CheckinStatusRe
   `;
 
   const participants = rows as CheckinParticipant[];
-  const checkedIn = participants.filter((p) => p.checked_in_at !== null).length;
+  // Each registration = 1 Hauptperson + guests Begleiter
+  const total = participants.reduce((sum, p) => sum + p.guests + 1, 0);
+  const checkedIn = participants
+    .filter((p) => p.checked_in_at !== null)
+    .reduce((sum, p) => sum + p.guests + 1, 0);
 
   return {
-    total: participants.length,
+    total,
     checked_in: checkedIn,
-    missing: participants.length - checkedIn,
+    missing: total - checkedIn,
     participants,
   };
 }

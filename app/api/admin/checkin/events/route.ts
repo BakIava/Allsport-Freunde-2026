@@ -27,8 +27,8 @@ export async function GET() {
         TO_CHAR(e.date, 'YYYY-MM-DD') AS date,
         e.time::text AS time,
         e.location,
-        COUNT(r.id) FILTER (WHERE r.status = 'approved')::int AS approved_count,
-        COUNT(r.id) FILTER (WHERE r.status = 'approved' AND r.checked_in_at IS NOT NULL)::int AS checked_in_count
+        COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved'), 0)::int AS approved_count,
+        COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved' AND r.checked_in_at IS NOT NULL), 0)::int AS checked_in_count
       FROM events e
       JOIN registrations r ON r.event_id = e.id AND r.status = 'approved'
       WHERE e.date >= ${today}
