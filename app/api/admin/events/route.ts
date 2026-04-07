@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Mindestens 1 Teilnehmerplatz erforderlich." }, { status: 400 });
     }
 
+    const bodyAny = body as EventCreateInput & { publish?: boolean };
     const result = await createEvent({
       title: body.title.trim(),
       category: body.category,
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
       price: body.price.trim(),
       dress_code: (body.dress_code || "").trim(),
       max_participants: body.max_participants,
+      publish: bodyAny.publish === true,
     });
 
     return NextResponse.json({ message: "Event erstellt!", id: result.id }, { status: 201 });

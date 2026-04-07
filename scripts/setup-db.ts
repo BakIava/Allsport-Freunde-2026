@@ -24,14 +24,18 @@ async function setup() {
       price VARCHAR(100) NOT NULL,
       dress_code VARCHAR(255) NOT NULL,
       max_participants INTEGER NOT NULL,
-      status VARCHAR(20) NOT NULL DEFAULT 'active',
+      status VARCHAR(20) NOT NULL DEFAULT 'draft',
       cancellation_reason TEXT,
+      published_at TIMESTAMP,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
   `;
-  // Migration: add columns for existing databases
-  await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active'`;
+  // Migration: add/update columns for existing databases
+  await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'draft'`;
   await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_reason TEXT`;
+  await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS published_at TIMESTAMP`;
+  // Migrate legacy 'active' status → 'published'
+  await sql`UPDATE events SET status = 'published', published_at = created_at WHERE status = 'active'`;
   console.log("  ✓ Tabelle 'events' erstellt");
 
   await sql`

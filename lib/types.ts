@@ -1,4 +1,4 @@
-export type EventStatus = "active" | "cancelled";
+export type EventStatus = "draft" | "published" | "cancelled";
 
 export interface Event {
   id: number;
@@ -13,6 +13,7 @@ export interface Event {
   max_participants: number;
   status: EventStatus;
   cancellation_reason: string | null;
+  published_at: string | null;
   created_at: string;
 }
 
@@ -85,6 +86,12 @@ export interface AdminStats {
   total_registrations: number;
   pending_registrations: number;
   avg_utilization: number;
+}
+
+export interface PublishEventResult {
+  success: boolean;
+  /** Only set when unpublish is blocked */
+  registrationCount?: number;
 }
 
 export interface CancelEventResult {

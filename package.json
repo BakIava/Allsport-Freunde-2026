@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": "",
@@ -36,6 +39,8 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "vercel": "^50.39.0"
+    "@vitest/coverage-v8": "^4.1.2",
+    "vercel": "^50.39.0",
+    "vitest": "^4.1.2"
   }
 }

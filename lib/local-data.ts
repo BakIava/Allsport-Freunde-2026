@@ -9,17 +9,19 @@ import type {
   RegistrationStatusInfo,
   RegistrationStatus,
   CancelEventResult,
+  PublishEventResult,
 } from "./types";
 
+const NOW = new Date().toISOString();
 const seedEvents: EventWithRegistrations[] = [
-  { id: 1, title: "Freundschaftskick im Park", category: "fussball", description: "Lockeres Fußballspiel für alle Altersgruppen. Kommt vorbei und kickt mit!", date: "2026-04-12", time: "15:00", location: "Sportpark am Main, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Fußballschuhe (Rasen)", max_participants: 20, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 5, pending_participants: 0 },
-  { id: 2, title: "HIIT Outdoor Training", category: "fitness", description: "Hochintensives Intervalltraining an der frischen Luft. Für Anfänger und Fortgeschrittene.", date: "2026-04-05", time: "10:00", location: "Grüneburgpark, Frankfurt", price: "5 €", dress_code: "Sportkleidung & Laufschuhe", max_participants: 15, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 8, pending_participants: 0 },
-  { id: 3, title: "Schwimmtraining für Anfänger", category: "schwimmen", description: "Grundlagen des Schwimmens lernen in entspannter Atmosphäre. Trainer vor Ort.", date: "2026-04-08", time: "18:00", location: "Hallenbad Höchst, Frankfurt", price: "Spende willkommen", dress_code: "Badebekleidung & Handtuch", max_participants: 12, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 10, pending_participants: 0 },
-  { id: 4, title: "Fußball-Turnier: Rhein-Main Cup", category: "fussball", description: "Kleines Turnier mit gemischten Teams. Spaß und Fairplay stehen im Vordergrund!", date: "2026-04-19", time: "11:00", location: "Sportanlage Niederrad, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Hallenschuhe", max_participants: 24, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 22, pending_participants: 0 },
-  { id: 5, title: "Yoga & Stretching am Morgen", category: "fitness", description: "Sanfter Start in den Tag mit Yoga und Dehnübungen für Körper und Geist.", date: "2026-04-15", time: "08:00", location: "Vereinsraum, Offenbach", price: "Kostenlos", dress_code: "Bequeme Kleidung & Yogamatte (falls vorhanden)", max_participants: 20, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 2 },
-  { id: 6, title: "Aqua-Fitness Kurs", category: "schwimmen", description: "Gelenkschonendes Training im Wasser. Ideal für Einsteiger und Senioren.", date: "2026-04-22", time: "17:00", location: "Rebstockbad, Frankfurt", price: "8 €", dress_code: "Badebekleidung & Handtuch", max_participants: 16, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 0 },
-  { id: 7, title: "Familien-Fußballfest", category: "fussball", description: "Ein Nachmittag für die ganze Familie! Kleine Spiele, Torwandschießen und mehr.", date: "2026-05-03", time: "14:00", location: "Sportpark Preungesheim, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Turnschuhe", max_participants: 30, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 0 },
-  { id: 8, title: "Kraulschwimmen Technik-Workshop", category: "schwimmen", description: "Verbessere deine Kraultechnik mit unserem erfahrenen Trainer. Grundkenntnisse erforderlich.", date: "2026-04-29", time: "19:00", location: "Stadionbad, Frankfurt", price: "10 €", dress_code: "Badebekleidung, Schwimmbrille & Handtuch", max_participants: 10, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 10, pending_participants: 0 },
+  { id: 1, title: "Freundschaftskick im Park", category: "fussball", description: "Lockeres Fußballspiel für alle Altersgruppen. Kommt vorbei und kickt mit!", date: "2026-04-12", time: "15:00", location: "Sportpark am Main, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Fußballschuhe (Rasen)", max_participants: 20, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 5, pending_participants: 0 },
+  { id: 2, title: "HIIT Outdoor Training", category: "fitness", description: "Hochintensives Intervalltraining an der frischen Luft. Für Anfänger und Fortgeschrittene.", date: "2026-04-05", time: "10:00", location: "Grüneburgpark, Frankfurt", price: "5 €", dress_code: "Sportkleidung & Laufschuhe", max_participants: 15, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 8, pending_participants: 0 },
+  { id: 3, title: "Schwimmtraining für Anfänger", category: "schwimmen", description: "Grundlagen des Schwimmens lernen in entspannter Atmosphäre. Trainer vor Ort.", date: "2026-04-08", time: "18:00", location: "Hallenbad Höchst, Frankfurt", price: "Spende willkommen", dress_code: "Badebekleidung & Handtuch", max_participants: 12, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 10, pending_participants: 0 },
+  { id: 4, title: "Fußball-Turnier: Rhein-Main Cup", category: "fussball", description: "Kleines Turnier mit gemischten Teams. Spaß und Fairplay stehen im Vordergrund!", date: "2026-04-19", time: "11:00", location: "Sportanlage Niederrad, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Hallenschuhe", max_participants: 24, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 22, pending_participants: 0 },
+  { id: 5, title: "Yoga & Stretching am Morgen", category: "fitness", description: "Sanfter Start in den Tag mit Yoga und Dehnübungen für Körper und Geist.", date: "2026-04-15", time: "08:00", location: "Vereinsraum, Offenbach", price: "Kostenlos", dress_code: "Bequeme Kleidung & Yogamatte (falls vorhanden)", max_participants: 20, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 0, pending_participants: 2 },
+  { id: 6, title: "Aqua-Fitness Kurs", category: "schwimmen", description: "Gelenkschonendes Training im Wasser. Ideal für Einsteiger und Senioren.", date: "2026-04-22", time: "17:00", location: "Rebstockbad, Frankfurt", price: "8 €", dress_code: "Badebekleidung & Handtuch", max_participants: 16, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 0, pending_participants: 0 },
+  { id: 7, title: "Familien-Fußballfest", category: "fussball", description: "Ein Nachmittag für die ganze Familie! Kleine Spiele, Torwandschießen und mehr.", date: "2026-05-03", time: "14:00", location: "Sportpark Preungesheim, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Turnschuhe", max_participants: 30, status: "draft", cancellation_reason: null, published_at: null, created_at: NOW, current_participants: 0, pending_participants: 0 },
+  { id: 8, title: "Kraulschwimmen Technik-Workshop", category: "schwimmen", description: "Verbessere deine Kraultechnik mit unserem erfahrenen Trainer. Grundkenntnisse erforderlich.", date: "2026-04-29", time: "19:00", location: "Stadionbad, Frankfurt", price: "10 €", dress_code: "Badebekleidung, Schwimmbrille & Handtuch", max_participants: 10, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 10, pending_participants: 0 },
 ];
 
 let localEvents = [...seedEvents];
@@ -91,7 +93,7 @@ function toRegistrationWithEvent(r: Registration): RegistrationWithEvent {
 
 export function getLocalEvents(): EventWithRegistrations[] {
   return localEvents
-    .filter((e) => e.date >= new Date().toISOString().split("T")[0])
+    .filter((e) => e.status === "published" && e.date >= new Date().toISOString().split("T")[0])
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
 }
 
@@ -205,10 +207,38 @@ export function getLocalEventFull(id: number): EventWithRegistrations | null {
   return localEvents.find((e) => e.id === id) ?? null;
 }
 
-export function createLocalEvent(data: EventCreateInput): { id: number } {
+export function createLocalEvent(data: EventCreateInput & { publish?: boolean }): { id: number } {
   const id = nextEventId++;
-  localEvents.push({ id, ...data, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 0 });
+  const status = data.publish ? "published" : "draft";
+  const published_at = data.publish ? new Date().toISOString() : null;
+  localEvents.push({ id, ...data, status, cancellation_reason: null, published_at, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 0 });
   return { id };
+}
+
+export function publishLocalEvent(id: number): PublishEventResult {
+  const event = localEvents.find((e) => e.id === id);
+  if (!event) return { success: false };
+  event.status = "published";
+  event.published_at = new Date().toISOString();
+  return { success: true };
+}
+
+export function unpublishLocalEvent(id: number): PublishEventResult {
+  const event = localEvents.find((e) => e.id === id);
+  if (!event) return { success: false };
+  const registrationCount = localRegistrations.filter((r) => r.event_id === id).length;
+  if (registrationCount > 0) return { success: false, registrationCount };
+  event.status = "draft";
+  event.published_at = null;
+  return { success: true };
+}
+
+/** For testing: reset all in-memory data to a clean empty state */
+export function resetLocalData(events: EventWithRegistrations[] = [], registrations: Registration[] = []): void {
+  localEvents = [...events];
+  localRegistrations = [...registrations];
+  nextRegistrationId = registrations.length > 0 ? Math.max(...registrations.map((r) => r.id)) + 1 : 1;
+  nextEventId = events.length > 0 ? Math.max(...events.map((e) => e.id)) + 1 : 1;
 }
 
 export function cancelLocalEvent(id: number, reason?: string): CancelEventResult {
