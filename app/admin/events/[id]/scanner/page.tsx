@@ -184,43 +184,49 @@ export default function ScannerPage() {
 
   // ── Camera init / cleanup ────────────────────────────────
   useEffect(() => {
-    // Guard against React StrictMode double-invoke
-    let active = true;
+    // Defer initialization by one tick. In React 18 StrictMode (dev), effects
+    // run twice: mount → cleanup → mount. The cleanup fires synchronously and
+    // cancels the pending timer, so the camera is only ever started once —
+    // during the second (real) mount.
+    let timerId: ReturnType<typeof setTimeout>;
+    let qr: Html5Qrcode | null = null;
 
-    const qr = new Html5Qrcode("qr-reader");
-    qrRef.current = qr;
+    timerId = setTimeout(() => {
+      qr = new Html5Qrcode("qr-reader");
+      qrRef.current = qr;
 
-    qr.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 260, height: 260 }, aspectRatio: 1 },
-      (text) => handleScanRef.current(text),
-      undefined // suppress per-frame "not found" errors
-    )
-      .then(() => { if (active) setCameraState("scanning"); })
-      .catch((err: unknown) => {
-        if (!active) return;
-        const msg = err instanceof Error ? err.message : String(err);
-        setCameraState("error");
-        setCameraError(msg.includes("Permission") || msg.includes("NotAllowed")
-          ? "Kamera-Zugriff verweigert. Bitte Berechtigung in den Browser-Einstellungen erlauben."
-          : "Kamera konnte nicht gestartet werden.");
-      });
+      qr.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 260, height: 260 }, aspectRatio: 1 },
+        (text) => handleScanRef.current(text),
+        undefined // suppress per-frame "not found" errors
+      )
+        .then(() => setCameraState("scanning"))
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          setCameraState("error");
+          setCameraError(msg.includes("Permission") || msg.includes("NotAllowed")
+            ? "Kamera-Zugriff verweigert. Bitte Berechtigung in den Browser-Einstellungen erlauben."
+            : "Kamera konnte nicht gestartet werden.");
+        });
+    }, 0);
 
     return () => {
-      active = false;
-      // Force-stop video tracks immediately (synchronous — releases camera LED)
-      document.querySelectorAll<HTMLVideoElement>("#qr-reader video").forEach((video) => {
-        const stream = video.srcObject as MediaStream | null;
-        stream?.getTracks().forEach((t) => t.stop());
-        video.srcObject = null;
-      });
-      // Then let html5-qrcode clean up its internal state
-      (async () => {
-        try {
-          if (qr.isScanning) await qr.stop();
-          qr.clear();
-        } catch { /* ignore */ }
-      })();
+      // Cancel before the camera even starts (handles StrictMode first cleanup)
+      clearTimeout(timerId);
+
+      if (qr) {
+        // Stop all video tracks immediately to release the camera LED
+        document.querySelectorAll<HTMLVideoElement>("#qr-reader video").forEach((video) => {
+          (video.srcObject as MediaStream | null)?.getTracks().forEach((t) => t.stop());
+        });
+        (async () => {
+          try {
+            if (qr!.isScanning) await qr!.stop();
+            qr!.clear();
+          } catch { /* ignore */ }
+        })();
+      }
     };
   }, []); // runs exactly once on mount / once on unmount
 
