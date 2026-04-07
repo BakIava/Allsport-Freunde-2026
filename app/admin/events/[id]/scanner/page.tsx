@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Html5QrcodeScanner, Html5QrcodeScanType } from "html5-qrcode";
-import { CheckCircle, XCircle, AlertTriangle, ArrowLeft, Wifi, WifiOff } from "lucide-react";
+import { Html5Qrcode } from "html5-qrcode";
+import { CheckCircle, XCircle, AlertTriangle, ArrowLeft, Wifi, WifiOff, Camera } from "lucide-react";
 
 interface ScanResult {
   type: "success" | "duplicate" | "error";
@@ -34,20 +34,29 @@ function saveOfflineQueue(queue: OfflineScan[]) {
   localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
 }
 
+function formatTime(iso?: string | null) {
+  if (!iso) return "–";
+  return new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function ScannerPage() {
   const { id: eventId } = useParams<{ id: string }>();
   const router = useRouter();
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
-  const scannerDivRef = useRef<HTMLDivElement>(null);
+
+  const qrRef = useRef<Html5Qrcode | null>(null);
   const lastScannedRef = useRef<string>("");
   const cooldownRef = useRef(false);
+  // Stable ref so the scanner callback never captures a stale closure
+  const handleScanRef = useRef<(text: string) => void>(() => {});
 
+  const [cameraState, setCameraState] = useState<"starting" | "scanning" | "error">("starting");
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [offlineCount, setOfflineCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
 
-  // Track online status
+  // ── Online tracking ──────────────────────────────────────
   useEffect(() => {
     const update = () => setIsOnline(navigator.onLine);
     window.addEventListener("online", update);
@@ -60,6 +69,7 @@ export default function ScannerPage() {
     };
   }, []);
 
+  // ── Offline sync ─────────────────────────────────────────
   const syncOfflineQueue = useCallback(async () => {
     const queue = loadOfflineQueue();
     const pending = queue.filter((s) => !s.synced);
@@ -74,46 +84,32 @@ export default function ScannerPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token: scan.token }),
         });
-        if (res.ok) {
-          scan.synced = true;
-          synced++;
-        }
-      } catch {
-        // keep unsynced
-      }
+        if (res.ok) { scan.synced = true; synced++; }
+      } catch { /* keep unsynced */ }
     }
     saveOfflineQueue(queue);
     setOfflineCount(queue.filter((s) => !s.synced).length);
     setSyncing(false);
     if (synced > 0) {
-      setResult({
-        type: "success",
-        message: `${synced} offline gespeicherte(r) Scan(s) synchronisiert.`,
-      });
+      setResult({ type: "success", message: `${synced} offline gespeicherte(r) Scan(s) synchronisiert.` });
     }
   }, []);
 
-  // Auto-sync when back online
   useEffect(() => {
-    if (isOnline && offlineCount > 0) {
-      syncOfflineQueue();
-    }
+    if (isOnline && offlineCount > 0) syncOfflineQueue();
   }, [isOnline, offlineCount, syncOfflineQueue]);
 
-  const extractToken = (scanned: string): string | null => {
-    try {
-      const url = new URL(scanned);
-      return url.searchParams.get("token");
-    } catch {
-      // Maybe raw token was scanned
-      return scanned.length > 20 ? scanned : null;
-    }
-  };
-
+  // ── Scan handler ─────────────────────────────────────────
   const handleScan = useCallback(async (decodedText: string) => {
     if (cooldownRef.current || decodedText === lastScannedRef.current) return;
 
-    const token = extractToken(decodedText);
+    let token: string | null = null;
+    try {
+      token = new URL(decodedText).searchParams.get("token");
+    } catch {
+      token = decodedText.length > 20 ? decodedText : null;
+    }
+
     if (!token) {
       setResult({ type: "error", message: "Ungültiger QR-Code – kein gültiges Token gefunden." });
       return;
@@ -123,19 +119,12 @@ export default function ScannerPage() {
     lastScannedRef.current = decodedText;
 
     if (!navigator.onLine) {
-      // Store offline
       const queue = loadOfflineQueue();
       queue.push({ token, scannedAt: new Date().toISOString(), synced: false });
       saveOfflineQueue(queue);
       setOfflineCount(queue.filter((s) => !s.synced).length);
-      setResult({
-        type: "success",
-        message: "Offline gespeichert – wird synchronisiert sobald Verbindung besteht.",
-      });
-      setTimeout(() => {
-        cooldownRef.current = false;
-        lastScannedRef.current = "";
-      }, 3000);
+      setResult({ type: "success", message: "Offline gespeichert – wird synchronisiert sobald Verbindung besteht." });
+      setTimeout(() => { cooldownRef.current = false; lastScannedRef.current = ""; }, 3000);
       return;
     }
 
@@ -155,7 +144,6 @@ export default function ScannerPage() {
           message: `Bereits eingecheckt um ${formatTime(data.checkedInAt)}`,
           participantName: data.participant?.name,
           guests: data.participant?.guests,
-          checkedInAt: data.checkedInAt,
         });
       } else {
         setResult({
@@ -169,44 +157,48 @@ export default function ScannerPage() {
       setResult({ type: "error", message: "Netzwerkfehler. Bitte versuche es erneut." });
     }
 
-    // Allow next scan after 3 seconds
-    setTimeout(() => {
-      cooldownRef.current = false;
-      lastScannedRef.current = "";
-    }, 3000);
+    setTimeout(() => { cooldownRef.current = false; lastScannedRef.current = ""; }, 3000);
   }, []);
 
-  // Init scanner
+  // Keep ref in sync so the qrcode callback always calls the latest version
+  handleScanRef.current = handleScan;
+
+  // ── Camera init / cleanup ────────────────────────────────
   useEffect(() => {
-    if (!scannerDivRef.current) return;
+    // Guard against React StrictMode double-invoke
+    let active = true;
 
-    const scanner = new Html5QrcodeScanner(
-      "qr-reader",
-      {
-        fps: 10,
-        qrbox: { width: 280, height: 280 },
-        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-        rememberLastUsedCamera: true,
-      },
-      false
-    );
+    const qr = new Html5Qrcode("qr-reader");
+    qrRef.current = qr;
 
-    scanner.render(handleScan, (err) => {
-      if (!err.includes("No MultiFormat Readers")) {
-        console.debug("QR scan error:", err);
-      }
-    });
-    scannerRef.current = scanner;
+    qr.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 260, height: 260 }, aspectRatio: 1 },
+      (text) => handleScanRef.current(text),
+      undefined // suppress per-frame "not found" errors
+    )
+      .then(() => { if (active) setCameraState("scanning"); })
+      .catch((err: unknown) => {
+        if (!active) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setCameraState("error");
+        setCameraError(msg.includes("Permission") || msg.includes("NotAllowed")
+          ? "Kamera-Zugriff verweigert. Bitte Berechtigung in den Browser-Einstellungen erlauben."
+          : "Kamera konnte nicht gestartet werden.");
+      });
 
     return () => {
-      scanner.clear().catch(() => {});
+      active = false;
+      // Must stop() before clear() to release the media stream
+      const cleanup = async () => {
+        try {
+          if (qr.isScanning) await qr.stop();
+          qr.clear();
+        } catch { /* ignore */ }
+      };
+      cleanup();
     };
-  }, [handleScan]);
-
-  const formatTime = (iso?: string) => {
-    if (!iso) return "–";
-    return new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-  };
+  }, []); // runs exactly once on mount / once on unmount
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -247,29 +239,25 @@ export default function ScannerPage() {
       </div>
 
       <div className="max-w-md mx-auto p-4 space-y-4">
-        {/* Result feedback */}
+        {/* Scan result */}
         {result && (
-          <div
-            className={`rounded-xl p-4 flex gap-3 items-start transition-all ${
-              result.type === "success"
-                ? "bg-green-900/60 border border-green-600"
-                : result.type === "duplicate"
-                ? "bg-amber-900/60 border border-amber-600"
-                : "bg-red-900/60 border border-red-600"
-            }`}
-          >
-            {result.type === "success" && <CheckCircle className="w-6 h-6 text-green-400 shrink-0 mt-0.5" />}
+          <div className={`rounded-xl p-4 flex gap-3 items-start ${
+            result.type === "success" ? "bg-green-900/60 border border-green-600"
+            : result.type === "duplicate" ? "bg-amber-900/60 border border-amber-600"
+            : "bg-red-900/60 border border-red-600"
+          }`}>
+            {result.type === "success"   && <CheckCircle   className="w-6 h-6 text-green-400 shrink-0 mt-0.5" />}
             {result.type === "duplicate" && <AlertTriangle className="w-6 h-6 text-amber-400 shrink-0 mt-0.5" />}
-            {result.type === "error" && <XCircle className="w-6 h-6 text-red-400 shrink-0 mt-0.5" />}
+            {result.type === "error"     && <XCircle       className="w-6 h-6 text-red-400   shrink-0 mt-0.5" />}
             <div>
-              {result.participantName && (
-                <p className="font-semibold text-white">{result.participantName}</p>
-              )}
+              {result.participantName && <p className="font-semibold text-white">{result.participantName}</p>}
               {result.guests !== undefined && result.guests > 0 && (
                 <p className="text-sm text-gray-300">+ {result.guests} Begleitperson{result.guests > 1 ? "en" : ""}</p>
               )}
               <p className={`text-sm mt-0.5 ${
-                result.type === "success" ? "text-green-300" : result.type === "duplicate" ? "text-amber-300" : "text-red-300"
+                result.type === "success" ? "text-green-300"
+                : result.type === "duplicate" ? "text-amber-300"
+                : "text-red-300"
               }`}>
                 {result.message}
               </p>
@@ -277,9 +265,26 @@ export default function ScannerPage() {
           </div>
         )}
 
-        {/* QR Scanner */}
-        <div className="rounded-xl overflow-hidden bg-black">
-          <div id="qr-reader" ref={scannerDivRef} />
+        {/* Camera viewport */}
+        <div className="rounded-xl overflow-hidden bg-black relative">
+          {/* html5-qrcode renders the video into this div */}
+          <div id="qr-reader" />
+
+          {/* Overlay while starting */}
+          {cameraState === "starting" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black gap-3 min-h-[300px]">
+              <Camera className="w-8 h-8 text-gray-500 animate-pulse" />
+              <p className="text-sm text-gray-400">Kamera wird gestartet…</p>
+            </div>
+          )}
+
+          {/* Error state */}
+          {cameraState === "error" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black gap-3 p-6 min-h-[300px]">
+              <XCircle className="w-8 h-8 text-red-500" />
+              <p className="text-sm text-red-300 text-center">{cameraError}</p>
+            </div>
+          )}
         </div>
 
         <p className="text-center text-xs text-gray-500">
@@ -294,19 +299,12 @@ export default function ScannerPage() {
         </button>
       </div>
 
-      {/* Override html5-qrcode default styles for dark mode */}
       <style>{`
-        #qr-reader { border: none !important; background: #000 !important; }
-        #qr-reader video { border-radius: 0 !important; }
+        #qr-reader { border: none !important; padding: 0 !important; }
+        #qr-reader video { width: 100% !important; height: auto !important; display: block !important; }
+        #qr-reader canvas { display: none !important; }
         #qr-reader__scan_region { background: #000 !important; }
-        #qr-reader__dashboard { background: #1f2937 !important; color: #d1d5db !important; padding: 12px !important; }
-        #qr-reader__dashboard button {
-          background: #16a34a !important; color: white !important; border: none !important;
-          padding: 8px 16px !important; border-radius: 6px !important; cursor: pointer !important;
-        }
-        #qr-reader__dashboard select { background: #374151 !important; color: #f3f4f6 !important; border: 1px solid #4b5563 !important; border-radius: 4px !important; padding: 4px !important; }
-        #qr-reader__status_span { color: #9ca3af !important; font-size: 12px !important; }
-        #html5-qrcode-anchor-scan-type-change { color: #9ca3af !important; font-size: 12px !important; }
+        #qr-reader__dashboard { display: none !important; }
       `}</style>
     </div>
   );
