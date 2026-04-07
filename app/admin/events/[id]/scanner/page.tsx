@@ -56,6 +56,26 @@ export default function ScannerPage() {
   const [offlineCount, setOfflineCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
 
+  // Explicitly stops the camera — used both in cleanup and before navigation
+  const stopCamera = useCallback(async () => {
+    // 1. Directly stop all video tracks (immediate — turns off camera LED right away)
+    document.querySelectorAll<HTMLVideoElement>("#qr-reader video").forEach((video) => {
+      const stream = video.srcObject as MediaStream | null;
+      stream?.getTracks().forEach((t) => t.stop());
+      video.srcObject = null;
+    });
+    // 2. Let html5-qrcode clean up its own state
+    try {
+      if (qrRef.current?.isScanning) await qrRef.current.stop();
+      qrRef.current?.clear();
+    } catch { /* ignore */ }
+  }, []);
+
+  const navigateTo = useCallback(async (href: string) => {
+    await stopCamera();
+    router.push(href);
+  }, [stopCamera, router]);
+
   // ── Online tracking ──────────────────────────────────────
   useEffect(() => {
     const update = () => setIsOnline(navigator.onLine);
@@ -189,14 +209,19 @@ export default function ScannerPage() {
 
     return () => {
       active = false;
-      // Must stop() before clear() to release the media stream
-      const cleanup = async () => {
+      // Force-stop video tracks immediately (synchronous — releases camera LED)
+      document.querySelectorAll<HTMLVideoElement>("#qr-reader video").forEach((video) => {
+        const stream = video.srcObject as MediaStream | null;
+        stream?.getTracks().forEach((t) => t.stop());
+        video.srcObject = null;
+      });
+      // Then let html5-qrcode clean up its internal state
+      (async () => {
         try {
           if (qr.isScanning) await qr.stop();
           qr.clear();
         } catch { /* ignore */ }
-      };
-      cleanup();
+      })();
     };
   }, []); // runs exactly once on mount / once on unmount
 
@@ -206,7 +231,7 @@ export default function ScannerPage() {
       <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push(`/admin/events/${eventId}/dashboard`)}
+            onClick={() => navigateTo(`/admin/events/${eventId}/dashboard`)}
             className="p-1.5 rounded-lg hover:bg-gray-700 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -292,7 +317,7 @@ export default function ScannerPage() {
         </p>
 
         <button
-          onClick={() => router.push(`/admin/events/${eventId}/dashboard`)}
+          onClick={() => navigateTo(`/admin/events/${eventId}/dashboard`)}
           className="w-full py-3 border border-gray-600 rounded-xl text-gray-300 hover:bg-gray-800 hover:text-white transition-colors text-sm"
         >
           Zum Dashboard wechseln
