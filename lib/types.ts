@@ -8,6 +8,7 @@ export interface Event {
   date: string;
   time: string;
   location: string;
+  parking_location: string | null;
   price: string;
   dress_code: string;
   max_participants: number;
@@ -174,6 +175,7 @@ export interface EventCreateInput {
   date: string;
   time: string;
   location: string;
+  parking_location?: string;
   price: string;
   dress_code: string;
   max_participants: number;

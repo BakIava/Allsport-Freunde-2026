@@ -60,6 +60,7 @@ export default function EventForm({ event }: EventFormProps) {
     date: event?.date?.split("T")[0] ?? "",
     time: event?.time ?? "",
     location: event?.location ?? "",
+    parking_location: event?.parking_location ?? "",
     price: event?.price ?? "",
     dress_code: event?.dress_code ?? "",
     max_participants: event?.max_participants ?? 20,
@@ -347,7 +348,17 @@ export default function EventForm({ event }: EventFormProps) {
                   required
                   value={formData.location}
                   onChange={(e) => update("location", e.target.value)}
-                  placeholder="z.B. Sportplatz Musterstraße 12"
+                  placeholder="z.B. Sportplatz Musterstraße 12, Frankfurt"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="parking_location">Parkplatz-Adresse</Label>
+                <Input
+                  id="parking_location"
+                  value={formData.parking_location ?? ""}
+                  onChange={(e) => update("parking_location", e.target.value)}
+                  placeholder="z.B. Parkplatz Musterstraße, Frankfurt (optional)"
                 />
               </div>
 

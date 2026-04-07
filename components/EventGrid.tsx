@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import EventCard from "./EventCard";
 import RegistrationModal from "./RegistrationModal";
+import EventDetailModal from "./EventDetailModal";
 import type { EventWithRegistrations } from "@/lib/types";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
@@ -18,8 +19,15 @@ const categories = [
 export default function EventGrid() {
   const [events, setEvents] = useState<EventWithRegistrations[]>([]);
   const [filter, setFilter] = useState("alle");
+
+  // Registration modal state
   const [selectedEvent, setSelectedEvent] = useState<EventWithRegistrations | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Detail modal state
+  const [detailEvent, setDetailEvent] = useState<EventWithRegistrations | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,8 +60,13 @@ export default function EventGrid() {
     setModalOpen(true);
   };
 
+  const handleShowDetails = (event: EventWithRegistrations) => {
+    setDetailEvent(event);
+    setDetailOpen(true);
+  };
+
   const handleRegistrationSuccess = () => {
-    fetchEvents(); // Refresh to update participant counts
+    fetchEvents();
   };
 
   return (
@@ -120,6 +133,7 @@ export default function EventGrid() {
                 event={event}
                 index={index}
                 onRegister={handleRegister}
+                onShowDetails={handleShowDetails}
               />
             ))}
           </div>
@@ -130,6 +144,13 @@ export default function EventGrid() {
           open={modalOpen}
           onOpenChange={setModalOpen}
           onSuccess={handleRegistrationSuccess}
+        />
+
+        <EventDetailModal
+          event={detailEvent}
+          open={detailOpen}
+          onClose={() => setDetailOpen(false)}
+          onRegister={handleRegister}
         />
       </div>
     </section>
