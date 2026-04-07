@@ -14,6 +14,7 @@ const badgeVariants = cva(
         fussball: "border-transparent bg-green-100 text-green-800",
         fitness: "border-transparent bg-orange-100 text-orange-800",
         schwimmen: "border-transparent bg-blue-100 text-blue-800",
+        cancelled: "border-transparent bg-purple-100 text-purple-800",
       },
     },
     defaultVariants: {

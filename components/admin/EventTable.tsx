@@ -16,12 +16,15 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { Pencil, Trash2, Users, Loader2, Search } from "lucide-react";
+import { Pencil, Trash2, Users, Loader2, Search, Ban } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { EventWithRegistrations } from "@/lib/types";
 
-type StatusFilter = "alle" | "aktiv" | "ausgebucht" | "beendet";
+type StatusFilter = "alle" | "aktiv" | "ausgebucht" | "beendet" | "abgesagt";
 
-function getStatus(event: EventWithRegistrations): { label: string; variant: "default" | "secondary" | "destructive" } {
+function getStatus(event: EventWithRegistrations): { label: string; variant: "default" | "secondary" | "destructive" | "cancelled" } {
+  if (event.status === "cancelled") return { label: "Abgesagt", variant: "cancelled" };
   const today = new Date().toISOString().split("T")[0];
   if (event.date < today) return { label: "Beendet", variant: "destructive" };
   if (event.current_participants >= event.max_participants) return { label: "Ausgebucht", variant: "secondary" };
@@ -44,6 +47,9 @@ export default function EventTable() {
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<EventWithRegistrations | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<EventWithRegistrations | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
 
   const fetchEvents = () => {
     setLoading(true);
@@ -64,6 +70,7 @@ export default function EventTable() {
         if (statusFilter === "aktiv" && status.label !== "Aktiv") return false;
         if (statusFilter === "ausgebucht" && status.label !== "Ausgebucht") return false;
         if (statusFilter === "beendet" && status.label !== "Beendet") return false;
+        if (statusFilter === "abgesagt" && status.label !== "Abgesagt") return false;
       }
       if (search) {
         const q = search.toLowerCase();
@@ -91,6 +98,35 @@ export default function EventTable() {
       toast("Verbindungsfehler.", "error");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/admin/events/${cancelTarget.id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: cancelReason }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Fehler beim Absagen.", "error");
+        return;
+      }
+      toast(
+        `Veranstaltung abgesagt. ${data.emailsSent} E-Mail${data.emailsSent === 1 ? "" : "s"} versendet.`,
+        "success"
+      );
+      setCancelTarget(null);
+      setCancelReason("");
+      fetchEvents();
+      router.refresh();
+    } catch {
+      toast("Verbindungsfehler.", "error");
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -129,6 +165,7 @@ export default function EventTable() {
           <option value="aktiv">Aktiv</option>
           <option value="ausgebucht">Ausgebucht</option>
           <option value="beendet">Beendet</option>
+          <option value="abgesagt">Abgesagt</option>
         </Select>
       </div>
 
@@ -182,6 +219,16 @@ export default function EventTable() {
                             <Users className="w-4 h-4" />
                           </Button>
                         </Link>
+                        {event.status !== "cancelled" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Veranstaltung absagen"
+                            onClick={() => { setCancelTarget(event); setCancelReason(""); }}
+                          >
+                            <Ban className="w-4 h-4 text-purple-600" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -199,6 +246,42 @@ export default function EventTable() {
           </Table>
         </div>
       )}
+
+      {/* Cancel confirmation */}
+      <Dialog open={!!cancelTarget} onOpenChange={(o) => { if (!o) { setCancelTarget(null); setCancelReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Veranstaltung absagen</DialogTitle>
+            <DialogDescription>
+              Möchtest du die Veranstaltung &bdquo;{cancelTarget?.title}&ldquo; wirklich absagen?
+              Alle Teilnehmer werden per E-Mail benachrichtigt.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="cancel-reason">Absagegrund (optional)</Label>
+            <Textarea
+              id="cancel-reason"
+              placeholder="z.B. Schlechtes Wetter, Hallenausfall, ..."
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => { setCancelTarget(null); setCancelReason(""); }}>
+              Abbrechen
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancel}
+              disabled={cancelling}
+            >
+              {cancelling ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Veranstaltung absagen
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation */}
       <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>

@@ -8,17 +8,18 @@ import type {
   RegistrationWithEvent,
   RegistrationStatusInfo,
   RegistrationStatus,
+  CancelEventResult,
 } from "./types";
 
 const seedEvents: EventWithRegistrations[] = [
-  { id: 1, title: "Freundschaftskick im Park", category: "fussball", description: "Lockeres Fußballspiel für alle Altersgruppen. Kommt vorbei und kickt mit!", date: "2026-04-12", time: "15:00", location: "Sportpark am Main, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Fußballschuhe (Rasen)", max_participants: 20, created_at: new Date().toISOString(), current_participants: 5, pending_participants: 0 },
-  { id: 2, title: "HIIT Outdoor Training", category: "fitness", description: "Hochintensives Intervalltraining an der frischen Luft. Für Anfänger und Fortgeschrittene.", date: "2026-04-05", time: "10:00", location: "Grüneburgpark, Frankfurt", price: "5 €", dress_code: "Sportkleidung & Laufschuhe", max_participants: 15, created_at: new Date().toISOString(), current_participants: 8, pending_participants: 0 },
-  { id: 3, title: "Schwimmtraining für Anfänger", category: "schwimmen", description: "Grundlagen des Schwimmens lernen in entspannter Atmosphäre. Trainer vor Ort.", date: "2026-04-08", time: "18:00", location: "Hallenbad Höchst, Frankfurt", price: "Spende willkommen", dress_code: "Badebekleidung & Handtuch", max_participants: 12, created_at: new Date().toISOString(), current_participants: 10, pending_participants: 0 },
-  { id: 4, title: "Fußball-Turnier: Rhein-Main Cup", category: "fussball", description: "Kleines Turnier mit gemischten Teams. Spaß und Fairplay stehen im Vordergrund!", date: "2026-04-19", time: "11:00", location: "Sportanlage Niederrad, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Hallenschuhe", max_participants: 24, created_at: new Date().toISOString(), current_participants: 22, pending_participants: 0 },
-  { id: 5, title: "Yoga & Stretching am Morgen", category: "fitness", description: "Sanfter Start in den Tag mit Yoga und Dehnübungen für Körper und Geist.", date: "2026-04-15", time: "08:00", location: "Vereinsraum, Offenbach", price: "Kostenlos", dress_code: "Bequeme Kleidung & Yogamatte (falls vorhanden)", max_participants: 20, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 2 },
-  { id: 6, title: "Aqua-Fitness Kurs", category: "schwimmen", description: "Gelenkschonendes Training im Wasser. Ideal für Einsteiger und Senioren.", date: "2026-04-22", time: "17:00", location: "Rebstockbad, Frankfurt", price: "8 €", dress_code: "Badebekleidung & Handtuch", max_participants: 16, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 0 },
-  { id: 7, title: "Familien-Fußballfest", category: "fussball", description: "Ein Nachmittag für die ganze Familie! Kleine Spiele, Torwandschießen und mehr.", date: "2026-05-03", time: "14:00", location: "Sportpark Preungesheim, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Turnschuhe", max_participants: 30, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 0 },
-  { id: 8, title: "Kraulschwimmen Technik-Workshop", category: "schwimmen", description: "Verbessere deine Kraultechnik mit unserem erfahrenen Trainer. Grundkenntnisse erforderlich.", date: "2026-04-29", time: "19:00", location: "Stadionbad, Frankfurt", price: "10 €", dress_code: "Badebekleidung, Schwimmbrille & Handtuch", max_participants: 10, created_at: new Date().toISOString(), current_participants: 10, pending_participants: 0 },
+  { id: 1, title: "Freundschaftskick im Park", category: "fussball", description: "Lockeres Fußballspiel für alle Altersgruppen. Kommt vorbei und kickt mit!", date: "2026-04-12", time: "15:00", location: "Sportpark am Main, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Fußballschuhe (Rasen)", max_participants: 20, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 5, pending_participants: 0 },
+  { id: 2, title: "HIIT Outdoor Training", category: "fitness", description: "Hochintensives Intervalltraining an der frischen Luft. Für Anfänger und Fortgeschrittene.", date: "2026-04-05", time: "10:00", location: "Grüneburgpark, Frankfurt", price: "5 €", dress_code: "Sportkleidung & Laufschuhe", max_participants: 15, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 8, pending_participants: 0 },
+  { id: 3, title: "Schwimmtraining für Anfänger", category: "schwimmen", description: "Grundlagen des Schwimmens lernen in entspannter Atmosphäre. Trainer vor Ort.", date: "2026-04-08", time: "18:00", location: "Hallenbad Höchst, Frankfurt", price: "Spende willkommen", dress_code: "Badebekleidung & Handtuch", max_participants: 12, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 10, pending_participants: 0 },
+  { id: 4, title: "Fußball-Turnier: Rhein-Main Cup", category: "fussball", description: "Kleines Turnier mit gemischten Teams. Spaß und Fairplay stehen im Vordergrund!", date: "2026-04-19", time: "11:00", location: "Sportanlage Niederrad, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Hallenschuhe", max_participants: 24, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 22, pending_participants: 0 },
+  { id: 5, title: "Yoga & Stretching am Morgen", category: "fitness", description: "Sanfter Start in den Tag mit Yoga und Dehnübungen für Körper und Geist.", date: "2026-04-15", time: "08:00", location: "Vereinsraum, Offenbach", price: "Kostenlos", dress_code: "Bequeme Kleidung & Yogamatte (falls vorhanden)", max_participants: 20, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 2 },
+  { id: 6, title: "Aqua-Fitness Kurs", category: "schwimmen", description: "Gelenkschonendes Training im Wasser. Ideal für Einsteiger und Senioren.", date: "2026-04-22", time: "17:00", location: "Rebstockbad, Frankfurt", price: "8 €", dress_code: "Badebekleidung & Handtuch", max_participants: 16, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 0 },
+  { id: 7, title: "Familien-Fußballfest", category: "fussball", description: "Ein Nachmittag für die ganze Familie! Kleine Spiele, Torwandschießen und mehr.", date: "2026-05-03", time: "14:00", location: "Sportpark Preungesheim, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Turnschuhe", max_participants: 30, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 0 },
+  { id: 8, title: "Kraulschwimmen Technik-Workshop", category: "schwimmen", description: "Verbessere deine Kraultechnik mit unserem erfahrenen Trainer. Grundkenntnisse erforderlich.", date: "2026-04-29", time: "19:00", location: "Stadionbad, Frankfurt", price: "10 €", dress_code: "Badebekleidung, Schwimmbrille & Handtuch", max_participants: 10, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 10, pending_participants: 0 },
 ];
 
 let localEvents = [...seedEvents];
@@ -206,8 +207,27 @@ export function getLocalEventFull(id: number): EventWithRegistrations | null {
 
 export function createLocalEvent(data: EventCreateInput): { id: number } {
   const id = nextEventId++;
-  localEvents.push({ id, ...data, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 0 });
+  localEvents.push({ id, ...data, status: "active", cancellation_reason: null, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 0 });
   return { id };
+}
+
+export function cancelLocalEvent(id: number, reason?: string): CancelEventResult {
+  const event = localEvents.find((e) => e.id === id);
+  if (!event) return { alreadyCancelled: false, event: null, registrations: [] };
+  if (event.status === "cancelled") return { alreadyCancelled: true, event: { title: event.title, date: event.date, time: event.time, location: event.location }, registrations: [] };
+
+  event.status = "cancelled";
+  event.cancellation_reason = reason ?? null;
+
+  const registrations = localRegistrations
+    .filter((r) => r.event_id === id)
+    .map((r) => ({ email: r.email, first_name: r.first_name, last_name: r.last_name, status_token: r.status_token }));
+
+  return {
+    alreadyCancelled: false,
+    event: { title: event.title, date: event.date, time: event.time, location: event.location },
+    registrations,
+  };
 }
 
 export function updateLocalEvent(id: number, data: EventCreateInput): void {

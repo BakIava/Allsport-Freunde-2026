@@ -7,6 +7,8 @@ import type {
   RegistrationWithEvent,
   RegistrationStatusInfo,
   RegistrationStatus,
+  Registration,
+  CancelEventResult,
 } from "./types";
 
 function getDatabaseUrl(): string | undefined {
@@ -34,7 +36,7 @@ export async function getEvents(): Promise<EventWithRegistrations[]> {
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.created_at,
+      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.created_at,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
       COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants
     FROM events e
@@ -48,7 +50,7 @@ export async function getEvents(): Promise<EventWithRegistrations[]> {
 
 export async function getEvent(
   id: number
-): Promise<{ id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string } | null> {
+): Promise<{ id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string; status: string; cancellation_reason: string | null } | null> {
   if (!isPostgresConfigured()) {
     const { getLocalEvent } = await import("./local-data");
     const event = getLocalEvent(id);
@@ -56,8 +58,8 @@ export async function getEvent(
   }
 
   const sql = getSQL();
-  const rows = await sql`SELECT id, max_participants, title, TO_CHAR(date, 'YYYY-MM-DD') AS date, time::text AS time, location, price, dress_code, category FROM events WHERE id = ${id}`;
-  return (rows[0] as { id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string }) ?? null;
+  const rows = await sql`SELECT id, max_participants, title, TO_CHAR(date, 'YYYY-MM-DD') AS date, time::text AS time, location, price, dress_code, category, status, cancellation_reason FROM events WHERE id = ${id}`;
+  return (rows[0] as { id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string; status: string; cancellation_reason: string | null }) ?? null;
 }
 
 export async function getRegistrationCount(eventId: number): Promise<number> {
@@ -215,7 +217,7 @@ export async function getAllEvents(): Promise<EventWithRegistrations[]> {
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.created_at,
+      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.created_at,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
       COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants
     FROM events e
@@ -235,7 +237,7 @@ export async function getEventFull(id: number): Promise<EventWithRegistrations |
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.created_at,
+      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.created_at,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
       COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants
     FROM events e
@@ -282,6 +284,37 @@ export async function updateEvent(id: number, data: EventCreateInput): Promise<v
       max_participants = ${data.max_participants}
     WHERE id = ${id}
   `;
+}
+
+export async function cancelEvent(id: number, reason?: string): Promise<CancelEventResult> {
+  if (!isPostgresConfigured()) {
+    const { cancelLocalEvent } = await import("./local-data");
+    return cancelLocalEvent(id, reason);
+  }
+
+  const sql = getSQL();
+  const eventRows = await sql`SELECT id, title, TO_CHAR(date, 'YYYY-MM-DD') AS date, time::text AS time, location, status FROM events WHERE id = ${id}`;
+  const event = eventRows[0] as { id: number; title: string; date: string; time: string; location: string; status: string } | undefined;
+
+  if (!event) return { alreadyCancelled: false, event: null, registrations: [] };
+  if (event.status === "cancelled") return { alreadyCancelled: true, event, registrations: [] };
+
+  await sql`
+    UPDATE events SET
+      status = 'cancelled',
+      cancellation_reason = ${reason ?? null}
+    WHERE id = ${id}
+  `;
+
+  const regRows = await sql`
+    SELECT email, first_name, last_name, status_token FROM registrations WHERE event_id = ${id}
+  `;
+
+  return {
+    alreadyCancelled: false,
+    event: { title: event.title, date: event.date, time: event.time, location: event.location },
+    registrations: regRows as Pick<Registration, "email" | "first_name" | "last_name" | "status_token">[],
+  };
 }
 
 export async function deleteEvent(id: number): Promise<void> {

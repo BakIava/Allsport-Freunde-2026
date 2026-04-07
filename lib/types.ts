@@ -1,3 +1,5 @@
+export type EventStatus = "active" | "cancelled";
+
 export interface Event {
   id: number;
   title: string;
@@ -9,6 +11,8 @@ export interface Event {
   price: string;
   dress_code: string;
   max_participants: number;
+  status: EventStatus;
+  cancellation_reason: string | null;
   created_at: string;
 }
 
@@ -81,6 +85,12 @@ export interface AdminStats {
   total_registrations: number;
   pending_registrations: number;
   avg_utilization: number;
+}
+
+export interface CancelEventResult {
+  alreadyCancelled: boolean;
+  event: { title: string; date: string; time: string; location: string } | null;
+  registrations: Pick<Registration, "email" | "first_name" | "last_name" | "status_token">[];
 }
 
 export interface EventCreateInput {

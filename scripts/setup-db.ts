@@ -24,9 +24,14 @@ async function setup() {
       price VARCHAR(100) NOT NULL,
       dress_code VARCHAR(255) NOT NULL,
       max_participants INTEGER NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'active',
+      cancellation_reason TEXT,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
   `;
+  // Migration: add columns for existing databases
+  await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active'`;
+  await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_reason TEXT`;
   console.log("  ✓ Tabelle 'events' erstellt");
 
   await sql`
