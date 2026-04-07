@@ -278,9 +278,10 @@ export function createLocalEvent(data: EventCreateInput & { publish?: boolean })
   const id = nextEventId++;
   const status = data.publish ? "published" : "draft";
   const published_at = data.publish ? new Date().toISOString() : null;
-  localEvents.push({ id, ...data, status, cancellation_reason: null, published_at, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 0 });
-  if (data.images?.length) {
-    setLocalEventImages(id, data.images);
+  const { images, publish, ...eventFields } = data;
+  localEvents.push({ id, ...eventFields, status, cancellation_reason: null, published_at, created_at: new Date().toISOString(), current_participants: 0, pending_participants: 0 });
+  if (images?.length) {
+    setLocalEventImages(id, images);
   }
   return { id };
 }
@@ -343,9 +344,10 @@ export function cancelLocalEvent(id: number, reason?: string): CancelEventResult
 
 export function updateLocalEvent(id: number, data: EventCreateInput): void {
   const event = localEvents.find((e) => e.id === id);
-  if (event) Object.assign(event, data);
-  if (data.images !== undefined) {
-    setLocalEventImages(id, data.images);
+  if (event) {
+    const { images, ...eventFields } = data;
+    Object.assign(event, eventFields);
+    if (images !== undefined) setLocalEventImages(id, images);
   }
 }
 
@@ -458,15 +460,19 @@ export function getLocalTemplate(id: number): EventTemplate | null {
 
 export function createLocalTemplate(data: EventTemplateInput): { id: number } {
   const id = nextTemplateId++;
-  localTemplates.push({ id, ...data, last_used_at: null, created_at: new Date().toISOString() });
-  if (data.images?.length) setLocalTemplateImages(id, data.images);
+  const { images, ...templateFields } = data;
+  localTemplates.push({ id, ...templateFields, last_used_at: null, created_at: new Date().toISOString() });
+  if (images?.length) setLocalTemplateImages(id, images);
   return { id };
 }
 
 export function updateLocalTemplate(id: number, data: EventTemplateInput): void {
   const tpl = localTemplates.find((t) => t.id === id);
-  if (tpl) Object.assign(tpl, data);
-  if (data.images !== undefined) setLocalTemplateImages(id, data.images);
+  if (tpl) {
+    const { images, ...templateFields } = data;
+    Object.assign(tpl, templateFields);
+    if (images !== undefined) setLocalTemplateImages(id, images);
+  }
 }
 
 export function deleteLocalTemplate(id: number): void {
