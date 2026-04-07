@@ -85,9 +85,30 @@ export default function StatusPage({ info }: { info: RegistrationStatusInfo }) {
               </p>
             )}
             {status === "approved" && (
-              <p className="text-sm text-green-700 bg-green-50 rounded-lg p-3">
-                Deine Anmeldung wurde bestätigt! Wir freuen uns auf dich.
-              </p>
+              <div className="space-y-3">
+                <p className="text-sm text-green-700 bg-green-50 rounded-lg p-3">
+                  Deine Anmeldung wurde bestätigt! Wir freuen uns auf dich.
+                </p>
+                {info.qr_code && (
+                  <div className="border border-gray-100 rounded-lg p-4 text-center bg-white">
+                    <p className="text-xs font-medium text-gray-500 mb-3">Dein Check-In QR-Code</p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={info.qr_code}
+                      alt="Check-In QR-Code"
+                      className="mx-auto w-48 h-48 rounded"
+                    />
+                    <p className="text-xs text-gray-400 mt-2">
+                      Zeige diesen Code am Event-Tag beim Einlass vor.
+                    </p>
+                    {info.checked_in_at && (
+                      <p className="text-xs text-green-600 font-medium mt-2">
+                        ✓ Eingecheckt um {formatDateTime(info.checked_in_at)}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
             {status === "rejected" && (
               <div className="text-sm text-red-700 bg-red-50 rounded-lg p-3 space-y-1">

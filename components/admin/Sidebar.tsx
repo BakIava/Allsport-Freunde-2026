@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   X,
+  ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/events", label: "Events", icon: CalendarDays },
   { href: "/admin/registrations", label: "Anmeldungen", icon: Users },
+  { href: "/admin/checkin", label: "Check-In", icon: ClipboardCheck },
 ];
 
 export default function Sidebar() {

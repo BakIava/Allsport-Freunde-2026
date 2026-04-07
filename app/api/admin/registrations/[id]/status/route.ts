@@ -1,9 +1,9 @@
-import { updateRegistrationStatus, getRegistrationWithEvent } from "@/lib/db";
+import { updateRegistrationStatus, getRegistrationWithEvent, getEvent, saveQRCode } from "@/lib/db";
 import {
   sendRegistrationApprovedEmail,
   sendRegistrationRejectedEmail,
 } from "@/lib/email";
-import { getEvent } from "@/lib/db";
+import { generateCheckinToken, generateQRCode } from "@/lib/checkin";
 import { NextRequest, NextResponse } from "next/server";
 import type { RegistrationStatus } from "@/lib/types";
 
@@ -41,10 +41,28 @@ export async function PATCH(
       );
     }
 
-    // Get event details for email
+    // Get event details for email and QR code
     const event = await getEvent(regBefore.event_id);
 
     if (event) {
+      let qrCodeBase64: string | undefined;
+
+      // Generate QR code when approving
+      if (status === "approved") {
+        try {
+          const token = generateCheckinToken(
+            { eventId: event.id, participantId: regId, registrationId: regId },
+            event.date,
+            event.time
+          );
+          qrCodeBase64 = await generateQRCode(token);
+          await saveQRCode(regId, qrCodeBase64, token);
+        } catch (err) {
+          console.error("Fehler bei QR-Code-Generierung:", err);
+          // Non-fatal: continue with approval even if QR fails
+        }
+      }
+
       const emailData = {
         to: regBefore.email,
         firstName: regBefore.first_name,
@@ -58,7 +76,7 @@ export async function PATCH(
 
       // Fire-and-forget email
       if (status === "approved") {
-        sendRegistrationApprovedEmail(emailData);
+        sendRegistrationApprovedEmail({ ...emailData, qrCode: qrCodeBase64 });
       } else if (status === "rejected") {
         sendRegistrationRejectedEmail({ ...emailData, note });
       }
