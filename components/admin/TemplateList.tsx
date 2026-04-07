@@ -41,7 +41,7 @@ export default function TemplateList() {
     setLoading(true);
     fetch("/api/admin/templates")
       .then((r) => r.json())
-      .then(setTemplates)
+      .then((data) => { if (Array.isArray(data)) setTemplates(data); })
       .catch(() => toast("Vorlagen konnten nicht geladen werden.", "error"))
       .finally(() => setLoading(false));
   };
@@ -84,6 +84,7 @@ export default function TemplateList() {
           price: tpl.price,
           dress_code: tpl.dress_code,
           max_participants: tpl.max_participants,
+          images: tpl.images ?? [],
         }),
       });
       if (!res.ok) {
