@@ -62,7 +62,6 @@ export default function ScannerPage() {
     document.querySelectorAll<HTMLVideoElement>("#qr-reader video").forEach((video) => {
       const stream = video.srcObject as MediaStream | null;
       stream?.getTracks().forEach((t) => t.stop());
-      video.srcObject = null;
     });
     // 2. Let html5-qrcode clean up its own state
     try {
