@@ -61,6 +61,10 @@ function initSeedRegistrations() {
         status_changed_at: m.status === "approved" ? new Date().toISOString() : null,
         status_note: null,
         created_at: new Date().toISOString(),
+        qr_code: null,
+        qr_token: null,
+        checked_in_at: null,
+        checked_in_by: null,
       });
     }
   }
@@ -155,6 +159,10 @@ export function createLocalRegistration(data: {
     status_changed_at: null,
     status_note: null,
     created_at: new Date().toISOString(),
+    qr_code: null,
+    qr_token: null,
+    checked_in_at: null,
+    checked_in_by: null,
   };
   localRegistrations.push(registration);
   recomputeParticipants(data.event_id);
@@ -185,6 +193,8 @@ export function getLocalRegistrationByToken(token: string): RegistrationStatusIn
     event_category: event.category,
     event_price: event.price,
     event_dress_code: event.dress_code,
+    qr_code: reg.qr_code,
+    checked_in_at: reg.checked_in_at,
   };
 }
 

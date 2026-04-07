@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   FileText,
+  ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/admin/events", label: "Events", icon: CalendarDays },
   { href: "/admin/registrations", label: "Anmeldungen", icon: Users },
   { href: "/admin/templates", label: "Vorlagen", icon: FileText },
+  { href: "/admin/checkin", label: "Check-In", icon: ClipboardCheck },
 ];
 
 export default function Sidebar() {

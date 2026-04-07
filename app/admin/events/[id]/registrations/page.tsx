@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import RegistrationTable from "@/components/admin/RegistrationTable";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, QrCode, LayoutDashboard } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
 
 const categoryLabels: Record<string, string> = {
@@ -52,15 +52,31 @@ export default function EventRegistrationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/admin/events">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Anmeldungen</h1>
-          <p className="text-muted-foreground mt-1">{event.title}</p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <Link href="/admin/events">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Anmeldungen</h1>
+            <p className="text-muted-foreground mt-1">{event.title}</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Link href={`/admin/events/${eventId}/dashboard`}>
+            <Button variant="outline" size="sm" className="gap-2">
+              <LayoutDashboard className="w-4 h-4" />
+              Check-In Dashboard
+            </Button>
+          </Link>
+          <Link href={`/admin/events/${eventId}/scanner`}>
+            <Button size="sm" className="gap-2 bg-green-600 hover:bg-green-700 text-white">
+              <QrCode className="w-4 h-4" />
+              Scanner
+            </Button>
+          </Link>
         </div>
       </div>
 

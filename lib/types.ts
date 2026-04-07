@@ -52,6 +52,10 @@ export interface Registration {
   status_changed_at: string | null;
   status_note: string | null;
   created_at: string;
+  qr_code: string | null;
+  qr_token: string | null;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
 }
 
 export interface RegistrationRequest {
@@ -86,6 +90,25 @@ export interface RegistrationStatusInfo {
   event_category: string;
   event_price: string;
   event_dress_code: string;
+  qr_code: string | null;
+  checked_in_at: string | null;
+}
+
+export interface CheckinParticipant {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  guests: number;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+}
+
+export interface CheckinStatusResponse {
+  total: number;
+  checked_in: number;
+  missing: number;
+  participants: CheckinParticipant[];
 }
 
 export interface AdminUser {

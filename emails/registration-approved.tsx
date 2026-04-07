@@ -7,6 +7,7 @@ import {
   Text,
   Link,
   Hr,
+  Img,
 } from "@react-email/components";
 import * as React from "react";
 
@@ -17,6 +18,7 @@ interface Props {
   eventTime: string;
   eventLocation: string;
   statusUrl: string;
+  qrCode?: string;
 }
 
 export function RegistrationApprovedEmail({
@@ -26,6 +28,7 @@ export function RegistrationApprovedEmail({
   eventTime,
   eventLocation,
   statusUrl,
+  qrCode,
 }: Props) {
   return (
     <Html lang="de">
@@ -51,6 +54,27 @@ export function RegistrationApprovedEmail({
               <strong>Ort:</strong> {eventLocation}
             </Text>
           </Section>
+
+          {qrCode && (
+            <Section style={qrSection}>
+              <Text style={qrHeading}>Dein Check-In QR-Code</Text>
+              <Text style={qrInfo}>
+                Zeige diesen QR-Code am Event-Tag beim Einlass vor.
+              </Text>
+              <Img
+                src={qrCode}
+                width="200"
+                height="200"
+                alt="Check-In QR-Code"
+                style={qrImage}
+              />
+              <Text style={qrFallback}>
+                Falls der QR-Code nicht angezeigt wird, findest du ihn auf deiner{" "}
+                <Link href={statusUrl} style={link}>Status-Seite</Link>.
+              </Text>
+            </Section>
+          )}
+
           <Text style={text}>
             Alle Details zu deiner Anmeldung findest du hier:
           </Text>
@@ -107,6 +131,44 @@ const infoText: React.CSSProperties = {
   lineHeight: "22px",
   color: "#333333",
   margin: "4px 0",
+};
+
+const qrSection: React.CSSProperties = {
+  backgroundColor: "#f8fafc",
+  borderRadius: "8px",
+  padding: "20px",
+  margin: "20px 0",
+  textAlign: "center",
+};
+
+const qrHeading: React.CSSProperties = {
+  fontSize: "16px",
+  fontWeight: "bold",
+  color: "#333333",
+  marginBottom: "8px",
+};
+
+const qrInfo: React.CSSProperties = {
+  fontSize: "13px",
+  color: "#666666",
+  marginBottom: "16px",
+};
+
+const qrImage: React.CSSProperties = {
+  display: "block",
+  margin: "0 auto",
+  border: "1px solid #e2e8f0",
+  borderRadius: "8px",
+};
+
+const qrFallback: React.CSSProperties = {
+  fontSize: "12px",
+  color: "#8898aa",
+  marginTop: "12px",
+};
+
+const link: React.CSSProperties = {
+  color: "#16a34a",
 };
 
 const button: React.CSSProperties = {

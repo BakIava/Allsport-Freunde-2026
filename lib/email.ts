@@ -71,7 +71,7 @@ export async function sendRegistrationReceivedEmail(data: EmailData) {
   );
 }
 
-export async function sendRegistrationApprovedEmail(data: EmailData) {  
+export async function sendRegistrationApprovedEmail(data: EmailData & { qrCode?: string }) {
   const statusUrl = `${appUrl}/status/${data.statusToken}`;
   const subject = `Anmeldung bestätigt – ${data.eventTitle}`;
 
@@ -85,6 +85,7 @@ export async function sendRegistrationApprovedEmail(data: EmailData) {
       eventTime: data.eventTime,
       eventLocation: data.eventLocation,
       statusUrl,
+      qrCode: data.qrCode,
     })
   );
 }

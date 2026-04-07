@@ -14,6 +14,8 @@ import type {
   EventTemplateInput,
   EventImage,
   EventImageInput,
+  CheckinParticipant,
+  CheckinStatusResponse,
 } from "./types";
 
 function getDatabaseUrl(): string | undefined {
@@ -136,6 +138,7 @@ export async function getRegistrationByToken(token: string): Promise<Registratio
     SELECT
       r.id, r.first_name, r.last_name, r.email, r.guests,
       r.status, r.status_note, r.status_changed_at, r.created_at,
+      r.qr_code, r.checked_in_at,
       e.title AS event_title, e.date AS event_date, e.time AS event_time,
       e.location AS event_location, e.category AS event_category,
       e.price AS event_price, e.dress_code AS event_dress_code
@@ -598,4 +601,94 @@ export async function touchTemplate(id: number): Promise<void> {
   }
   const sql = getSQL();
   await sql`UPDATE event_templates SET last_used_at = NOW() WHERE id = ${id}`;
+}
+
+// ─── Check-In ────────────────────────────────────────────
+
+export async function saveQRCode(
+  registrationId: number,
+  qrCode: string,
+  qrToken: string
+): Promise<void> {
+  const sql = getSQL();
+  await sql`
+    UPDATE registrations SET qr_code = ${qrCode}, qr_token = ${qrToken}
+    WHERE id = ${registrationId}
+  `;
+}
+
+export async function getRegistrationByQRToken(
+  qrToken: string
+): Promise<RegistrationWithEvent | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT r.*, e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.category AS event_category
+    FROM registrations r
+    JOIN events e ON r.event_id = e.id
+    WHERE r.qr_token = ${qrToken}
+  `;
+  return (rows[0] as RegistrationWithEvent) ?? null;
+}
+
+export async function markCheckedIn(
+  registrationId: number,
+  checkedInBy: string
+): Promise<void> {
+  const sql = getSQL();
+  await sql`
+    UPDATE registrations
+    SET checked_in_at = NOW(), checked_in_by = ${checkedInBy}
+    WHERE id = ${registrationId}
+  `;
+}
+
+export async function getCheckinStatus(eventId: number): Promise<CheckinStatusResponse> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT id, first_name, last_name, email, guests, checked_in_at, checked_in_by
+    FROM registrations
+    WHERE event_id = ${eventId} AND status = 'approved'
+    ORDER BY last_name ASC, first_name ASC
+  `;
+
+  const participants = rows as CheckinParticipant[];
+  // Each registration = 1 Hauptperson + guests Begleiter
+  const total = participants.reduce((sum, p) => sum + p.guests + 1, 0);
+  const checkedIn = participants
+    .filter((p) => p.checked_in_at !== null)
+    .reduce((sum, p) => sum + p.guests + 1, 0);
+
+  return {
+    total,
+    checked_in: checkedIn,
+    missing: total - checkedIn,
+    participants,
+  };
+}
+
+export async function undoCheckin(registrationId: number): Promise<void> {
+  const sql = getSQL();
+  await sql`
+    UPDATE registrations
+    SET checked_in_at = NULL, checked_in_by = NULL
+    WHERE id = ${registrationId} AND status = 'approved'
+  `;
+}
+
+export async function manualCheckin(
+  registrationId: number,
+  checkedInBy: string
+): Promise<{ alreadyCheckedIn: boolean }> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT checked_in_at FROM registrations WHERE id = ${registrationId} AND status = 'approved'
+  `;
+
+  if (!rows[0]) throw new Error("Anmeldung nicht gefunden oder nicht genehmigt.");
+
+  const reg = rows[0] as { checked_in_at: string | null };
+  if (reg.checked_in_at) return { alreadyCheckedIn: true };
+
+  await markCheckedIn(registrationId, checkedInBy);
+  return { alreadyCheckedIn: false };
 }
