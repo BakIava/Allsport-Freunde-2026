@@ -480,6 +480,15 @@ export async function getCheckinStatus(eventId: number): Promise<CheckinStatusRe
   };
 }
 
+export async function undoCheckin(registrationId: number): Promise<void> {
+  const sql = getSQL();
+  await sql`
+    UPDATE registrations
+    SET checked_in_at = NULL, checked_in_by = NULL
+    WHERE id = ${registrationId} AND status = 'approved'
+  `;
+}
+
 export async function manualCheckin(
   registrationId: number,
   checkedInBy: string

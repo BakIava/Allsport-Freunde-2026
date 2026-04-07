@@ -11,6 +11,7 @@ import {
   Download,
   RefreshCw,
   UserCheck,
+  Undo2,
 } from "lucide-react";
 import type { CheckinParticipant, CheckinStatusResponse } from "@/lib/types";
 
@@ -27,6 +28,7 @@ export default function CheckinDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [manualCheckinId, setManualCheckinId] = useState<number | null>(null);
+  const [undoId, setUndoId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -46,6 +48,25 @@ export default function CheckinDashboardPage() {
     const interval = setInterval(fetchStatus, 10_000);
     return () => clearInterval(interval);
   }, [fetchStatus]);
+
+  async function handleUndo(participantId: number) {
+    setUndoId(participantId);
+    setError(null);
+    try {
+      const res = await fetch("/api/checkin/undo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationId: participantId }),
+      });
+      const body = await res.json();
+      if (!res.ok) setError(body.error ?? "Fehler beim Auschecken.");
+      else await fetchStatus();
+    } catch {
+      setError("Netzwerkfehler.");
+    } finally {
+      setUndoId(null);
+    }
+  }
 
   async function handleManualCheckin(participantId: number) {
     setManualCheckinId(participantId);
@@ -223,7 +244,9 @@ export default function CheckinDashboardPage() {
                     key={p.id}
                     participant={p}
                     onManualCheckin={handleManualCheckin}
+                    onUndo={handleUndo}
                     loadingId={manualCheckinId}
+                    undoId={undoId}
                   />
                 ))}
               </>
@@ -238,7 +261,9 @@ export default function CheckinDashboardPage() {
                     key={p.id}
                     participant={p}
                     onManualCheckin={handleManualCheckin}
+                    onUndo={handleUndo}
                     loadingId={manualCheckinId}
+                    undoId={undoId}
                   />
                 ))}
               </>
@@ -258,14 +283,20 @@ export default function CheckinDashboardPage() {
 function ParticipantRow({
   participant,
   onManualCheckin,
+  onUndo,
   loadingId,
+  undoId,
 }: {
   participant: CheckinParticipant;
   onManualCheckin: (id: number) => void;
+  onUndo: (id: number) => void;
   loadingId: number | null;
+  undoId: number | null;
 }) {
   const checked = participant.checked_in_at !== null;
-  const loading = loadingId === participant.id;
+  const loadingCheckin = loadingId === participant.id;
+  const loadingUndo = undoId === participant.id;
+  const busy = loadingCheckin || loadingUndo;
 
   return (
     <div
@@ -295,18 +326,32 @@ function ParticipantRow({
       </div>
       <div className="flex items-center gap-2 shrink-0 ml-3">
         {checked ? (
-          <span className="flex items-center gap-1 text-xs font-medium text-green-700">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            {formatTime(participant.checked_in_at)}
-          </span>
+          <>
+            <span className="flex items-center gap-1 text-xs font-medium text-green-700">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              {formatTime(participant.checked_in_at)}
+            </span>
+            <button
+              onClick={() => onUndo(participant.id)}
+              disabled={busy}
+              title="Check-In rückgängig machen"
+              className="flex items-center gap-1 px-2 py-1.5 text-xs border border-gray-200 hover:border-red-300 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {loadingUndo ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Undo2 className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </>
         ) : (
           <button
             onClick={() => onManualCheckin(participant.id)}
-            disabled={loading}
+            disabled={busy}
             title="Manuell einchecken"
             className="flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 hover:border-green-300 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors disabled:opacity-50"
           >
-            {loading ? (
+            {loadingCheckin ? (
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <UserCheck className="w-3.5 h-3.5" />
