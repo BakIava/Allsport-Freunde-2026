@@ -128,6 +128,15 @@ export default function EventForm({ event }: EventFormProps) {
       dress_code: tpl.dress_code,
       max_participants: tpl.max_participants,
     }));
+    // Pre-fill images from template
+    setImages(
+      (tpl.images ?? []).map((img, i) => ({
+        _key: crypto.randomUUID(),
+        url: img.url,
+        alt_text: img.alt_text,
+        valid: true,
+      }))
+    );
     setSelectedTemplateId(id);
     // Record last usage
     fetch(`/api/admin/templates/${tpl.id}`, {

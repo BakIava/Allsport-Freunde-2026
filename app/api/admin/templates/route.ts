@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       price: body.price.trim(),
       dress_code: (body.dress_code || "").trim(),
       max_participants: body.max_participants,
+      images: Array.isArray(body.images) ? body.images : [],
     });
 
     return NextResponse.json({ message: "Vorlage erstellt!", id: result.id }, { status: 201 });

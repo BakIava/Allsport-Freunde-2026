@@ -44,6 +44,7 @@ export async function PUT(
       price: body.price.trim(),
       dress_code: (body.dress_code || "").trim(),
       max_participants: body.max_participants,
+      images: Array.isArray(body.images) ? body.images : undefined,
     });
     return NextResponse.json({ message: "Vorlage aktualisiert!" });
   } catch (error) {

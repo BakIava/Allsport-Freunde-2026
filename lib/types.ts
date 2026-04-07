@@ -152,6 +152,7 @@ export interface EventTemplate {
   max_participants: number;
   last_used_at: string | null;
   created_at: string;
+  images?: EventImageInput[];
 }
 
 export interface EventTemplateInput {
@@ -163,6 +164,7 @@ export interface EventTemplateInput {
   price: string;
   dress_code: string;
   max_participants: number;
+  images?: EventImageInput[];
 }
 
 export interface EventCreateInput {

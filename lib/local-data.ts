@@ -37,6 +37,11 @@ let nextEventId = 9;
 let localImages: EventImage[] = [];
 let nextImageId = 1;
 
+// ─── Template Images ─────────────────────────────────────
+interface TemplateImage { id: number; template_id: number; url: string; alt_text: string; position: number; }
+let localTemplateImages: TemplateImage[] = [];
+let nextTemplateImageId = 1;
+
 function initSeedRegistrations() {
   const mapping: { eventId: number; count: number; prefix: string; emailPrefix: string; status: RegistrationStatus }[] = [
     { eventId: 1, count: 5, prefix: "Spieler", emailPrefix: "spieler", status: "approved" },
@@ -105,6 +110,26 @@ function getImagesForEvent(eventId: number): EventImage[] {
   return localImages
     .filter((i) => i.event_id === eventId)
     .sort((a, b) => a.position - b.position);
+}
+
+export function setLocalTemplateImages(templateId: number, images: EventImageInput[]): void {
+  localTemplateImages = localTemplateImages.filter((i) => i.template_id !== templateId);
+  images.forEach((img, idx) => {
+    localTemplateImages.push({
+      id: nextTemplateImageId++,
+      template_id: templateId,
+      url: img.url,
+      alt_text: img.alt_text,
+      position: img.position ?? idx,
+    });
+  });
+}
+
+function getTemplateImages(templateId: number): EventImageInput[] {
+  return localTemplateImages
+    .filter((i) => i.template_id === templateId)
+    .sort((a, b) => a.position - b.position)
+    .map((i) => ({ url: i.url, alt_text: i.alt_text, position: i.position }));
 }
 
 export function setLocalEventImages(eventId: number, images: EventImageInput[]): void {
@@ -289,10 +314,12 @@ export function resetLocalData(
   localRegistrations = [...registrations];
   localTemplates = [...templates];
   localImages = [...images];
+  localTemplateImages = [];
   nextRegistrationId = registrations.length > 0 ? Math.max(...registrations.map((r) => r.id)) + 1 : 1;
   nextEventId = events.length > 0 ? Math.max(...events.map((e) => e.id)) + 1 : 1;
   nextTemplateId = templates.length > 0 ? Math.max(...templates.map((t) => t.id)) + 1 : 1;
   nextImageId = images.length > 0 ? Math.max(...images.map((i) => i.id)) + 1 : 1;
+  nextTemplateImageId = 1;
 }
 
 export function cancelLocalEvent(id: number, reason?: string): CancelEventResult {
@@ -413,30 +440,37 @@ let localTemplates: EventTemplate[] = [...seedTemplates];
 let nextTemplateId = seedTemplates.length + 1;
 
 export function getLocalAllTemplates(): EventTemplate[] {
-  return [...localTemplates].sort((a, b) => {
-    if (a.last_used_at && b.last_used_at) return b.last_used_at.localeCompare(a.last_used_at);
-    if (a.last_used_at) return -1;
-    if (b.last_used_at) return 1;
-    return b.created_at.localeCompare(a.created_at);
-  });
+  return [...localTemplates]
+    .sort((a, b) => {
+      if (a.last_used_at && b.last_used_at) return b.last_used_at.localeCompare(a.last_used_at);
+      if (a.last_used_at) return -1;
+      if (b.last_used_at) return 1;
+      return b.created_at.localeCompare(a.created_at);
+    })
+    .map((t) => ({ ...t, images: getTemplateImages(t.id) }));
 }
 
 export function getLocalTemplate(id: number): EventTemplate | null {
-  return localTemplates.find((t) => t.id === id) ?? null;
+  const tpl = localTemplates.find((t) => t.id === id);
+  if (!tpl) return null;
+  return { ...tpl, images: getTemplateImages(id) };
 }
 
 export function createLocalTemplate(data: EventTemplateInput): { id: number } {
   const id = nextTemplateId++;
   localTemplates.push({ id, ...data, last_used_at: null, created_at: new Date().toISOString() });
+  if (data.images?.length) setLocalTemplateImages(id, data.images);
   return { id };
 }
 
 export function updateLocalTemplate(id: number, data: EventTemplateInput): void {
   const tpl = localTemplates.find((t) => t.id === id);
   if (tpl) Object.assign(tpl, data);
+  if (data.images !== undefined) setLocalTemplateImages(id, data.images);
 }
 
 export function deleteLocalTemplate(id: number): void {
+  localTemplateImages = localTemplateImages.filter((i) => i.template_id !== id);
   localTemplates = localTemplates.filter((t) => t.id !== id);
 }
 

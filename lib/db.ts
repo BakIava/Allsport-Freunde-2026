@@ -526,6 +526,14 @@ export async function bulkUpdateRegistrationStatus(
 
 // ─── Templates ───────────────────────────────────────────
 
+async function setTemplateImages(templateId: number, images: EventImageInput[]): Promise<void> {
+  const sql = getSQL();
+  await sql`DELETE FROM template_images WHERE template_id = ${templateId}`;
+  for (const img of images) {
+    await sql`INSERT INTO template_images (template_id, url, alt_text, position) VALUES (${templateId}, ${img.url}, ${img.alt_text}, ${img.position})`;
+  }
+}
+
 export async function getAllTemplates(): Promise<EventTemplate[]> {
   if (!isPostgresConfigured()) {
     const { getLocalAllTemplates } = await import("./local-data");
@@ -533,7 +541,10 @@ export async function getAllTemplates(): Promise<EventTemplate[]> {
   }
   const sql = getSQL();
   const rows = await sql`
-    SELECT * FROM event_templates ORDER BY last_used_at DESC NULLS LAST, created_at DESC
+    SELECT t.*,
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM template_images i WHERE i.template_id = t.id), '[]') AS images
+    FROM event_templates t
+    ORDER BY t.last_used_at DESC NULLS LAST, t.created_at DESC
   `;
   return rows as EventTemplate[];
 }
@@ -544,7 +555,12 @@ export async function getTemplate(id: number): Promise<EventTemplate | null> {
     return getLocalTemplate(id);
   }
   const sql = getSQL();
-  const rows = await sql`SELECT * FROM event_templates WHERE id = ${id}`;
+  const rows = await sql`
+    SELECT t.*,
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM template_images i WHERE i.template_id = t.id), '[]') AS images
+    FROM event_templates t
+    WHERE t.id = ${id}
+  `;
   return (rows[0] as EventTemplate) ?? null;
 }
 
@@ -559,7 +575,9 @@ export async function createTemplate(data: EventTemplateInput): Promise<{ id: nu
     VALUES (${data.name}, ${data.title}, ${data.category}, ${data.description}, ${data.location}, ${data.price}, ${data.dress_code}, ${data.max_participants})
     RETURNING id
   `;
-  return rows[0] as { id: number };
+  const { id } = rows[0] as { id: number };
+  if (data.images?.length) await setTemplateImages(id, data.images);
+  return { id };
 }
 
 export async function updateTemplate(id: number, data: EventTemplateInput): Promise<void> {
@@ -581,6 +599,7 @@ export async function updateTemplate(id: number, data: EventTemplateInput): Prom
       max_participants = ${data.max_participants}
     WHERE id = ${id}
   `;
+  if (data.images !== undefined) await setTemplateImages(id, data.images);
 }
 
 export async function deleteTemplate(id: number): Promise<void> {
@@ -590,6 +609,7 @@ export async function deleteTemplate(id: number): Promise<void> {
     return;
   }
   const sql = getSQL();
+  // template_images has ON DELETE CASCADE, so this is enough:
   await sql`DELETE FROM event_templates WHERE id = ${id}`;
 }
 
