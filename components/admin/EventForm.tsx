@@ -65,6 +65,7 @@ export default function EventForm({ event }: EventFormProps) {
     max_participants: event?.max_participants ?? 20,
   });
   const [submitting, setSubmitting] = useState(false);
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
   // Image management
   const [images, setImages] = useState<ImageEntry[]>(() =>
@@ -480,9 +481,9 @@ export default function EventForm({ event }: EventFormProps) {
                   <Button
                     type="button"
                     disabled={submitting}
-                    onClick={(e) => { e.preventDefault(); handleSubmit(e as unknown as React.FormEvent, true); }}
+                    onClick={() => setPublishConfirmOpen(true)}
                   >
-                    {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Globe className="w-4 h-4 mr-2" />}
+                    <Globe className="w-4 h-4 mr-2" />
                     Jetzt veröffentlichen
                   </Button>
                   <Button type="submit" variant="outline" disabled={submitting}>
@@ -520,6 +521,33 @@ export default function EventForm({ event }: EventFormProps) {
           </form>
         </CardContent>
       </Card>
+
+      {/* Publish confirmation dialog */}
+      <Dialog open={publishConfirmOpen} onOpenChange={(o) => { if (!o) setPublishConfirmOpen(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Event veröffentlichen</DialogTitle>
+            <DialogDescription>
+              Möchtest du dieses Event jetzt veröffentlichen? Es wird sofort für alle Besucher sichtbar und Anmeldungen sind möglich.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => setPublishConfirmOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button
+              disabled={submitting}
+              onClick={(e) => {
+                setPublishConfirmOpen(false);
+                handleSubmit(e as unknown as React.FormEvent, true);
+              }}
+            >
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Globe className="w-4 h-4 mr-2" />}
+              Veröffentlichen
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Save-as-template dialog */}
       <Dialog open={saveTemplateOpen} onOpenChange={(o) => { if (!o) setSaveTemplateOpen(false); }}>

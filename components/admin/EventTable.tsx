@@ -142,6 +142,7 @@ export default function EventTable() {
 
   // Publish / unpublish state
   const [publishing, setPublishing] = useState<number | null>(null);
+  const [publishTarget, setPublishTarget] = useState<EventWithRegistrations | null>(null);
 
   const fetchEvents = () => {
     setLoading(true);
@@ -231,6 +232,7 @@ export default function EventTable() {
   };
 
   const handlePublish = async (event: EventWithRegistrations) => {
+    setPublishTarget(null);
     setPublishing(event.id);
     try {
       const res = await fetch(`/api/admin/events/${event.id}/publish`, { method: "POST" });
@@ -294,7 +296,7 @@ export default function EventTable() {
   const rowProps = {
     onDelete: setDeleteTarget,
     onCancel: (e: EventWithRegistrations) => { setCancelTarget(e); setCancelReason(""); },
-    onPublish: handlePublish,
+    onPublish: setPublishTarget,
     onUnpublish: handleUnpublish,
     formatDate,
   };
@@ -399,6 +401,31 @@ export default function EventTable() {
             <Button variant="destructive" onClick={handleCancel} disabled={cancelling}>
               {cancelling ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Veranstaltung absagen
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Publish confirmation dialog ── */}
+      <Dialog open={!!publishTarget} onOpenChange={(o) => !o && setPublishTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Event veröffentlichen</DialogTitle>
+            <DialogDescription>
+              Möchtest du &bdquo;{publishTarget?.title}&ldquo; jetzt veröffentlichen?
+              Das Event wird für alle Besucher sichtbar und Anmeldungen sind möglich.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => setPublishTarget(null)}>
+              Abbrechen
+            </Button>
+            <Button
+              onClick={() => publishTarget && handlePublish(publishTarget)}
+              disabled={publishing === publishTarget?.id}
+            >
+              {publishing === publishTarget?.id ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Globe className="w-4 h-4 mr-2" />}
+              Veröffentlichen
             </Button>
           </div>
         </DialogContent>
