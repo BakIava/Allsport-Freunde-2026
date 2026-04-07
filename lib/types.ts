@@ -1,3 +1,5 @@
+export type EventStatus = "draft" | "published" | "cancelled";
+
 export interface Event {
   id: number;
   title: string;
@@ -9,12 +11,30 @@ export interface Event {
   price: string;
   dress_code: string;
   max_participants: number;
+  status: EventStatus;
+  cancellation_reason: string | null;
+  published_at: string | null;
   created_at: string;
+}
+
+export interface EventImage {
+  id: number;
+  event_id: number;
+  url: string;
+  alt_text: string;
+  position: number;
+}
+
+export interface EventImageInput {
+  url: string;
+  alt_text: string;
+  position: number;
 }
 
 export interface EventWithRegistrations extends Event {
   current_participants: number;
   pending_participants?: number;
+  images?: EventImage[];
 }
 
 export type RegistrationStatus = "pending" | "approved" | "rejected" | "cancelled";
@@ -106,6 +126,47 @@ export interface AdminStats {
   avg_utilization: number;
 }
 
+export interface PublishEventResult {
+  success: boolean;
+  /** Only set when unpublish is blocked */
+  registrationCount?: number;
+}
+
+export interface CancelEventResult {
+  alreadyCancelled: boolean;
+  event: { title: string; date: string; time: string; location: string } | null;
+  registrations: Pick<Registration, "email" | "first_name" | "last_name" | "status_token">[];
+}
+
+export interface EventTemplate {
+  id: number;
+  /** Display name of the template, e.g. "Monatliches Vereinstraining" */
+  name: string;
+  /** Default event title pre-filled when using this template */
+  title: string;
+  category: "fussball" | "fitness" | "schwimmen";
+  description: string;
+  location: string;
+  price: string;
+  dress_code: string;
+  max_participants: number;
+  last_used_at: string | null;
+  created_at: string;
+  images?: EventImageInput[];
+}
+
+export interface EventTemplateInput {
+  name: string;
+  title: string;
+  category: "fussball" | "fitness" | "schwimmen";
+  description: string;
+  location: string;
+  price: string;
+  dress_code: string;
+  max_participants: number;
+  images?: EventImageInput[];
+}
+
 export interface EventCreateInput {
   title: string;
   category: "fussball" | "fitness" | "schwimmen";
@@ -116,4 +177,5 @@ export interface EventCreateInput {
   price: string;
   dress_code: string;
   max_participants: number;
+  images?: EventImageInput[];
 }

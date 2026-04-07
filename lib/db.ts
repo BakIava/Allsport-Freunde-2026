@@ -7,6 +7,13 @@ import type {
   RegistrationWithEvent,
   RegistrationStatusInfo,
   RegistrationStatus,
+  Registration,
+  CancelEventResult,
+  PublishEventResult,
+  EventTemplate,
+  EventTemplateInput,
+  EventImage,
+  EventImageInput,
   CheckinParticipant,
   CheckinStatusResponse,
 } from "./types";
@@ -36,12 +43,13 @@ export async function getEvents(): Promise<EventWithRegistrations[]> {
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.created_at,
+      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.published_at, e.created_at,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
-      COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants
+      COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants,
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('id', i.id, 'event_id', i.event_id, 'url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM event_images i WHERE i.event_id = e.id), '[]') AS images
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
-    WHERE e.date >= CURRENT_DATE
+    WHERE e.status = 'published' AND e.date >= CURRENT_DATE
     GROUP BY e.id
     ORDER BY e.date ASC, e.time ASC
   `;
@@ -50,7 +58,7 @@ export async function getEvents(): Promise<EventWithRegistrations[]> {
 
 export async function getEvent(
   id: number
-): Promise<{ id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string } | null> {
+): Promise<{ id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string; status: string; cancellation_reason: string | null; published_at: string | null } | null> {
   if (!isPostgresConfigured()) {
     const { getLocalEvent } = await import("./local-data");
     const event = getLocalEvent(id);
@@ -58,8 +66,8 @@ export async function getEvent(
   }
 
   const sql = getSQL();
-  const rows = await sql`SELECT id, max_participants, title, TO_CHAR(date, 'YYYY-MM-DD') AS date, time::text AS time, location, price, dress_code, category FROM events WHERE id = ${id}`;
-  return (rows[0] as { id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string }) ?? null;
+  const rows = await sql`SELECT id, max_participants, title, TO_CHAR(date, 'YYYY-MM-DD') AS date, time::text AS time, location, price, dress_code, category, status, cancellation_reason, published_at FROM events WHERE id = ${id}`;
+  return (rows[0] as { id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string; status: string; cancellation_reason: string | null; published_at: string | null }) ?? null;
 }
 
 export async function getRegistrationCount(eventId: number): Promise<number> {
@@ -218,9 +226,10 @@ export async function getAllEvents(): Promise<EventWithRegistrations[]> {
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.created_at,
+      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.published_at, e.created_at,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
-      COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants
+      COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants,
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('id', i.id, 'event_id', i.event_id, 'url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM event_images i WHERE i.event_id = e.id), '[]') AS images
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
     GROUP BY e.id
@@ -238,9 +247,10 @@ export async function getEventFull(id: number): Promise<EventWithRegistrations |
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.created_at,
+      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.published_at, e.created_at,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
-      COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants
+      COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants,
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('id', i.id, 'event_id', i.event_id, 'url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM event_images i WHERE i.event_id = e.id), '[]') AS images
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
     WHERE e.id = ${id}
@@ -249,19 +259,81 @@ export async function getEventFull(id: number): Promise<EventWithRegistrations |
   return (rows[0] as EventWithRegistrations) ?? null;
 }
 
-export async function createEvent(data: EventCreateInput): Promise<{ id: number }> {
+export async function setEventImages(eventId: number, images: EventImageInput[]): Promise<void> {
+  if (!isPostgresConfigured()) {
+    const { setLocalEventImages } = await import("./local-data");
+    setLocalEventImages(eventId, images);
+    return;
+  }
+  const sql = getSQL();
+  await sql`DELETE FROM event_images WHERE event_id = ${eventId}`;
+  for (const img of images) {
+    await sql`INSERT INTO event_images (event_id, url, alt_text, position) VALUES (${eventId}, ${img.url}, ${img.alt_text}, ${img.position})`;
+  }
+}
+
+export async function getEventImages(eventId: number): Promise<EventImage[]> {
+  if (!isPostgresConfigured()) {
+    const { setLocalEventImages: _ } = await import("./local-data");
+    // use the images attached to the event
+    const { getLocalEventFull } = await import("./local-data");
+    const event = getLocalEventFull(eventId);
+    return event?.images ?? [];
+  }
+  const sql = getSQL();
+  const rows = await sql`SELECT * FROM event_images WHERE event_id = ${eventId} ORDER BY position`;
+  return rows as EventImage[];
+}
+
+export async function createEvent(data: EventCreateInput & { publish?: boolean }): Promise<{ id: number }> {
   if (!isPostgresConfigured()) {
     const { createLocalEvent } = await import("./local-data");
     return createLocalEvent(data);
   }
 
   const sql = getSQL();
+  const status = data.publish ? "published" : "draft";
+  const publishedAt = data.publish ? new Date().toISOString() : null;
   const rows = await sql`
-    INSERT INTO events (title, category, description, date, time, location, price, dress_code, max_participants)
-    VALUES (${data.title}, ${data.category}, ${data.description}, ${data.date}, ${data.time}, ${data.location}, ${data.price}, ${data.dress_code}, ${data.max_participants})
+    INSERT INTO events (title, category, description, date, time, location, price, dress_code, max_participants, status, published_at)
+    VALUES (${data.title}, ${data.category}, ${data.description}, ${data.date}, ${data.time}, ${data.location}, ${data.price}, ${data.dress_code}, ${data.max_participants}, ${status}, ${publishedAt})
     RETURNING id
   `;
-  return rows[0] as { id: number };
+  const { id } = rows[0] as { id: number };
+  if (data.images?.length) {
+    await setEventImages(id, data.images);
+  }
+  return { id };
+}
+
+export async function publishEvent(id: number): Promise<PublishEventResult> {
+  if (!isPostgresConfigured()) {
+    const { publishLocalEvent } = await import("./local-data");
+    return publishLocalEvent(id);
+  }
+
+  const sql = getSQL();
+  const eventRows = await sql`SELECT id, status FROM events WHERE id = ${id}`;
+  const event = eventRows[0] as { id: number; status: string } | undefined;
+  if (!event) return { success: false };
+
+  await sql`UPDATE events SET status = 'published', published_at = NOW() WHERE id = ${id}`;
+  return { success: true };
+}
+
+export async function unpublishEvent(id: number): Promise<PublishEventResult> {
+  if (!isPostgresConfigured()) {
+    const { unpublishLocalEvent } = await import("./local-data");
+    return unpublishLocalEvent(id);
+  }
+
+  const sql = getSQL();
+  const countRows = await sql`SELECT COUNT(*)::int AS count FROM registrations WHERE event_id = ${id}`;
+  const registrationCount = (countRows[0] as { count: number }).count;
+  if (registrationCount > 0) return { success: false, registrationCount };
+
+  await sql`UPDATE events SET status = 'draft', published_at = NULL WHERE id = ${id} AND status = 'published'`;
+  return { success: true };
 }
 
 export async function updateEvent(id: number, data: EventCreateInput): Promise<void> {
@@ -285,6 +357,40 @@ export async function updateEvent(id: number, data: EventCreateInput): Promise<v
       max_participants = ${data.max_participants}
     WHERE id = ${id}
   `;
+  if (data.images !== undefined) {
+    await setEventImages(id, data.images);
+  }
+}
+
+export async function cancelEvent(id: number, reason?: string): Promise<CancelEventResult> {
+  if (!isPostgresConfigured()) {
+    const { cancelLocalEvent } = await import("./local-data");
+    return cancelLocalEvent(id, reason);
+  }
+
+  const sql = getSQL();
+  const eventRows = await sql`SELECT id, title, TO_CHAR(date, 'YYYY-MM-DD') AS date, time::text AS time, location, status FROM events WHERE id = ${id}`;
+  const event = eventRows[0] as { id: number; title: string; date: string; time: string; location: string; status: string } | undefined;
+
+  if (!event) return { alreadyCancelled: false, event: null, registrations: [] };
+  if (event.status === "cancelled") return { alreadyCancelled: true, event, registrations: [] };
+
+  await sql`
+    UPDATE events SET
+      status = 'cancelled',
+      cancellation_reason = ${reason ?? null}
+    WHERE id = ${id}
+  `;
+
+  const regRows = await sql`
+    SELECT email, first_name, last_name, status_token FROM registrations WHERE event_id = ${id}
+  `;
+
+  return {
+    alreadyCancelled: false,
+    event: { title: event.title, date: event.date, time: event.time, location: event.location },
+    registrations: regRows as Pick<Registration, "email" | "first_name" | "last_name" | "status_token">[],
+  };
 }
 
 export async function deleteEvent(id: number): Promise<void> {
@@ -295,6 +401,7 @@ export async function deleteEvent(id: number): Promise<void> {
   }
 
   const sql = getSQL();
+  await sql`DELETE FROM event_images WHERE event_id = ${id}`;
   await sql`DELETE FROM registrations WHERE event_id = ${id}`;
   await sql`DELETE FROM events WHERE id = ${id}`;
 }
@@ -415,6 +522,105 @@ export async function bulkUpdateRegistrationStatus(
     if (result) results.push(result);
   }
   return results;
+}
+
+// ─── Templates ───────────────────────────────────────────
+
+async function setTemplateImages(templateId: number, images: EventImageInput[]): Promise<void> {
+  const sql = getSQL();
+  await sql`DELETE FROM template_images WHERE template_id = ${templateId}`;
+  for (const img of images) {
+    await sql`INSERT INTO template_images (template_id, url, alt_text, position) VALUES (${templateId}, ${img.url}, ${img.alt_text}, ${img.position})`;
+  }
+}
+
+export async function getAllTemplates(): Promise<EventTemplate[]> {
+  if (!isPostgresConfigured()) {
+    const { getLocalAllTemplates } = await import("./local-data");
+    return getLocalAllTemplates();
+  }
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT t.*,
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM template_images i WHERE i.template_id = t.id), '[]') AS images
+    FROM event_templates t
+    ORDER BY t.last_used_at DESC NULLS LAST, t.created_at DESC
+  `;
+  return rows as EventTemplate[];
+}
+
+export async function getTemplate(id: number): Promise<EventTemplate | null> {
+  if (!isPostgresConfigured()) {
+    const { getLocalTemplate } = await import("./local-data");
+    return getLocalTemplate(id);
+  }
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT t.*,
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM template_images i WHERE i.template_id = t.id), '[]') AS images
+    FROM event_templates t
+    WHERE t.id = ${id}
+  `;
+  return (rows[0] as EventTemplate) ?? null;
+}
+
+export async function createTemplate(data: EventTemplateInput): Promise<{ id: number }> {
+  if (!isPostgresConfigured()) {
+    const { createLocalTemplate } = await import("./local-data");
+    return createLocalTemplate(data);
+  }
+  const sql = getSQL();
+  const rows = await sql`
+    INSERT INTO event_templates (name, title, category, description, location, price, dress_code, max_participants)
+    VALUES (${data.name}, ${data.title}, ${data.category}, ${data.description}, ${data.location}, ${data.price}, ${data.dress_code}, ${data.max_participants})
+    RETURNING id
+  `;
+  const { id } = rows[0] as { id: number };
+  if (data.images?.length) await setTemplateImages(id, data.images);
+  return { id };
+}
+
+export async function updateTemplate(id: number, data: EventTemplateInput): Promise<void> {
+  if (!isPostgresConfigured()) {
+    const { updateLocalTemplate } = await import("./local-data");
+    updateLocalTemplate(id, data);
+    return;
+  }
+  const sql = getSQL();
+  await sql`
+    UPDATE event_templates SET
+      name = ${data.name},
+      title = ${data.title},
+      category = ${data.category},
+      description = ${data.description},
+      location = ${data.location},
+      price = ${data.price},
+      dress_code = ${data.dress_code},
+      max_participants = ${data.max_participants}
+    WHERE id = ${id}
+  `;
+  if (data.images !== undefined) await setTemplateImages(id, data.images);
+}
+
+export async function deleteTemplate(id: number): Promise<void> {
+  if (!isPostgresConfigured()) {
+    const { deleteLocalTemplate } = await import("./local-data");
+    deleteLocalTemplate(id);
+    return;
+  }
+  const sql = getSQL();
+  // template_images has ON DELETE CASCADE, so this is enough:
+  await sql`DELETE FROM event_templates WHERE id = ${id}`;
+}
+
+export async function touchTemplate(id: number): Promise<void> {
+  if (!isPostgresConfigured()) {
+    const { touchLocalTemplate } = await import("./local-data");
+    touchLocalTemplate(id);
+    return;
+  }
+  const sql = getSQL();
+  await sql`UPDATE event_templates SET last_used_at = NOW() WHERE id = ${id}`;
 }
 
 // ─── Check-In ────────────────────────────────────────────

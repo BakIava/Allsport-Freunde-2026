@@ -3,6 +3,7 @@ import { RegistrationReceivedEmail } from "@/emails/registration-received";
 import { RegistrationApprovedEmail } from "@/emails/registration-approved";
 import { RegistrationRejectedEmail } from "@/emails/registration-rejected";
 import { RegistrationCancelledEmail } from "@/emails/registration-cancelled";
+import { EventCancelledEmail } from "@/emails/event-cancelled";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -102,6 +103,27 @@ export async function sendRegistrationCancelledEmail(data: EmailData) {
       eventDate: formatDateDE(data.eventDate),
       eventTime: data.eventTime,
       eventLocation: data.eventLocation,
+      statusUrl,
+    })
+  );
+}
+
+export async function sendEventCancelledEmail(
+  data: EmailData & { cancellationReason?: string }
+) {
+  const statusUrl = `${appUrl}/status/${data.statusToken}`;
+  const subject = `Veranstaltung abgesagt: ${data.eventTitle}`;
+
+  sendEmail(
+    subject,
+    data.to,
+    EventCancelledEmail({
+      firstName: data.firstName,
+      eventTitle: data.eventTitle,
+      eventDate: formatDateDE(data.eventDate),
+      eventTime: data.eventTime,
+      eventLocation: data.eventLocation,
+      cancellationReason: data.cancellationReason,
       statusUrl,
     })
   );

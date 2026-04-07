@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   X,
+  FileText,
   ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,12 +22,16 @@ const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/events", label: "Events", icon: CalendarDays },
   { href: "/admin/registrations", label: "Anmeldungen", icon: Users },
+  { href: "/admin/templates", label: "Vorlagen", icon: FileText },
   { href: "/admin/checkin", label: "Check-In", icon: ClipboardCheck },
 ];
 
 export default function Sidebar() {
+  const { status } = useSession();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  if (status !== "authenticated") return null;
 
   const isActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";

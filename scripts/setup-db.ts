@@ -24,9 +24,18 @@ async function setup() {
       price VARCHAR(100) NOT NULL,
       dress_code VARCHAR(255) NOT NULL,
       max_participants INTEGER NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'draft',
+      cancellation_reason TEXT,
+      published_at TIMESTAMP,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
   `;
+  // Migration: add/update columns for existing databases
+  await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'draft'`;
+  await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_reason TEXT`;
+  await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS published_at TIMESTAMP`;
+  // Migrate legacy 'active' status → 'published'
+  await sql`UPDATE events SET status = 'published', published_at = created_at WHERE status = 'active'`;
   console.log("  ✓ Tabelle 'events' erstellt");
 
   await sql`
@@ -57,6 +66,49 @@ async function setup() {
     )
   `;
   console.log("  ✓ Tabelle 'admin_users' erstellt");
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS event_templates (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      category VARCHAR(50) NOT NULL CHECK(category IN ('fussball', 'fitness', 'schwimmen')),
+      description TEXT NOT NULL DEFAULT '',
+      location VARCHAR(255) NOT NULL,
+      price VARCHAR(100) NOT NULL,
+      dress_code VARCHAR(255) NOT NULL DEFAULT '',
+      max_participants INTEGER NOT NULL,
+      last_used_at TIMESTAMP,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `;
+  console.log("  ✓ Tabelle 'event_templates' erstellt");
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS event_images (
+      id SERIAL PRIMARY KEY,
+      event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      url TEXT NOT NULL,
+      alt_text VARCHAR(500) NOT NULL DEFAULT '',
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_event_images_event_id ON event_images(event_id)`;
+  console.log("  ✓ Tabelle 'event_images' erstellt");
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS template_images (
+      id SERIAL PRIMARY KEY,
+      template_id INTEGER NOT NULL REFERENCES event_templates(id) ON DELETE CASCADE,
+      url TEXT NOT NULL,
+      alt_text VARCHAR(500) NOT NULL DEFAULT '',
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_template_images_template_id ON template_images(template_id)`;
+  console.log("  ✓ Tabelle 'template_images' erstellt");
 
   // Insert default admin user
   const username = process.env.ADMIN_USERNAME || "admin";

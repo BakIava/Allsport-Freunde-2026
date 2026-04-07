@@ -37,13 +37,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if event exists
+    // Check if event exists and is published
     const event = await getEvent(event_id);
 
     if (!event) {
       return NextResponse.json(
         { error: "Das Event wurde nicht gefunden." },
         { status: 404 }
+      );
+    }
+
+    if (event.status !== "published") {
+      return NextResponse.json(
+        { error: "Das Event ist nicht zur Anmeldung freigegeben." },
+        { status: 403 }
       );
     }
 

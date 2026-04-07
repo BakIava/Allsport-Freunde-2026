@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Calendar, Clock, MapPin, Euro, Shirt } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
 import { motion } from "framer-motion";
+import ImageCarousel from "./ImageCarousel";
 
 const categoryConfig = {
   fussball: {
@@ -58,7 +59,13 @@ export default function EventCard({ event, index, onRegister }: EventCardProps) 
       viewport={{ once: true, margin: "-50px" }}
       transition={{ duration: 0.5, delay: 0.05 * index }}
     >
-      <Card className="h-full flex flex-col hover:shadow-lg transition-shadow duration-300">
+      <Card className="h-full flex flex-col hover:shadow-lg transition-shadow duration-300 overflow-hidden">
+        {/* Image carousel / thumbnail */}
+        <ImageCarousel
+          images={event.images ?? []}
+          title={event.title}
+          className="h-44 shrink-0"
+        />
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <Badge variant={config.variant}>{config.label}</Badge>
