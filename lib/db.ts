@@ -10,6 +10,8 @@ import type {
   Registration,
   CancelEventResult,
   PublishEventResult,
+  EventTemplate,
+  EventTemplateInput,
 } from "./types";
 
 function getDatabaseUrl(): string | undefined {
@@ -478,4 +480,83 @@ export async function bulkUpdateRegistrationStatus(
     if (result) results.push(result);
   }
   return results;
+}
+
+// ─── Templates ───────────────────────────────────────────
+
+export async function getAllTemplates(): Promise<EventTemplate[]> {
+  if (!isPostgresConfigured()) {
+    const { getLocalAllTemplates } = await import("./local-data");
+    return getLocalAllTemplates();
+  }
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT * FROM event_templates ORDER BY last_used_at DESC NULLS LAST, created_at DESC
+  `;
+  return rows as EventTemplate[];
+}
+
+export async function getTemplate(id: number): Promise<EventTemplate | null> {
+  if (!isPostgresConfigured()) {
+    const { getLocalTemplate } = await import("./local-data");
+    return getLocalTemplate(id);
+  }
+  const sql = getSQL();
+  const rows = await sql`SELECT * FROM event_templates WHERE id = ${id}`;
+  return (rows[0] as EventTemplate) ?? null;
+}
+
+export async function createTemplate(data: EventTemplateInput): Promise<{ id: number }> {
+  if (!isPostgresConfigured()) {
+    const { createLocalTemplate } = await import("./local-data");
+    return createLocalTemplate(data);
+  }
+  const sql = getSQL();
+  const rows = await sql`
+    INSERT INTO event_templates (name, title, category, description, location, price, dress_code, max_participants)
+    VALUES (${data.name}, ${data.title}, ${data.category}, ${data.description}, ${data.location}, ${data.price}, ${data.dress_code}, ${data.max_participants})
+    RETURNING id
+  `;
+  return rows[0] as { id: number };
+}
+
+export async function updateTemplate(id: number, data: EventTemplateInput): Promise<void> {
+  if (!isPostgresConfigured()) {
+    const { updateLocalTemplate } = await import("./local-data");
+    updateLocalTemplate(id, data);
+    return;
+  }
+  const sql = getSQL();
+  await sql`
+    UPDATE event_templates SET
+      name = ${data.name},
+      title = ${data.title},
+      category = ${data.category},
+      description = ${data.description},
+      location = ${data.location},
+      price = ${data.price},
+      dress_code = ${data.dress_code},
+      max_participants = ${data.max_participants}
+    WHERE id = ${id}
+  `;
+}
+
+export async function deleteTemplate(id: number): Promise<void> {
+  if (!isPostgresConfigured()) {
+    const { deleteLocalTemplate } = await import("./local-data");
+    deleteLocalTemplate(id);
+    return;
+  }
+  const sql = getSQL();
+  await sql`DELETE FROM event_templates WHERE id = ${id}`;
+}
+
+export async function touchTemplate(id: number): Promise<void> {
+  if (!isPostgresConfigured()) {
+    const { touchLocalTemplate } = await import("./local-data");
+    touchLocalTemplate(id);
+    return;
+  }
+  const sql = getSQL();
+  await sql`UPDATE event_templates SET last_used_at = NOW() WHERE id = ${id}`;
 }

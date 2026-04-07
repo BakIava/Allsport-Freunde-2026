@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   X,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/events", label: "Events", icon: CalendarDays },
   { href: "/admin/registrations", label: "Anmeldungen", icon: Users },
+  { href: "/admin/templates", label: "Vorlagen", icon: FileText },
 ];
 
 export default function Sidebar() {

@@ -67,6 +67,23 @@ async function setup() {
   `;
   console.log("  ✓ Tabelle 'admin_users' erstellt");
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS event_templates (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      category VARCHAR(50) NOT NULL CHECK(category IN ('fussball', 'fitness', 'schwimmen')),
+      description TEXT NOT NULL DEFAULT '',
+      location VARCHAR(255) NOT NULL,
+      price VARCHAR(100) NOT NULL,
+      dress_code VARCHAR(255) NOT NULL DEFAULT '',
+      max_participants INTEGER NOT NULL,
+      last_used_at TIMESTAMP,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `;
+  console.log("  ✓ Tabelle 'event_templates' erstellt");
+
   // Insert default admin user
   const username = process.env.ADMIN_USERNAME || "admin";
   const password = process.env.ADMIN_PASSWORD || "admin";

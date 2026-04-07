@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Globe, EyeOff } from "lucide-react";
-import type { EventWithRegistrations, EventCreateInput } from "@/lib/types";
+import { Loader2, Globe, EyeOff, LayoutTemplate } from "lucide-react";
+import type { EventWithRegistrations, EventCreateInput, EventTemplate } from "@/lib/types";
 
 interface EventFormProps {
   event?: EventWithRegistrations;
@@ -34,6 +41,44 @@ export default function EventForm({ event }: EventFormProps) {
     max_participants: event?.max_participants ?? 20,
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // Template selector
+  const [templates, setTemplates] = useState<EventTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+
+  // Save-as-template dialog
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/templates")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setTemplates(data); })
+      .catch(() => { /* templates are optional, silently ignore */ });
+  }, []);
+
+  const applyTemplate = (id: string) => {
+    const tpl = templates.find((t) => String(t.id) === id);
+    if (!tpl) return;
+    setFormData((prev) => ({
+      ...prev,
+      title: tpl.title,
+      category: tpl.category,
+      description: tpl.description,
+      location: tpl.location,
+      price: tpl.price,
+      dress_code: tpl.dress_code,
+      max_participants: tpl.max_participants,
+    }));
+    setSelectedTemplateId(id);
+    // Record last usage
+    fetch(`/api/admin/templates/${tpl.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "touch" }),
+    }).catch(() => {});
+  };
 
   const handleSubmit = async (e: React.FormEvent, publish: boolean) => {
     e.preventDefault();
@@ -81,6 +126,44 @@ export default function EventForm({ event }: EventFormProps) {
     }
   };
 
+  const handleSaveTemplate = async () => {
+    if (!templateName.trim()) return;
+    setSavingTemplate(true);
+    try {
+      const res = await fetch("/api/admin/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: templateName.trim(),
+          title: formData.title,
+          category: formData.category,
+          description: formData.description,
+          location: formData.location,
+          price: formData.price,
+          dress_code: formData.dress_code,
+          max_participants: formData.max_participants,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Fehler beim Speichern der Vorlage.", "error");
+        return;
+      }
+      toast(`Vorlage "${templateName.trim()}" gespeichert!`, "success");
+      setSaveTemplateOpen(false);
+      setTemplateName("");
+      // Refresh template list so newly created template appears in dropdown
+      fetch("/api/admin/templates")
+        .then((r) => r.json())
+        .then((data) => { if (Array.isArray(data)) setTemplates(data); })
+        .catch(() => {});
+    } catch {
+      toast("Verbindungsfehler.", "error");
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
   const update = (field: keyof EventCreateInput, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -95,6 +178,40 @@ export default function EventForm({ event }: EventFormProps) {
             Dieses Event ist noch nicht veröffentlicht und für die Öffentlichkeit unsichtbar.
           </p>
         </div>
+      )}
+
+      {/* Template selector – only for new events */}
+      {!isEdit && templates.length > 0 && (
+        <Card className="border-dashed">
+          <CardContent className="pt-5">
+            <div className="flex items-center gap-3">
+              <LayoutTemplate className="w-5 h-5 text-muted-foreground shrink-0" />
+              <div className="flex-1 flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                <Label htmlFor="template-select" className="shrink-0 text-sm">
+                  Aus Vorlage erstellen:
+                </Label>
+                <Select
+                  id="template-select"
+                  value={selectedTemplateId}
+                  onChange={(e) => applyTemplate(e.target.value)}
+                  className="flex-1"
+                >
+                  <option value="">– Vorlage wählen –</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={String(t.id)}>
+                      {t.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+            {selectedTemplateId && (
+              <p className="text-xs text-muted-foreground mt-2 ml-8">
+                Felder wurden aus der Vorlage vorausgefüllt. Alle Angaben können bearbeitet werden.
+              </p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <Card>
@@ -209,7 +326,6 @@ export default function EventForm({ event }: EventFormProps) {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              {/* Primary action depends on context */}
               {isDraft ? (
                 <>
                   <Button
@@ -237,6 +353,17 @@ export default function EventForm({ event }: EventFormProps) {
                   )}
                 </Button>
               )}
+
+              {/* Save-as-template button */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setTemplateName(formData.title || ""); setSaveTemplateOpen(true); }}
+              >
+                <LayoutTemplate className="w-4 h-4 mr-2" />
+                Als Vorlage speichern
+              </Button>
+
               <Button type="button" variant="outline" onClick={() => router.back()}>
                 Abbrechen
               </Button>
@@ -244,6 +371,37 @@ export default function EventForm({ event }: EventFormProps) {
           </form>
         </CardContent>
       </Card>
+
+      {/* Save-as-template dialog */}
+      <Dialog open={saveTemplateOpen} onOpenChange={(o) => { if (!o) setSaveTemplateOpen(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Als Vorlage speichern</DialogTitle>
+            <DialogDescription>
+              Die aktuellen Eventdaten (ohne Datum & Uhrzeit) werden als Vorlage gespeichert und
+              können für künftige Events wiederverwendet werden.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            <Label htmlFor="template-name">Vorlagenname *</Label>
+            <Input
+              id="template-name"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder='z.B. "Monatliches Vereinstraining"'
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSaveTemplate(); } }}
+              autoFocus
+            />
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => setSaveTemplateOpen(false)}>Abbrechen</Button>
+            <Button onClick={handleSaveTemplate} disabled={savingTemplate || !templateName.trim()}>
+              {savingTemplate ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Vorlage speichern
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

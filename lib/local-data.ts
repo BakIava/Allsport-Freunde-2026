@@ -10,6 +10,8 @@ import type {
   RegistrationStatus,
   CancelEventResult,
   PublishEventResult,
+  EventTemplate,
+  EventTemplateInput,
 } from "./types";
 
 const NOW = new Date().toISOString();
@@ -234,11 +236,17 @@ export function unpublishLocalEvent(id: number): PublishEventResult {
 }
 
 /** For testing: reset all in-memory data to a clean empty state */
-export function resetLocalData(events: EventWithRegistrations[] = [], registrations: Registration[] = []): void {
+export function resetLocalData(
+  events: EventWithRegistrations[] = [],
+  registrations: Registration[] = [],
+  templates: EventTemplate[] = []
+): void {
   localEvents = [...events];
   localRegistrations = [...registrations];
+  localTemplates = [...templates];
   nextRegistrationId = registrations.length > 0 ? Math.max(...registrations.map((r) => r.id)) + 1 : 1;
   nextEventId = events.length > 0 ? Math.max(...events.map((e) => e.id)) + 1 : 1;
+  nextTemplateId = templates.length > 0 ? Math.max(...templates.map((t) => t.id)) + 1 : 1;
 }
 
 export function cancelLocalEvent(id: number, reason?: string): CancelEventResult {
@@ -318,4 +326,71 @@ export function bulkUpdateLocalRegistrationStatus(ids: number[], status: Registr
     if (result) results.push(result);
   }
   return results;
+}
+
+// ─── Templates ───────────────────────────────────────────
+
+const seedTemplates: EventTemplate[] = [
+  {
+    id: 1,
+    name: "Monatliches Vereinstraining",
+    title: "Vereinstraining",
+    category: "fussball",
+    description: "Regelmäßiges Training für alle Mitglieder. Anfänger und Fortgeschrittene willkommen.",
+    location: "Sportpark am Main, Frankfurt",
+    price: "Kostenlos",
+    dress_code: "Sportkleidung & Fußballschuhe",
+    max_participants: 20,
+    last_used_at: null,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    name: "Aqua-Fitness Standard",
+    title: "Aqua-Fitness",
+    category: "schwimmen",
+    description: "Gelenkschonendes Training im Wasser. Ideal für Einsteiger und Senioren.",
+    location: "Rebstockbad, Frankfurt",
+    price: "8 €",
+    dress_code: "Badebekleidung & Handtuch",
+    max_participants: 16,
+    last_used_at: null,
+    created_at: new Date().toISOString(),
+  },
+];
+
+let localTemplates: EventTemplate[] = [...seedTemplates];
+let nextTemplateId = seedTemplates.length + 1;
+
+export function getLocalAllTemplates(): EventTemplate[] {
+  return [...localTemplates].sort((a, b) => {
+    if (a.last_used_at && b.last_used_at) return b.last_used_at.localeCompare(a.last_used_at);
+    if (a.last_used_at) return -1;
+    if (b.last_used_at) return 1;
+    return b.created_at.localeCompare(a.created_at);
+  });
+}
+
+export function getLocalTemplate(id: number): EventTemplate | null {
+  return localTemplates.find((t) => t.id === id) ?? null;
+}
+
+export function createLocalTemplate(data: EventTemplateInput): { id: number } {
+  const id = nextTemplateId++;
+  localTemplates.push({ id, ...data, last_used_at: null, created_at: new Date().toISOString() });
+  return { id };
+}
+
+export function updateLocalTemplate(id: number, data: EventTemplateInput): void {
+  const tpl = localTemplates.find((t) => t.id === id);
+  if (tpl) Object.assign(tpl, data);
+}
+
+export function deleteLocalTemplate(id: number): void {
+  localTemplates = localTemplates.filter((t) => t.id !== id);
+}
+
+export function touchLocalTemplate(id: number): void {
+  const tpl = localTemplates.find((t) => t.id === id);
+  if (tpl) tpl.last_used_at = new Date().toISOString();
 }

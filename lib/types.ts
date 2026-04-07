@@ -100,6 +100,33 @@ export interface CancelEventResult {
   registrations: Pick<Registration, "email" | "first_name" | "last_name" | "status_token">[];
 }
 
+export interface EventTemplate {
+  id: number;
+  /** Display name of the template, e.g. "Monatliches Vereinstraining" */
+  name: string;
+  /** Default event title pre-filled when using this template */
+  title: string;
+  category: "fussball" | "fitness" | "schwimmen";
+  description: string;
+  location: string;
+  price: string;
+  dress_code: string;
+  max_participants: number;
+  last_used_at: string | null;
+  created_at: string;
+}
+
+export interface EventTemplateInput {
+  name: string;
+  title: string;
+  category: "fussball" | "fitness" | "schwimmen";
+  description: string;
+  location: string;
+  price: string;
+  dress_code: string;
+  max_participants: number;
+}
+
 export interface EventCreateInput {
   title: string;
   category: "fussball" | "fitness" | "schwimmen";
