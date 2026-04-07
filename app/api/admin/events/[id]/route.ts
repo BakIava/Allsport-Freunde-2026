@@ -1,4 +1,6 @@
 import { getEventFull, updateEvent, deleteEvent } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 import { NextRequest, NextResponse } from "next/server";
 import type { EventCreateInput } from "@/lib/types";
 
@@ -23,6 +25,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const actor = await getCurrentUser();
+
   try {
     const { id } = await params;
     const eventId = Number(id);
@@ -37,6 +41,16 @@ export async function PUT(
       return NextResponse.json({ error: "Bitte fülle alle Pflichtfelder aus." }, { status: 400 });
     }
 
+    const oldValues = {
+      title: existing.title,
+      category: existing.category,
+      date: existing.date,
+      time: existing.time,
+      location: existing.location,
+      price: existing.price,
+      max_participants: existing.max_participants,
+    };
+
     await updateEvent(eventId, {
       title: body.title.trim(),
       category: body.category,
@@ -50,6 +64,29 @@ export async function PUT(
       images: Array.isArray(body.images) ? body.images : undefined,
     });
 
+    const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+    logAction({
+      userId: actor?.id,
+      userName: actor?.name,
+      action: "UPDATE",
+      entityType: "EVENT",
+      entityId: eventId,
+      entityLabel: existing.title,
+      changes: {
+        old: oldValues,
+        new: {
+          title: body.title.trim(),
+          category: body.category,
+          date: body.date,
+          time: body.time,
+          location: body.location.trim(),
+          price: body.price.trim(),
+          max_participants: body.max_participants,
+        },
+      },
+      ipAddress,
+    });
+
     return NextResponse.json({ message: "Event aktualisiert!" });
   } catch (error) {
     console.error("Fehler beim Aktualisieren:", error);
@@ -58,9 +95,11 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const actor = await getCurrentUser();
+
   try {
     const { id } = await params;
     const eventId = Number(id);
@@ -70,6 +109,19 @@ export async function DELETE(
     }
 
     await deleteEvent(eventId);
+
+    const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+    logAction({
+      userId: actor?.id,
+      userName: actor?.name,
+      action: "DELETE",
+      entityType: "EVENT",
+      entityId: eventId,
+      entityLabel: existing.title,
+      changes: { old: { title: existing.title, status: existing.status, date: existing.date } },
+      ipAddress,
+    });
+
     return NextResponse.json({ message: "Event gelöscht!" });
   } catch (error) {
     console.error("Fehler beim Löschen:", error);

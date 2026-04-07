@@ -1,4 +1,6 @@
 import { getTemplate, updateTemplate, deleteTemplate, touchTemplate } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 import { NextRequest, NextResponse } from "next/server";
 import type { EventTemplateInput } from "@/lib/types";
 
@@ -21,6 +23,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const actor = await getCurrentUser();
+
   try {
     const { id } = await params;
     const tplId = Number(id);
@@ -35,6 +39,8 @@ export async function PUT(
       return NextResponse.json({ error: "Bitte fülle alle Pflichtfelder aus." }, { status: 400 });
     }
 
+    const oldValues = { name: existing.name, title: existing.title, category: existing.category };
+
     await updateTemplate(tplId, {
       name: body.name.trim(),
       title: body.title.trim(),
@@ -46,6 +52,22 @@ export async function PUT(
       max_participants: body.max_participants,
       images: Array.isArray(body.images) ? body.images : undefined,
     });
+
+    const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+    logAction({
+      userId: actor?.id,
+      userName: actor?.name,
+      action: "UPDATE",
+      entityType: "TEMPLATE",
+      entityId: tplId,
+      entityLabel: existing.name,
+      changes: {
+        old: oldValues,
+        new: { name: body.name.trim(), title: body.title.trim(), category: body.category },
+      },
+      ipAddress,
+    });
+
     return NextResponse.json({ message: "Vorlage aktualisiert!" });
   } catch (error) {
     console.error("Fehler beim Aktualisieren der Vorlage:", error);
@@ -54,15 +76,31 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const actor = await getCurrentUser();
+
   try {
     const { id } = await params;
     const tplId = Number(id);
     const existing = await getTemplate(tplId);
     if (!existing) return NextResponse.json({ error: "Vorlage nicht gefunden." }, { status: 404 });
+
     await deleteTemplate(tplId);
+
+    const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+    logAction({
+      userId: actor?.id,
+      userName: actor?.name,
+      action: "DELETE",
+      entityType: "TEMPLATE",
+      entityId: tplId,
+      entityLabel: existing.name,
+      changes: { old: { name: existing.name, title: existing.title } },
+      ipAddress,
+    });
+
     return NextResponse.json({ message: "Vorlage gelöscht!" });
   } catch (error) {
     console.error("Fehler beim Löschen der Vorlage:", error);

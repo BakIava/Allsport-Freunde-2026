@@ -18,8 +18,9 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { Pencil, Trash2, Users, Loader2, Search, Ban, Globe, EyeOff } from "lucide-react";
+import { Pencil, Trash2, Users, Loader2, Search, Ban, Globe, EyeOff, History } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
+import AuditLogModal from "@/components/admin/AuditLogModal";
 
 type CategoryFilter = "alle" | "fussball" | "fitness" | "schwimmen";
 
@@ -43,6 +44,7 @@ function EventRow({
   onCancel,
   onPublish,
   onUnpublish,
+  onHistory,
   formatDate,
 }: {
   event: EventWithRegistrations;
@@ -50,6 +52,7 @@ function EventRow({
   onCancel: (e: EventWithRegistrations) => void;
   onPublish: (e: EventWithRegistrations) => void;
   onUnpublish: (e: EventWithRegistrations) => void;
+  onHistory: (e: EventWithRegistrations) => void;
   formatDate: (d: string) => string;
 }) {
   const isDraft = event.status === "draft";
@@ -117,6 +120,14 @@ function EventRow({
           >
             <Trash2 className="w-4 h-4 text-red-500" />
           </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Änderungsverlauf"
+            onClick={() => onHistory(event)}
+          >
+            <History className="w-4 h-4 text-gray-400" />
+          </Button>
         </div>
       </TableCell>
     </TableRow>
@@ -143,6 +154,9 @@ export default function EventTable() {
   // Publish / unpublish state
   const [publishing, setPublishing] = useState<number | null>(null);
   const [publishTarget, setPublishTarget] = useState<EventWithRegistrations | null>(null);
+
+  // History modal
+  const [historyTarget, setHistoryTarget] = useState<EventWithRegistrations | null>(null);
 
   const fetchEvents = () => {
     setLoading(true);
@@ -298,6 +312,7 @@ export default function EventTable() {
     onCancel: (e: EventWithRegistrations) => { setCancelTarget(e); setCancelReason(""); },
     onPublish: setPublishTarget,
     onUnpublish: handleUnpublish,
+    onHistory: setHistoryTarget,
     formatDate,
   };
 
@@ -452,6 +467,16 @@ export default function EventTable() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Audit Log Modal ── */}
+      {historyTarget && (
+        <AuditLogModal
+          entityType="EVENT"
+          entityId={historyTarget.id}
+          entityLabel={historyTarget.title}
+          onClose={() => setHistoryTarget(null)}
+        />
+      )}
     </div>
   );
 }

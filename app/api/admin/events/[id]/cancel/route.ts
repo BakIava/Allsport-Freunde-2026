@@ -1,4 +1,6 @@
 import { cancelEvent } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 import { sendEventCancelledEmail } from "@/lib/email";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -6,6 +8,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const actor = await getCurrentUser();
+
   try {
     const { id } = await params;
     const eventId = Number(id);
@@ -25,6 +29,21 @@ export async function POST(
         { status: 409 }
       );
     }
+
+    const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+    logAction({
+      userId: actor?.id,
+      userName: actor?.name,
+      action: "CANCEL",
+      entityType: "EVENT",
+      entityId: eventId,
+      entityLabel: result.event.title,
+      changes: {
+        new: { status: "cancelled", cancellation_reason: reason ?? null },
+        old: { status: "published" },
+      },
+      ipAddress,
+    });
 
     // Send cancellation emails to all participants (fire-and-forget per email)
     for (const reg of result.registrations) {

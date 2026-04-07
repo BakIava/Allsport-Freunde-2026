@@ -111,11 +111,57 @@ export interface CheckinStatusResponse {
   participants: CheckinParticipant[];
 }
 
+export type UserRole = "ADMIN" | "EVENT_MANAGER" | "CASHIER" | "VIEWER";
+export type UserStatus = "ACTIVE" | "INACTIVE";
+
 export interface AdminUser {
   id: number;
   username: string;
   password_hash: string;
+  name: string;
+  email: string | null;
+  role: UserRole;
+  status: UserStatus;
+  created_by: number | null;
   created_at: string;
+}
+
+export type AuditAction =
+  | "CREATE"
+  | "UPDATE"
+  | "DELETE"
+  | "PUBLISH"
+  | "UNPUBLISH"
+  | "CANCEL"
+  | "APPROVE"
+  | "REJECT"
+  | "CHECK_IN"
+  | "UNDO_CHECKIN"
+  | "LOGIN"
+  | "PASSWORD_RESET"
+  | "DEACTIVATE"
+  | "ACTIVATE";
+
+export type EntityType =
+  | "EVENT"
+  | "REGISTRATION"
+  | "CHECKIN"
+  | "TEMPLATE"
+  | "USER"
+  | "SYSTEM";
+
+export interface AuditLog {
+  id: number;
+  timestamp: string;
+  user_id: number | null;
+  user_name: string | null;
+  action: AuditAction;
+  entity_type: EntityType;
+  entity_id: number | null;
+  entity_label: string | null;
+  changes: { old?: Record<string, unknown>; new?: Record<string, unknown> } | null;
+  ip_address: string | null;
+  success: boolean;
 }
 
 export interface AdminStats {

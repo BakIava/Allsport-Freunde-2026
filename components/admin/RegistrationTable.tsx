@@ -16,8 +16,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import StatusBadge from "@/components/status/StatusBadge";
-import { Trash2, Loader2, Search, Download, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Trash2, Loader2, Search, Download, CheckCircle2, XCircle, Clock, History } from "lucide-react";
 import type { RegistrationWithEvent, RegistrationStatus } from "@/lib/types";
+import AuditLogModal from "@/components/admin/AuditLogModal";
 
 interface RegistrationTableProps {
   eventId?: number;
@@ -40,6 +41,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
   const [statusTarget, setStatusTarget] = useState<{ reg: RegistrationWithEvent; status: RegistrationStatus } | null>(null);
   const [statusNote, setStatusNote] = useState("");
   const [statusProcessing, setStatusProcessing] = useState(false);
+  const [historyTarget, setHistoryTarget] = useState<RegistrationWithEvent | null>(null);
 
   const fetchRegistrations = () => {
     setLoading(true);
@@ -347,6 +349,14 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
                       >
                         <Trash2 className="w-4 h-4 text-red-500" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Verlauf anzeigen"
+                        onClick={() => setHistoryTarget(r)}
+                      >
+                        <History className="w-4 h-4 text-gray-400" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -457,6 +467,16 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Audit Log Modal */}
+      {historyTarget && (
+        <AuditLogModal
+          entityType="REGISTRATION"
+          entityId={historyTarget.id}
+          entityLabel={`${historyTarget.first_name} ${historyTarget.last_name} – ${historyTarget.event_title}`}
+          onClose={() => setHistoryTarget(null)}
+        />
+      )}
     </div>
   );
 }

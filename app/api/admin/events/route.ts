@@ -1,4 +1,6 @@
 import { getAllEvents, createEvent } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 import { NextRequest, NextResponse } from "next/server";
 import type { EventCreateInput } from "@/lib/types";
 
@@ -15,6 +17,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const actor = await getCurrentUser();
+
   try {
     const body: EventCreateInput = await request.json();
 
@@ -43,6 +47,18 @@ export async function POST(request: NextRequest) {
       max_participants: body.max_participants,
       images: Array.isArray(body.images) ? body.images : [],
       publish: bodyAny.publish === true,
+    });
+
+    const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+    logAction({
+      userId: actor?.id,
+      userName: actor?.name,
+      action: "CREATE",
+      entityType: "EVENT",
+      entityId: result.id,
+      entityLabel: body.title.trim(),
+      changes: { new: { title: body.title.trim(), category: body.category, date: body.date, status: bodyAny.publish ? "published" : "draft" } },
+      ipAddress,
     });
 
     return NextResponse.json({ message: "Event erstellt!", id: result.id }, { status: 201 });

@@ -62,10 +62,41 @@ async function setup() {
       id SERIAL PRIMARY KEY,
       username VARCHAR(100) UNIQUE NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
+      name VARCHAR(255) NOT NULL DEFAULT '',
+      email VARCHAR(255),
+      role VARCHAR(20) NOT NULL DEFAULT 'ADMIN' CHECK(role IN ('ADMIN', 'EVENT_MANAGER', 'CASHIER', 'VIEWER')),
+      status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE', 'INACTIVE')),
+      created_by INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
   `;
-  console.log("  ✓ Tabelle 'admin_users' erstellt");
+  // Migrations for existing admin_users table
+  await sql`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS name VARCHAR(255) NOT NULL DEFAULT ''`;
+  await sql`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS email VARCHAR(255)`;
+  await sql`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'ADMIN'`;
+  await sql`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE'`;
+  await sql`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES admin_users(id) ON DELETE SET NULL`;
+  console.log("  ✓ Tabelle 'admin_users' erstellt/migriert");
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id SERIAL PRIMARY KEY,
+      timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      user_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+      user_name VARCHAR(255),
+      action VARCHAR(50) NOT NULL,
+      entity_type VARCHAR(50) NOT NULL,
+      entity_id INTEGER,
+      entity_label VARCHAR(500),
+      changes JSONB,
+      ip_address VARCHAR(45),
+      success BOOLEAN NOT NULL DEFAULT TRUE
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id)`;
+  console.log("  ✓ Tabelle 'audit_logs' erstellt");
 
   await sql`
     CREATE TABLE IF NOT EXISTS event_templates (
@@ -116,8 +147,8 @@ async function setup() {
   const passwordHash = hashSync(password, 10);
 
   await sql`
-    INSERT INTO admin_users (username, password_hash)
-    VALUES (${username}, ${passwordHash})
+    INSERT INTO admin_users (username, password_hash, name, role, status)
+    VALUES (${username}, ${passwordHash}, ${username}, 'ADMIN', 'ACTIVE')
     ON CONFLICT (username) DO UPDATE SET password_hash = ${passwordHash}
   `;
   console.log(`  ✓ Admin-User '${username}' erstellt`);

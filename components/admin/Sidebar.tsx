@@ -15,23 +15,29 @@ import {
   X,
   FileText,
   ClipboardCheck,
+  ShieldCheck,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/events", label: "Events", icon: CalendarDays },
-  { href: "/admin/registrations", label: "Anmeldungen", icon: Users },
-  { href: "/admin/templates", label: "Vorlagen", icon: FileText },
-  { href: "/admin/checkin", label: "Check-In", icon: ClipboardCheck },
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, roles: null },
+  { href: "/admin/events", label: "Events", icon: CalendarDays, roles: null },
+  { href: "/admin/registrations", label: "Anmeldungen", icon: Users, roles: null },
+  { href: "/admin/templates", label: "Vorlagen", icon: FileText, roles: null },
+  { href: "/admin/checkin", label: "Check-In", icon: ClipboardCheck, roles: null },
+  { href: "/admin/users", label: "Benutzer", icon: ShieldCheck, roles: ["ADMIN"] },
+  { href: "/admin/audit-logs", label: "Audit-Log", icon: History, roles: null },
 ];
 
 export default function Sidebar() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   if (status !== "authenticated") return null;
+
+  const userRole = session?.user?.role;
 
   const isActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";
@@ -46,22 +52,24 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setOpen(false)}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-              isActive(item.href)
-                ? "bg-green-600 text-white"
-                : "text-gray-300 hover:bg-gray-800 hover:text-white"
-            )}
-          >
-            <item.icon className="w-5 h-5" />
-            {item.label}
-          </Link>
-        ))}
+        {navItems
+          .filter((item) => !item.roles || item.roles.includes(userRole ?? ""))
+          .map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setOpen(false)}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                isActive(item.href)
+                  ? "bg-green-600 text-white"
+                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
+              )}
+            >
+              <item.icon className="w-5 h-5" />
+              {item.label}
+            </Link>
+          ))}
 
         <div className="border-t border-gray-800 my-4" />
 

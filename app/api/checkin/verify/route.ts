@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyCheckinToken } from "@/lib/checkin";
 import { getRegistrationByQRToken, markCheckedIn } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 
 // Simple in-memory rate limiter: 30 requests/minute per IP
 // Note: resets on serverless cold starts; sufficient for event-day use.
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
     // Determine who is checking in (admin session or fallback to ip)
     const session = await auth();
     const checkedInBy = session?.user?.name ?? body.checkedInBy ?? ip;
+    const actorId = session?.user?.dbId ?? undefined;
 
     if (registration.checked_in_at) {
       return NextResponse.json({
@@ -79,6 +81,16 @@ export async function POST(request: NextRequest) {
     }
 
     await markCheckedIn(registration.id, checkedInBy);
+
+    logAction({
+      userId: actorId ?? null,
+      userName: checkedInBy,
+      action: "CHECK_IN",
+      entityType: "CHECKIN",
+      entityId: registration.id,
+      entityLabel: `${registration.first_name} ${registration.last_name} (QR)`,
+      ipAddress: ip,
+    });
 
     return NextResponse.json({
       success: true,

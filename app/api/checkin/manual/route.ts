@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { manualCheckin } from "@/lib/db";
+import { manualCheckin, getRegistrationWithEvent } from "@/lib/db";
+import { logAction } from "@/lib/audit";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -15,7 +16,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "registrationId fehlt." }, { status: 400 });
     }
 
-    const result = await manualCheckin(registrationId, session.user?.name ?? "admin");
+    const reg = await getRegistrationWithEvent(registrationId);
+    const checkedInBy = session.user?.name ?? "admin";
+    const result = await manualCheckin(registrationId, checkedInBy);
+
+    if (!result.alreadyCheckedIn && reg) {
+      const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+      logAction({
+        userId: session.user?.dbId ?? null,
+        userName: checkedInBy,
+        action: "CHECK_IN",
+        entityType: "CHECKIN",
+        entityId: registrationId,
+        entityLabel: `${reg.first_name} ${reg.last_name} (manuell)`,
+        ipAddress,
+      });
+    }
+
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Ein Fehler ist aufgetreten.";

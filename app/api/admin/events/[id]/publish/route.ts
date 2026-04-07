@@ -1,11 +1,15 @@
 import { publishEvent, unpublishEvent, getEventFull } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 import { NextRequest, NextResponse } from "next/server";
 
 /** POST /api/admin/events/[id]/publish → publish a draft event */
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const actor = await getCurrentUser();
+
   try {
     const { id } = await params;
     const eventId = Number(id);
@@ -25,6 +29,19 @@ export async function POST(
     if (!result.success) {
       return NextResponse.json({ error: "Veröffentlichung fehlgeschlagen." }, { status: 500 });
     }
+
+    const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+    logAction({
+      userId: actor?.id,
+      userName: actor?.name,
+      action: "PUBLISH",
+      entityType: "EVENT",
+      entityId: eventId,
+      entityLabel: existing.title,
+      changes: { old: { status: "draft" }, new: { status: "published" } },
+      ipAddress,
+    });
+
     return NextResponse.json({ message: "Event veröffentlicht!" });
   } catch (error) {
     console.error("Fehler beim Veröffentlichen:", error);
@@ -34,9 +51,11 @@ export async function POST(
 
 /** DELETE /api/admin/events/[id]/publish → unpublish (back to draft), blocked if registrations exist */
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const actor = await getCurrentUser();
+
   try {
     const { id } = await params;
     const eventId = Number(id);
@@ -59,6 +78,19 @@ export async function DELETE(
         { status: 409 }
       );
     }
+
+    const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+    logAction({
+      userId: actor?.id,
+      userName: actor?.name,
+      action: "UNPUBLISH",
+      entityType: "EVENT",
+      entityId: eventId,
+      entityLabel: existing.title,
+      changes: { old: { status: "published" }, new: { status: "draft" } },
+      ipAddress,
+    });
+
     return NextResponse.json({ message: "Event zurück in Planung gesetzt." });
   } catch (error) {
     console.error("Fehler beim Zurückziehen:", error);

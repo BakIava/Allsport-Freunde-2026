@@ -14,8 +14,9 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { Pencil, Trash2, Copy, Loader2, Plus } from "lucide-react";
+import { Pencil, Trash2, Copy, Loader2, Plus, History } from "lucide-react";
 import type { EventTemplate } from "@/lib/types";
+import AuditLogModal from "@/components/admin/AuditLogModal";
 
 const categoryLabels: Record<string, string> = {
   fussball: "Fußball",
@@ -36,6 +37,7 @@ export default function TemplateList() {
   const [deleteTarget, setDeleteTarget] = useState<EventTemplate | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [duplicating, setDuplicating] = useState<number | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<EventTemplate | null>(null);
 
   const fetchTemplates = () => {
     setLoading(true);
@@ -178,6 +180,14 @@ export default function TemplateList() {
                       >
                         <Trash2 className="w-4 h-4 text-red-500" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Änderungsverlauf"
+                        onClick={() => setHistoryTarget(tpl)}
+                      >
+                        <History className="w-4 h-4 text-gray-400" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -206,6 +216,16 @@ export default function TemplateList() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Audit Log Modal */}
+      {historyTarget && (
+        <AuditLogModal
+          entityType="TEMPLATE"
+          entityId={historyTarget.id}
+          entityLabel={historyTarget.name}
+          onClose={() => setHistoryTarget(null)}
+        />
+      )}
     </div>
   );
 }

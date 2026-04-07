@@ -16,6 +16,8 @@ import type {
   EventImageInput,
   CheckinParticipant,
   CheckinStatusResponse,
+  UserRole,
+  UserStatus,
 } from "./types";
 
 function getDatabaseUrl(): string | undefined {
@@ -711,4 +713,89 @@ export async function manualCheckin(
 
   await markCheckedIn(registrationId, checkedInBy);
   return { alreadyCheckedIn: false };
+}
+
+// ─── Admin: User Management ──────────────────────────────
+
+export async function getAllAdminUsers(): Promise<Omit<AdminUser, "password_hash">[]> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT id, username, name, email, role, status, created_by, created_at
+    FROM admin_users
+    ORDER BY created_at ASC
+  `;
+  return rows as Omit<AdminUser, "password_hash">[];
+}
+
+export async function getAdminUserById(id: number): Promise<Omit<AdminUser, "password_hash"> | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT id, username, name, email, role, status, created_by, created_at
+    FROM admin_users
+    WHERE id = ${id}
+  `;
+  return (rows[0] as Omit<AdminUser, "password_hash">) ?? null;
+}
+
+export interface CreateAdminUserInput {
+  username: string;
+  passwordHash: string;
+  name: string;
+  email?: string;
+  role: UserRole;
+  createdBy?: number;
+}
+
+export async function createAdminUser(data: CreateAdminUserInput): Promise<{ id: number }> {
+  const sql = getSQL();
+  const rows = await sql`
+    INSERT INTO admin_users (username, password_hash, name, email, role, status, created_by)
+    VALUES (
+      ${data.username},
+      ${data.passwordHash},
+      ${data.name},
+      ${data.email ?? null},
+      ${data.role},
+      'ACTIVE',
+      ${data.createdBy ?? null}
+    )
+    RETURNING id
+  `;
+  return { id: (rows[0] as { id: number }).id };
+}
+
+export interface UpdateAdminUserInput {
+  name?: string;
+  email?: string | null;
+  role?: UserRole;
+  status?: UserStatus;
+}
+
+export async function updateAdminUser(id: number, data: UpdateAdminUserInput): Promise<void> {
+  const sql = getSQL();
+  if (data.name !== undefined) {
+    await sql`UPDATE admin_users SET name = ${data.name} WHERE id = ${id}`;
+  }
+  if (data.email !== undefined) {
+    await sql`UPDATE admin_users SET email = ${data.email} WHERE id = ${id}`;
+  }
+  if (data.role !== undefined) {
+    await sql`UPDATE admin_users SET role = ${data.role} WHERE id = ${id}`;
+  }
+  if (data.status !== undefined) {
+    await sql`UPDATE admin_users SET status = ${data.status} WHERE id = ${id}`;
+  }
+}
+
+export async function resetAdminUserPassword(id: number, passwordHash: string): Promise<void> {
+  const sql = getSQL();
+  await sql`UPDATE admin_users SET password_hash = ${passwordHash} WHERE id = ${id}`;
+}
+
+export async function getAdminUserCountByRole(role: UserRole): Promise<number> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT COUNT(*)::int AS count FROM admin_users WHERE role = ${role} AND status = 'ACTIVE'
+  `;
+  return (rows[0] as { count: number }).count;
 }

@@ -3,6 +3,8 @@ import {
   getRegistrationWithEvent,
   getEvent,
 } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 import {
   sendRegistrationApprovedEmail,
   sendRegistrationRejectedEmail,
@@ -11,6 +13,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type { RegistrationStatus } from "@/lib/types";
 
 export async function PATCH(request: NextRequest) {
+  const actor = await getCurrentUser();
+
   try {
     const body = await request.json();
     const { ids, status, note } = body as {
@@ -40,7 +44,10 @@ export async function PATCH(request: NextRequest) {
 
     const results = await bulkUpdateRegistrationStatus(ids, status, note);
 
-    // Fire-and-forget emails
+    const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+    const auditAction = status === "approved" ? "APPROVE" : status === "rejected" ? "REJECT" : "UPDATE";
+
+    // Fire-and-forget emails + audit logs
     for (const reg of regsBefore) {
       if (!reg) continue;
       const event = await getEvent(reg.event_id);
@@ -62,6 +69,17 @@ export async function PATCH(request: NextRequest) {
       } else if (status === "rejected") {
         sendRegistrationRejectedEmail({ ...emailData, note });
       }
+
+      logAction({
+        userId: actor?.id,
+        userName: actor?.name,
+        action: auditAction,
+        entityType: "REGISTRATION",
+        entityId: reg.id,
+        entityLabel: `${reg.first_name} ${reg.last_name} – ${reg.event_title}`,
+        changes: { old: { status: reg.status }, new: { status, note: note ?? null } },
+        ipAddress,
+      });
     }
 
     return NextResponse.json(results);

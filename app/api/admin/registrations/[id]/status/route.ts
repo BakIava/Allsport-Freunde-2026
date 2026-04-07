@@ -1,4 +1,6 @@
 import { updateRegistrationStatus, getRegistrationWithEvent, getEvent, saveQRCode } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 import {
   sendRegistrationApprovedEmail,
   sendRegistrationRejectedEmail,
@@ -11,6 +13,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const actor = await getCurrentUser();
+
   try {
     const { id } = await params;
     const regId = Number(id);
@@ -81,6 +85,19 @@ export async function PATCH(
         sendRegistrationRejectedEmail({ ...emailData, note });
       }
     }
+
+    const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+    const auditAction = status === "approved" ? "APPROVE" : status === "rejected" ? "REJECT" : "UPDATE";
+    logAction({
+      userId: actor?.id,
+      userName: actor?.name,
+      action: auditAction,
+      entityType: "REGISTRATION",
+      entityId: regId,
+      entityLabel: `${regBefore.first_name} ${regBefore.last_name} – ${regBefore.event_title}`,
+      changes: { old: { status: regBefore.status }, new: { status, note: note ?? null } },
+      ipAddress,
+    });
 
     return NextResponse.json(result);
   } catch (error) {

@@ -1,4 +1,6 @@
 import { getAllTemplates, createTemplate } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 import { NextRequest, NextResponse } from "next/server";
 import type { EventTemplateInput } from "@/lib/types";
 
@@ -15,6 +17,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const actor = await getCurrentUser();
+
   try {
     const body: EventTemplateInput = await request.json();
 
@@ -41,6 +45,18 @@ export async function POST(request: NextRequest) {
       dress_code: (body.dress_code || "").trim(),
       max_participants: body.max_participants,
       images: Array.isArray(body.images) ? body.images : [],
+    });
+
+    const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+    logAction({
+      userId: actor?.id,
+      userName: actor?.name,
+      action: "CREATE",
+      entityType: "TEMPLATE",
+      entityId: result.id,
+      entityLabel: body.name.trim(),
+      changes: { new: { name: body.name.trim(), title: body.title.trim(), category: body.category } },
+      ipAddress,
     });
 
     return NextResponse.json({ message: "Vorlage erstellt!", id: result.id }, { status: 201 });
