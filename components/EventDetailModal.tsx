@@ -177,7 +177,7 @@ export default function EventDetailModal({
 
                 {/* Description */}
                 {event.description && (
-                  <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+                  <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed whitespace-pre-line">
                     <p>{event.description}</p>
                   </div>
                 )}
