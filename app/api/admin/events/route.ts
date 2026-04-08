@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       date: body.date,
       time: body.time,
       location: body.location.trim(),
+      parking_location: body.parking_location?.trim() || undefined,
       price: body.price.trim(),
       dress_code: (body.dress_code || "").trim(),
       max_participants: body.max_participants,

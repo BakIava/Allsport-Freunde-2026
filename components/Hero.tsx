@@ -22,11 +22,13 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
-            Allsport Freunde
-            <br />
-            <span className="text-green-200">2026 e.V.</span>
-          </h1>
+          <div className="mb-8">
+            <img 
+              src="/logo.svg" 
+              alt="Allsport Freunde Logo" 
+              className="w-64 h-64 md:w-80 md:h-80 lg:w-112 lg:h-112 mx-auto drop-shadow-lg"
+            />
+          </div>
         </motion.div>
 
         <motion.p

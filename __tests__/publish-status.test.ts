@@ -32,6 +32,7 @@ function makeEvent(overrides: Partial<EventWithRegistrations> = {}): EventWithRe
     date: FUTURE,
     time: "10:00",
     location: "Testort",
+    parking_location: null,
     price: "Kostenlos",
     dress_code: "",
     max_participants: 20,

@@ -4,10 +4,9 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Clock, MapPin, Euro, Shirt } from "lucide-react";
+import { Calendar, Clock, ChevronRight } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
 import { motion } from "framer-motion";
-import ImageCarousel from "./ImageCarousel";
 
 const categoryConfig = {
   fussball: {
@@ -30,27 +29,39 @@ const categoryConfig = {
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00");
   return date.toLocaleDateString("de-DE", {
-    weekday: "long",
+    weekday: "short",
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 }
 
-function formatTime(timeStr: string): string {
-  return timeStr + " Uhr";
-}
-
 interface EventCardProps {
   event: EventWithRegistrations;
   index: number;
   onRegister: (event: EventWithRegistrations) => void;
+  onShowDetails: (event: EventWithRegistrations) => void;
 }
 
-export default function EventCard({ event, index, onRegister }: EventCardProps) {
+export default function EventCard({
+  event,
+  index,
+  onRegister,
+  onShowDetails,
+}: EventCardProps) {
   const config = categoryConfig[event.category];
   const isFull = event.current_participants >= event.max_participants;
-  const percentage = (event.current_participants / event.max_participants) * 100;
+  const percentage = Math.min(
+    100,
+    (event.current_participants / event.max_participants) * 100
+  );
+  const available = event.max_participants - event.current_participants;
+
+  // Teaser: first sentence or first 100 chars
+  const teaser = event.description
+    ? event.description.split(/[.!?]/)[0].trim().slice(0, 100) +
+      (event.description.length > 100 ? "…" : ".")
+    : "";
 
   return (
     <motion.div
@@ -60,50 +71,42 @@ export default function EventCard({ event, index, onRegister }: EventCardProps) 
       transition={{ duration: 0.5, delay: 0.05 * index }}
     >
       <Card className="h-full flex flex-col hover:shadow-lg transition-shadow duration-300 overflow-hidden">
-        {/* Image carousel / thumbnail */}
-        <ImageCarousel
-          images={event.images ?? []}
-          title={event.title}
-          className="h-44 shrink-0"
-        />
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <Badge variant={config.variant}>{config.label}</Badge>
           </div>
-          <h3 className="text-lg font-bold text-gray-900 mt-2">{event.title}</h3>
-          <p className="text-sm text-gray-500">{event.description}</p>
+          <h3 className="text-lg font-bold text-gray-900 mt-2 leading-snug">
+            {event.title}
+          </h3>
+          {teaser && (
+            <p className="text-sm text-gray-500 line-clamp-2">{teaser}</p>
+          )}
         </CardHeader>
 
         <CardContent className="flex-1 space-y-3">
-          <div className="space-y-2 text-sm">
+          <div className="space-y-1.5 text-sm">
             <div className="flex items-center gap-2 text-gray-600">
               <Calendar className="w-4 h-4 shrink-0 text-gray-400" />
               <span>{formatDate(event.date)}</span>
             </div>
             <div className="flex items-center gap-2 text-gray-600">
               <Clock className="w-4 h-4 shrink-0 text-gray-400" />
-              <span>{formatTime(event.time)}</span>
-            </div>
-            <div className="flex items-center gap-2 text-gray-600">
-              <MapPin className="w-4 h-4 shrink-0 text-gray-400" />
-              <span>{event.location}</span>
-            </div>
-            <div className="flex items-center gap-2 text-gray-600">
-              <Euro className="w-4 h-4 shrink-0 text-gray-400" />
-              <span>{event.price}</span>
-            </div>
-            <div className="flex items-center gap-2 text-gray-600">
-              <Shirt className="w-4 h-4 shrink-0 text-gray-400" />
-              <span>{event.dress_code}</span>
+              <span>{event.time} Uhr</span>
             </div>
           </div>
 
-          <div className="pt-2">
-            <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-gray-500">Belegung</span>
-              <span className={`font-medium ${isFull ? "text-red-600" : "text-gray-700"}`}>
-                {event.current_participants} von {event.max_participants} Plätzen belegt
-                {event.pending_participants ? ` (${event.pending_participants} ausstehend)` : ""}
+          {/* Availability */}
+          <div className="pt-1">
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-gray-500">Plätze</span>
+              <span
+                className={`font-medium ${
+                  isFull ? "text-red-600" : "text-gray-600"
+                }`}
+              >
+                {isFull
+                  ? "Ausgebucht"
+                  : `Noch ${available} frei`}
               </span>
             </div>
             <Progress
@@ -113,14 +116,22 @@ export default function EventCard({ event, index, onRegister }: EventCardProps) 
           </div>
         </CardContent>
 
-        <CardFooter>
+        <CardFooter className="flex gap-2">
           <Button
-            className="w-full"
+            variant="outline"
+            className="flex-1"
+            onClick={() => onShowDetails(event)}
+          >
+            Mehr Infos
+            <ChevronRight className="w-4 h-4 ml-1" />
+          </Button>
+          <Button
+            className="flex-1"
             onClick={() => onRegister(event)}
             disabled={isFull}
             variant={isFull ? "secondary" : "default"}
           >
-            {isFull ? "Ausgebucht" : "Jetzt anmelden"}
+            {isFull ? "Ausgebucht" : "Anmelden"}
           </Button>
         </CardFooter>
       </Card>
