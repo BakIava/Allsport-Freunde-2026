@@ -21,6 +21,7 @@ async function setup() {
       date DATE NOT NULL,
       time VARCHAR(10) NOT NULL,
       location VARCHAR(255) NOT NULL,
+      parking_location TEXT,
       price VARCHAR(100) NOT NULL,
       dress_code VARCHAR(255) NOT NULL,
       max_participants INTEGER NOT NULL,
@@ -36,6 +37,8 @@ async function setup() {
   await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS published_at TIMESTAMP`;
   // Migrate legacy 'active' status → 'published'
   await sql`UPDATE events SET status = 'published', published_at = created_at WHERE status = 'active'`;
+  // Migration: parking_location für bestehende Datenbanken
+  await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS parking_location TEXT`;
   console.log("  ✓ Tabelle 'events' erstellt");
 
   await sql`
