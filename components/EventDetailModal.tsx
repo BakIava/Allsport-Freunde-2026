@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import {
   Euro,
   Shirt,
   Users,
+  Copy,
+  Check,
 } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
 import ImageCarousel from "./ImageCarousel";
@@ -58,6 +60,8 @@ export default function EventDetailModal({
   onRegister,
 }: EventDetailModalProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [copiedLocation, setCopiedLocation] = useState(false);
+  const [copiedParking, setCopiedParking] = useState(false);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -79,6 +83,13 @@ export default function EventDetailModal({
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
+
+  // Copy to clipboard function
+  const copyToClipboard = (text: string, setter: (value: boolean) => void) => {
+    navigator.clipboard.writeText(text);
+    setter(true);
+    setTimeout(() => setter(false), 2000);
+  };
 
   // Scroll to top on open
   useEffect(() => {
@@ -195,7 +206,22 @@ export default function EventDetailModal({
                           label={event.location}
                         />
                       </div>
-                      <p className="text-xs text-gray-500">{event.location}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-gray-500">{event.location}</p>
+                        <button
+                          onClick={() =>
+                            copyToClipboard(event.location, setCopiedLocation)
+                          }
+                          className="ml-2 p-1 rounded hover:bg-gray-100 transition-colors"
+                          title="In Zwischenablage kopieren"
+                        >
+                          {copiedLocation ? (
+                            <Check className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     {/* Parking map */}
@@ -211,9 +237,27 @@ export default function EventDetailModal({
                             label={event.parking_location}
                           />
                         </div>
-                        <p className="text-xs text-gray-500">
-                          {event.parking_location}
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-gray-500">
+                            {event.parking_location}
+                          </p>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(
+                                event.parking_location || "",
+                                setCopiedParking
+                              )
+                            }
+                            className="ml-2 p-1 rounded hover:bg-gray-100 transition-colors"
+                            title="In Zwischenablage kopieren"
+                          >
+                            {copiedParking ? (
+                              <Check className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Copy className="w-4 h-4 text-gray-400" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
