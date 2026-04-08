@@ -172,16 +172,17 @@ export default function EventGrid() {
         />
       </div>
 
-      {/* Floating contact button */}
+      {/* Contact button */}
       <div className="mt-12 text-center">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          className="h-12 px-6 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-400 hover:text-green-800 transition-colors"
           onClick={() => handleContact()}
-          className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-green-700 underline underline-offset-2 transition-colors"
         >
-          <MessageSquare className="w-4 h-4" />
+          <MessageSquare className="w-4 h-4 mr-2" />
           Fragen oder Anmerkungen? Kontaktiere uns!
-        </button>
+        </Button>
       </div>
     </section>
   );

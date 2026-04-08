@@ -17,6 +17,7 @@ import {
   Users,
   Copy,
   Check,
+  MessageSquare,
 } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
 import ImageCarousel from "./ImageCarousel";
@@ -341,20 +342,20 @@ export default function EventDetailModal({
                   </Button>
                 </div>
 
-                {/* Contact link */}
+                {/* Contact button */}
                 {onContact && (
-                  <div className="pt-1 text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onClose();
-                        onContact(event.id);
-                      }}
-                      className="text-sm text-gray-500 hover:text-green-700 underline underline-offset-2 transition-colors"
-                    >
-                      Noch Fragen? Schreib uns an! 🎯
-                    </button>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-11 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-400 hover:text-green-800 transition-colors"
+                    onClick={() => {
+                      onClose();
+                      onContact(event.id);
+                    }}
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Noch Fragen? Schreib uns an! 🎯
+                  </Button>
                 )}
               </div>
             </div>
