@@ -51,6 +51,7 @@ interface EventDetailModalProps {
   open: boolean;
   onClose: () => void;
   onRegister: (event: EventWithRegistrations) => void;
+  onContact?: (eventId: number) => void;
 }
 
 export default function EventDetailModal({
@@ -58,6 +59,7 @@ export default function EventDetailModal({
   open,
   onClose,
   onRegister,
+  onContact,
 }: EventDetailModalProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [copiedLocation, setCopiedLocation] = useState(false);
@@ -338,6 +340,22 @@ export default function EventDetailModal({
                     Schließen
                   </Button>
                 </div>
+
+                {/* Contact link */}
+                {onContact && (
+                  <div className="pt-1 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onContact(event.id);
+                      }}
+                      className="text-sm text-gray-500 hover:text-green-700 underline underline-offset-2 transition-colors"
+                    >
+                      Noch Fragen? Schreib uns an! 🎯
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

@@ -4,6 +4,9 @@ import { RegistrationApprovedEmail } from "@/emails/registration-approved";
 import { RegistrationRejectedEmail } from "@/emails/registration-rejected";
 import { RegistrationCancelledEmail } from "@/emails/registration-cancelled";
 import { EventCancelledEmail } from "@/emails/event-cancelled";
+import { ContactReceivedEmail } from "@/emails/contact-received";
+import { ContactAdminEmail } from "@/emails/contact-admin";
+import { ContactResponseEmail } from "@/emails/contact-response";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -146,6 +149,66 @@ export async function sendRegistrationRejectedEmail(
       eventLocation: data.eventLocation,
       statusUrl,
       note: data.note,
+    })
+  );
+}
+
+// ─── Contact Emails ──────────────────────────────────────
+
+export async function sendContactReceivedEmail(data: {
+  to: string;
+  firstName?: string;
+  eventTitle?: string;
+  conversationToken: string;
+}) {
+  const conversationUrl = `${appUrl}/conversation/${data.conversationToken}`;
+  sendEmail(
+    "Deine Anfrage ist eingegangen – Allsport Freunde",
+    data.to,
+    ContactReceivedEmail({
+      firstName: data.firstName,
+      eventTitle: data.eventTitle,
+      conversationUrl,
+    })
+  );
+}
+
+export async function sendContactAdminEmail(data: {
+  adminEmail: string;
+  senderName: string;
+  senderEmail: string;
+  eventTitle?: string;
+  messagePreview: string;
+  inquiryId: number;
+}) {
+  const adminUrl = `${appUrl}/admin/contact/${data.inquiryId}`;
+  sendEmail(
+    `Neue Kontaktanfrage von ${data.senderName}`,
+    data.adminEmail,
+    ContactAdminEmail({
+      senderName: data.senderName,
+      senderEmail: data.senderEmail,
+      eventTitle: data.eventTitle,
+      messagePreview: data.messagePreview,
+      adminUrl,
+    })
+  );
+}
+
+export async function sendContactResponseEmail(data: {
+  to: string;
+  firstName?: string;
+  responseText: string;
+  conversationToken: string;
+}) {
+  const conversationUrl = `${appUrl}/conversation/${data.conversationToken}`;
+  sendEmail(
+    "Antwort auf deine Anfrage – Allsport Freunde",
+    data.to,
+    ContactResponseEmail({
+      firstName: data.firstName,
+      responseText: data.responseText,
+      conversationUrl,
     })
   );
 }
