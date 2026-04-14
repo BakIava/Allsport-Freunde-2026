@@ -919,6 +919,7 @@ export default function CheckinDashboardPage() {
                   ref={donorNameRef}
                   type="text"
                   required
+                  maxLength={254}
                   value={donationForm.donor_name}
                   onChange={(e) => setDonationForm((f) => ({ ...f, donor_name: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
@@ -936,6 +937,7 @@ export default function CheckinDashboardPage() {
                   inputMode="decimal"
                   required
                   value={donationForm.amount}
+                  max={999_999_999}
                   onChange={(e) => setDonationForm((f) => ({ ...f, amount: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
                   placeholder="10,00"
@@ -949,6 +951,7 @@ export default function CheckinDashboardPage() {
                 </label>
                 <input
                   type="text"
+                  maxLength={200}
                   value={donationForm.note}
                   onChange={(e) => setDonationForm((f) => ({ ...f, note: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
