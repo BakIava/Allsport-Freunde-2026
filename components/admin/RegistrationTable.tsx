@@ -67,7 +67,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
         if (
           !r.first_name.toLowerCase().includes(q) &&
           !r.last_name.toLowerCase().includes(q) &&
-          !r.email.toLowerCase().includes(q)
+          !r.email?.toLowerCase().includes(q)
         )
           return false;
       }

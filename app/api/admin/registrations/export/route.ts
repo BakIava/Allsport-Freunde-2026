@@ -15,18 +15,20 @@ export async function GET(request: NextRequest) {
       registrations = await getAllRegistrations();
     }
 
-    const header = "Vorname;Nachname;E-Mail;Telefon;Begleitpersonen;Event;Event-Datum;Kategorie;Anmeldedatum";
+    const header = "Vorname;Nachname;E-Mail;Telefon;Begleitpersonen;Event;Event-Datum;Kategorie;Anmeldedatum;Walk-in;Bemerkung";
     const rows = registrations.map((r) =>
       [
         r.first_name,
         r.last_name,
-        r.email,
+        r.email || "",
         r.phone || "",
         r.guests,
         r.event_title,
         r.event_date,
         r.event_category,
         r.created_at,
+        r.is_walk_in ? "Ja" : "Nein",
+        r.notes || "",
       ].join(";")
     );
 

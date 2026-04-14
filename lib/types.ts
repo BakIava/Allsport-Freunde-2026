@@ -45,7 +45,7 @@ export interface Registration {
   event_id: number;
   first_name: string;
   last_name: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   guests: number;
   status: RegistrationStatus;
@@ -57,6 +57,17 @@ export interface Registration {
   qr_token: string | null;
   checked_in_at: string | null;
   checked_in_by: string | null;
+  is_walk_in: boolean;
+  notes: string | null;
+}
+
+export interface WalkInInput {
+  event_id: number;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
 }
 
 export interface RegistrationRequest {
@@ -99,16 +110,23 @@ export interface CheckinParticipant {
   id: number;
   first_name: string;
   last_name: string;
-  email: string;
+  email: string | null;
+  phone: string | null;
   guests: number;
   checked_in_at: string | null;
   checked_in_by: string | null;
+  is_walk_in: boolean;
+  notes: string | null;
 }
 
 export interface CheckinStatusResponse {
   total: number;
   checked_in: number;
   missing: number;
+  total_registrations: number;
+  total_guests: number;
+  walk_in_registrations: number;
+  walk_in_guests: number;
   participants: CheckinParticipant[];
 }
 

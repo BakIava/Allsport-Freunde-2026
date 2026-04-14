@@ -70,6 +70,8 @@ function initSeedRegistrations() {
         qr_token: null,
         checked_in_at: null,
         checked_in_by: null,
+        is_walk_in: false,
+        notes: null,
       });
     }
   }
@@ -188,10 +190,55 @@ export function createLocalRegistration(data: {
     qr_token: null,
     checked_in_at: null,
     checked_in_by: null,
+    is_walk_in: false,
+    notes: null,
   };
   localRegistrations.push(registration);
   recomputeParticipants(data.event_id);
   return registration;
+}
+
+export function createLocalWalkInRegistration(data: {
+  event_id: number;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  checked_in_by: string | null;
+  guests?: number;
+}): { id: number; alreadyExists: boolean } {
+  if (data.email) {
+    const existing = localRegistrations.find(
+      (r) => r.event_id === data.event_id && r.email === data.email
+    );
+    if (existing) return { id: existing.id, alreadyExists: true };
+  }
+
+  const now = new Date().toISOString();
+  const registration: Registration = {
+    id: nextRegistrationId++,
+    event_id: data.event_id,
+    first_name: data.first_name,
+    last_name: data.last_name,
+    email: data.email,
+    phone: data.phone,
+    guests: data.guests ?? 0,
+    status: "approved",
+    status_token: crypto.randomUUID(),
+    status_changed_at: now,
+    status_note: null,
+    created_at: now,
+    qr_code: null,
+    qr_token: null,
+    checked_in_at: data.checked_in_by ? now : null,
+    checked_in_by: data.checked_in_by ?? null,
+    is_walk_in: true,
+    notes: data.notes,
+  };
+  localRegistrations.push(registration);
+  recomputeParticipants(data.event_id);
+  return { id: registration.id, alreadyExists: false };
 }
 
 // ─── Status Page ─────────────────────────────────────────
@@ -205,7 +252,7 @@ export function getLocalRegistrationByToken(token: string): RegistrationStatusIn
     id: reg.id,
     first_name: reg.first_name,
     last_name: reg.last_name,
-    email: reg.email,
+    email: reg.email ?? "",
     guests: reg.guests,
     status: reg.status,
     status_note: reg.status_note,
