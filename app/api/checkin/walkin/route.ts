@@ -16,9 +16,10 @@ export async function POST(request: NextRequest) {
       email?: string;
       phone?: string;
       notes?: string;
+      guests?: number;
     };
 
-    const { event_id, first_name, last_name, email, phone, notes } = body;
+    const { event_id, first_name, last_name, email, phone, notes, guests } = body;
 
     if (!event_id || typeof event_id !== "number") {
       return NextResponse.json({ error: "event_id fehlt oder ungültig." }, { status: 400 });
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Ungültige E-Mail-Adresse." }, { status: 400 });
     }
 
+    const guestCount = typeof guests === "number" && guests >= 0 && guests <= 10 ? Math.floor(guests) : 0;
     const adminName = session.user?.name ?? "admin";
     const result = await createWalkInRegistration({
       event_id,
@@ -44,6 +46,7 @@ export async function POST(request: NextRequest) {
       email: emailTrimmed,
       phone: phone?.trim() || null,
       notes: notes?.trim() || null,
+      guests: guestCount,
       checked_in_by: adminName,
     });
 

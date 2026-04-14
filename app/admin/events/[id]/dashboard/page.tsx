@@ -31,6 +31,7 @@ interface WalkInForm {
   email: string;
   phone: string;
   notes: string;
+  guests: number;
 }
 
 const EMPTY_FORM: WalkInForm = {
@@ -39,6 +40,7 @@ const EMPTY_FORM: WalkInForm = {
   email: "",
   phone: "",
   notes: "",
+  guests: 0,
 };
 
 export default function CheckinDashboardPage() {
@@ -159,6 +161,7 @@ export default function CheckinDashboardPage() {
           email: walkInForm.email || undefined,
           phone: walkInForm.phone || undefined,
           notes: walkInForm.notes || undefined,
+          guests: walkInForm.guests,
         }),
       });
       const body = await res.json();
@@ -511,6 +514,31 @@ export default function CheckinDashboardPage() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                   placeholder="z.B. Kam mit Mitglied XY, Schnuppertraining…"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Begleitpersonen
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setWalkInForm((f) => ({ ...f, guests: Math.max(0, f.guests - 1) }))}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-lg font-medium transition-colors"
+                  >
+                    −
+                  </button>
+                  <span className="text-sm font-semibold text-gray-900 w-6 text-center tabular-nums">
+                    {walkInForm.guests}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setWalkInForm((f) => ({ ...f, guests: Math.min(10, f.guests + 1) }))}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-lg font-medium transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
 
               {walkInError && (
