@@ -206,6 +206,7 @@ export function createLocalWalkInRegistration(data: {
   phone: string | null;
   notes: string | null;
   checked_in_by: string;
+  guests?: number;
 }): { id: number; alreadyExists: boolean } {
   if (data.email) {
     const existing = localRegistrations.find(
@@ -222,7 +223,7 @@ export function createLocalWalkInRegistration(data: {
     last_name: data.last_name,
     email: data.email,
     phone: data.phone,
-    guests: 0,
+    guests: data.guests ?? 0,
     status: "approved",
     status_token: crypto.randomUUID(),
     status_changed_at: now,

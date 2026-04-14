@@ -700,6 +700,7 @@ export async function createWalkInRegistration(data: {
   phone: string | null;
   notes: string | null;
   checked_in_by: string;
+  guests?: number;
 }): Promise<{ id: number; alreadyExists: boolean }> {
   if (!isPostgresConfigured()) {
     const { createLocalWalkInRegistration } = await import("./local-data");
@@ -714,13 +715,14 @@ export async function createWalkInRegistration(data: {
 
   const sql = getSQL();
   const statusToken = crypto.randomUUID();
+  const guestCount = data.guests ?? 0;
   const rows = await sql`
     INSERT INTO registrations
       (event_id, first_name, last_name, email, phone, guests, status, status_token,
        is_walk_in, notes, checked_in_at, checked_in_by, status_changed_at)
     VALUES
       (${data.event_id}, ${data.first_name}, ${data.last_name}, ${data.email},
-       ${data.phone}, 0, 'approved', ${statusToken},
+       ${data.phone}, ${guestCount}, 'approved', ${statusToken},
        TRUE, ${data.notes}, NOW(), ${data.checked_in_by}, NOW())
     RETURNING id
   `;

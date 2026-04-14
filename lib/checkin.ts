@@ -10,6 +10,11 @@ export interface CheckinTokenPayload {
   registrationId: number;
 }
 
+export interface WalkInTokenPayload {
+  eventId: number;
+  type: "walk-in";
+}
+
 /**
  * Generates a signed JWT for a check-in.
  * Expires at event end (date + time) + 24 hours.
@@ -57,3 +62,66 @@ export async function generateQRCode(token: string): Promise<string> {
     },
   });
 }
+
+// ─── Walk-in Self-Service QR ─────────────────────────────
+
+/**
+ * Generates a signed JWT for the walk-in self-service QR code.
+ * Expires at event end (date + time) + 24 hours, minimum 1 hour.
+ */
+export function generateWalkInToken(
+  eventId: number,
+  eventDate: string,
+  eventTime: string
+): string {
+  const [year, month, day] = eventDate.split("-").map(Number);
+  const [hours, minutes] = eventTime.split(":").map(Number);
+  const eventEnd = new Date(year, month - 1, day, hours, minutes);
+  const expiry = new Date(eventEnd.getTime() + 24 * 60 * 60 * 1000);
+
+  // At least 1 hour of validity so the QR stays usable
+  const secondsUntilExpiry = Math.max(
+    Math.floor((expiry.getTime() - Date.now()) / 1000),
+    3600
+  );
+
+  return jwt.sign({ eventId, type: "walk-in" }, CHECKIN_SECRET, {
+    expiresIn: secondsUntilExpiry,
+  });
+}
+
+/**
+ * Verifies a walk-in token. Returns { eventId } or null.
+ */
+export function verifyWalkInToken(token: string): { eventId: number } | null {
+  try {
+    const payload = jwt.verify(token, CHECKIN_SECRET) as WalkInTokenPayload;
+    if (payload.type !== "walk-in") return null;
+    return { eventId: payload.eventId };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Generates a large QR code PNG for the walk-in self-service page.
+ */
+export async function generateWalkInQRCode(eventId: number, token: string): Promise<string> {
+  const url = `${APP_URL}/events/${eventId}/walk-in?token=${token}`;
+  return QRCode.toDataURL(url, {
+    width: 600,
+    margin: 2,
+    color: {
+      dark: "#000000",
+      light: "#ffffff",
+    },
+  });
+}
+
+/**
+ * Returns the walk-in self-service URL for a given event and token.
+ */
+export function getWalkInUrl(eventId: number, token: string): string {
+  return `${APP_URL}/events/${eventId}/walk-in?token=${token}`;
+}
+

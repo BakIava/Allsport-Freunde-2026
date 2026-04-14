@@ -14,6 +14,9 @@ import {
   Undo2,
   UserPlus,
   X,
+  Copy,
+  ExternalLink,
+  Check,
 } from "lucide-react";
 import type { CheckinParticipant, CheckinStatusResponse } from "@/lib/types";
 
@@ -55,6 +58,14 @@ export default function CheckinDashboardPage() {
   const [walkInLoading, setWalkInLoading] = useState(false);
   const [walkInError, setWalkInError] = useState<string | null>(null);
   const firstNameRef = useRef<HTMLInputElement>(null);
+
+  // Walk-in QR modal state
+  interface QRData { qrCodeDataUrl: string; walkInUrl: string; eventTitle: string }
+  const [showQR, setShowQR] = useState(false);
+  const [qrData, setQrData] = useState<QRData | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -101,6 +112,36 @@ export default function CheckinDashboardPage() {
     if (walkInLoading) return;
     setShowWalkIn(false);
     setWalkInError(null);
+  }
+
+  async function handleShowQR() {
+    setQrError(null);
+    setShowQR(true);
+    if (qrData) return; // already loaded
+    setQrLoading(true);
+    try {
+      const res = await fetch(
+        `/api/admin/checkin/walkin-qr?eventId=${eventId}`
+      );
+      const body = await res.json();
+      if (!res.ok) {
+        setQrError(body.error ?? "Fehler beim Laden des QR-Codes.");
+      } else {
+        setQrData(body);
+      }
+    } catch {
+      setQrError("Netzwerkfehler.");
+    } finally {
+      setQrLoading(false);
+    }
+  }
+
+  function handleCopyLink() {
+    if (!qrData) return;
+    navigator.clipboard.writeText(qrData.walkInUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   }
 
   async function handleWalkInSubmit(e: React.FormEvent) {
@@ -229,6 +270,13 @@ export default function CheckinDashboardPage() {
           >
             <QrCode className="w-4 h-4" />
             Scanner öffnen
+          </button>
+          <button
+            onClick={handleShowQR}
+            className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <QrCode className="w-4 h-4" />
+            Walk-in QR
           </button>
           <button
             onClick={openWalkIn}
@@ -492,6 +540,93 @@ export default function CheckinDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Walk-in QR-Code Modal */}
+      {showQR && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowQR(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <QrCode className="w-5 h-5 text-violet-600" />
+                <h2 className="text-base font-semibold text-gray-900">Walk-in QR-Code</h2>
+              </div>
+              <button
+                onClick={() => setShowQR(false)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* QR code area */}
+            <div className="px-5 py-5 flex flex-col items-center gap-4">
+              {qrLoading && (
+                <div className="h-64 flex items-center justify-center">
+                  <RefreshCw className="w-8 h-8 animate-spin text-violet-500" />
+                </div>
+              )}
+              {qrError && (
+                <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-3 w-full text-center">
+                  {qrError}
+                </p>
+              )}
+              {qrData && !qrLoading && (
+                <>
+                  {/* QR code image */}
+                  <div className="bg-white p-2 rounded-xl border-2 border-gray-100 shadow-inner">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={qrData.qrCodeDataUrl}
+                      alt="Walk-in QR-Code"
+                      className="w-64 h-64"
+                    />
+                  </div>
+
+                  <div className="text-center space-y-1">
+                    <p className="text-sm font-semibold text-gray-900">{qrData.eventTitle}</p>
+                    <p className="text-xs text-gray-500">
+                      Gäste scannen diesen Code um sich vor Ort anzumelden
+                    </p>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 w-full">
+                    <button
+                      onClick={handleCopyLink}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 border border-gray-200 hover:bg-gray-50 rounded-xl text-sm text-gray-600 transition-colors"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-4 h-4 text-green-600" />
+                          <span className="text-green-700">Kopiert!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          Link kopieren
+                        </>
+                      )}
+                    </button>
+                    <a
+                      href={qrData.walkInUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 border border-gray-200 hover:bg-gray-50 rounded-xl text-sm text-gray-600 transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Öffnen
+                    </a>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
