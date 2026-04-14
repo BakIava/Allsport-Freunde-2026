@@ -44,7 +44,7 @@ export async function PATCH(request: NextRequest) {
     for (const reg of regsBefore) {
       if (!reg) continue;
       const event = await getEvent(reg.event_id);
-      if (!event) continue;
+      if (!event || !reg.email) continue;
 
       const emailData = {
         to: reg.email,

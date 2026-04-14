@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       phone: phone?.trim() || null,
       notes: notes?.trim() || null,
       guests,
-      checked_in_by: "Self-Service Walk-in",
+      checked_in_by: null, // No admin, it's a self-check-in
     });
 
     if (result.alreadyExists) {

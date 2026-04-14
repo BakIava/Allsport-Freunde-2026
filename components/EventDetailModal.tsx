@@ -297,8 +297,9 @@ export default function EventDetailModal({
                         isFull ? "text-red-600" : "text-gray-700"
                       }`}
                     >
-                      {event.current_participants} von {event.max_participants}{" "}
-                      Plätzen belegt
+                      {event.current_participants >= event.max_participants ? 
+                      "Ausgebucht" : 
+                      `${event.current_participants} von ${event.max_participants} Plätzen belegt`}
                       {event.pending_participants
                         ? ` (${event.pending_participants} ausstehend)`
                         : ""}

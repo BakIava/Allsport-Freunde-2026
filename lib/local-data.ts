@@ -205,7 +205,7 @@ export function createLocalWalkInRegistration(data: {
   email: string | null;
   phone: string | null;
   notes: string | null;
-  checked_in_by: string;
+  checked_in_by: string | null;
   guests?: number;
 }): { id: number; alreadyExists: boolean } {
   if (data.email) {
@@ -231,8 +231,8 @@ export function createLocalWalkInRegistration(data: {
     created_at: now,
     qr_code: null,
     qr_token: null,
-    checked_in_at: now,
-    checked_in_by: data.checked_in_by,
+    checked_in_at: data.checked_in_by ? now : null,
+    checked_in_by: data.checked_in_by ?? null,
     is_walk_in: true,
     notes: data.notes,
   };

@@ -44,7 +44,7 @@ export async function PATCH(
     // Get event details for email and QR code
     const event = await getEvent(regBefore.event_id);
 
-    if (event) {
+    if (event && regBefore.email) {
       let qrCodeBase64: string | undefined;
 
       // Generate QR code when approving
@@ -72,7 +72,7 @@ export async function PATCH(
         eventTime: event.time,
         eventLocation: event.location,
         statusToken: regBefore.status_token,
-      };
+      };      
 
       // Fire-and-forget email
       if (status === "approved") {

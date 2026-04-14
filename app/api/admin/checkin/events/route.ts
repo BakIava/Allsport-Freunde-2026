@@ -18,7 +18,7 @@ export async function GET() {
     const sql = getSQL();
     const today = todayString();
 
-    // Fetch events that have at least one approved registration
+    // Fetch events that are today or upcoming, regardless of registration status
     const rows = await sql`
       SELECT
         e.id,
@@ -30,10 +30,9 @@ export async function GET() {
         COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved'), 0)::int AS approved_count,
         COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved' AND r.checked_in_at IS NOT NULL), 0)::int AS checked_in_count
       FROM events e
-      JOIN registrations r ON r.event_id = e.id AND r.status = 'approved'
+      LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'approved'
       WHERE e.date >= ${today}
       GROUP BY e.id
-      HAVING COUNT(r.id) FILTER (WHERE r.status = 'approved') > 0
       ORDER BY e.date ASC, e.time ASC
     `;
 

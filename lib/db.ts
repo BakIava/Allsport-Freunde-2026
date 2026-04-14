@@ -699,7 +699,7 @@ export async function createWalkInRegistration(data: {
   email: string | null;
   phone: string | null;
   notes: string | null;
-  checked_in_by: string;
+  checked_in_by: string | null;
   guests?: number;
 }): Promise<{ id: number; alreadyExists: boolean }> {
   if (!isPostgresConfigured()) {
@@ -723,7 +723,7 @@ export async function createWalkInRegistration(data: {
     VALUES
       (${data.event_id}, ${data.first_name}, ${data.last_name}, ${data.email},
        ${data.phone}, ${guestCount}, 'approved', ${statusToken},
-       TRUE, ${data.notes}, NOW(), ${data.checked_in_by}, NOW())
+       TRUE, ${data.notes}, ${data.checked_in_by ? sql`NOW()` : sql`NULL`}, ${data.checked_in_by ?? null}, NOW())
     RETURNING id
   `;
   return { id: (rows[0] as { id: number }).id, alreadyExists: false };

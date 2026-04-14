@@ -29,6 +29,8 @@ export async function POST(
 
     // Send cancellation emails to all participants (fire-and-forget per email)
     for (const reg of result.registrations) {
+      if(!reg.email) continue;
+
       sendEventCancelledEmail({
         to: reg.email,
         firstName: reg.first_name,
