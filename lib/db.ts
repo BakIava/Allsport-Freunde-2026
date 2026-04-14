@@ -671,7 +671,7 @@ export async function markCheckedIn(
 export async function getCheckinStatus(eventId: number): Promise<CheckinStatusResponse> {
   const sql = getSQL();
   const rows = await sql`
-    SELECT id, first_name, last_name, email, guests, checked_in_at, checked_in_by
+    SELECT id, first_name, last_name, email, phone, guests, checked_in_at, checked_in_by, is_walk_in, notes
     FROM registrations
     WHERE event_id = ${eventId} AND status = 'approved'
     ORDER BY last_name ASC, first_name ASC
@@ -690,6 +690,41 @@ export async function getCheckinStatus(eventId: number): Promise<CheckinStatusRe
     missing: total - checkedIn,
     participants,
   };
+}
+
+export async function createWalkInRegistration(data: {
+  event_id: number;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  checked_in_by: string;
+}): Promise<{ id: number; alreadyExists: boolean }> {
+  if (!isPostgresConfigured()) {
+    const { createLocalWalkInRegistration } = await import("./local-data");
+    return createLocalWalkInRegistration(data);
+  }
+
+  // Duplicate-email check (only when email is provided)
+  if (data.email) {
+    const existing = await findRegistration(data.event_id, data.email);
+    if (existing) return { id: existing.id, alreadyExists: true };
+  }
+
+  const sql = getSQL();
+  const statusToken = crypto.randomUUID();
+  const rows = await sql`
+    INSERT INTO registrations
+      (event_id, first_name, last_name, email, phone, guests, status, status_token,
+       is_walk_in, notes, checked_in_at, checked_in_by, status_changed_at)
+    VALUES
+      (${data.event_id}, ${data.first_name}, ${data.last_name}, ${data.email},
+       ${data.phone}, 0, 'approved', ${statusToken},
+       TRUE, ${data.notes}, NOW(), ${data.checked_in_by}, NOW())
+    RETURNING id
+  `;
+  return { id: (rows[0] as { id: number }).id, alreadyExists: false };
 }
 
 export async function undoCheckin(registrationId: number): Promise<void> {

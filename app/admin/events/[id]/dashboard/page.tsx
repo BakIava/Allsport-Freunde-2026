@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -12,6 +12,8 @@ import {
   RefreshCw,
   UserCheck,
   Undo2,
+  UserPlus,
+  X,
 } from "lucide-react";
 import type { CheckinParticipant, CheckinStatusResponse } from "@/lib/types";
 
@@ -19,6 +21,22 @@ function formatTime(iso: string | null) {
   if (!iso) return null;
   return new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 }
+
+interface WalkInForm {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  notes: string;
+}
+
+const EMPTY_FORM: WalkInForm = {
+  first_name: "",
+  last_name: "",
+  email: "",
+  phone: "",
+  notes: "",
+};
 
 export default function CheckinDashboardPage() {
   const { id: eventId } = useParams<{ id: string }>();
@@ -30,6 +48,13 @@ export default function CheckinDashboardPage() {
   const [manualCheckinId, setManualCheckinId] = useState<number | null>(null);
   const [undoId, setUndoId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Walk-in modal state
+  const [showWalkIn, setShowWalkIn] = useState(false);
+  const [walkInForm, setWalkInForm] = useState<WalkInForm>(EMPTY_FORM);
+  const [walkInLoading, setWalkInLoading] = useState(false);
+  const [walkInError, setWalkInError] = useState<string | null>(null);
+  const firstNameRef = useRef<HTMLInputElement>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -48,6 +73,66 @@ export default function CheckinDashboardPage() {
     const interval = setInterval(fetchStatus, 10_000);
     return () => clearInterval(interval);
   }, [fetchStatus]);
+
+  // Focus first field when modal opens
+  useEffect(() => {
+    if (showWalkIn) {
+      setTimeout(() => firstNameRef.current?.focus(), 50);
+    }
+  }, [showWalkIn]);
+
+  // Close modal on Escape key
+  useEffect(() => {
+    if (!showWalkIn) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeWalkIn();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [showWalkIn]);
+
+  function openWalkIn() {
+    setWalkInForm(EMPTY_FORM);
+    setWalkInError(null);
+    setShowWalkIn(true);
+  }
+
+  function closeWalkIn() {
+    if (walkInLoading) return;
+    setShowWalkIn(false);
+    setWalkInError(null);
+  }
+
+  async function handleWalkInSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setWalkInError(null);
+    setWalkInLoading(true);
+    try {
+      const res = await fetch("/api/checkin/walkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: Number(eventId),
+          first_name: walkInForm.first_name,
+          last_name: walkInForm.last_name,
+          email: walkInForm.email || undefined,
+          phone: walkInForm.phone || undefined,
+          notes: walkInForm.notes || undefined,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setWalkInError(body.error ?? "Fehler beim Hinzufügen.");
+      } else {
+        setShowWalkIn(false);
+        await fetchStatus();
+      }
+    } catch {
+      setWalkInError("Netzwerkfehler.");
+    } finally {
+      setWalkInLoading(false);
+    }
+  }
 
   async function handleUndo(participantId: number) {
     setUndoId(participantId);
@@ -93,13 +178,16 @@ export default function CheckinDashboardPage() {
   function exportCSV() {
     if (!data) return;
     const rows = [
-      ["Name", "E-Mail", "Begleiter", "Status", "Eingecheckt um"],
+      ["Name", "E-Mail", "Telefon", "Begleiter", "Status", "Eingecheckt um", "Walk-in", "Bemerkung"],
       ...data.participants.map((p) => [
         `${p.first_name} ${p.last_name}`,
-        p.email,
+        p.email ?? "",
+        p.phone ?? "",
         String(p.guests),
         p.checked_in_at ? "Eingecheckt" : "Ausstehend",
         formatTime(p.checked_in_at) ?? "",
+        p.is_walk_in ? "Ja" : "Nein",
+        p.notes ?? "",
       ]),
     ];
     const csv = rows.map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
@@ -117,7 +205,7 @@ export default function CheckinDashboardPage() {
     return (
       p.first_name.toLowerCase().includes(q) ||
       p.last_name.toLowerCase().includes(q) ||
-      p.email.toLowerCase().includes(q)
+      (p.email?.toLowerCase().includes(q) ?? false)
     );
   });
 
@@ -141,6 +229,13 @@ export default function CheckinDashboardPage() {
           >
             <QrCode className="w-4 h-4" />
             Scanner öffnen
+          </button>
+          <button
+            onClick={openWalkIn}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <UserPlus className="w-4 h-4" />
+            Teilnehmer hinzufügen
           </button>
           <button
             onClick={fetchStatus}
@@ -276,6 +371,130 @@ export default function CheckinDashboardPage() {
           </div>
         </>
       )}
+
+      {/* Walk-in Modal */}
+      {showWalkIn && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+          onClick={(e) => { if (e.target === e.currentTarget) closeWalkIn(); }}
+        >
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-blue-600" />
+                <h2 className="text-lg font-semibold text-gray-900">Walk-in hinzufügen</h2>
+              </div>
+              <button
+                onClick={closeWalkIn}
+                disabled={walkInLoading}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal form */}
+            <form onSubmit={handleWalkInSubmit} className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Vorname <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    ref={firstNameRef}
+                    type="text"
+                    required
+                    value={walkInForm.first_name}
+                    onChange={(e) => setWalkInForm((f) => ({ ...f, first_name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Max"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Nachname <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={walkInForm.last_name}
+                    onChange={(e) => setWalkInForm((f) => ({ ...f, last_name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Mustermann"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  E-Mail <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="email"
+                  value={walkInForm.email}
+                  onChange={(e) => setWalkInForm((f) => ({ ...f, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="max@beispiel.de"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Telefonnummer <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="tel"
+                  value={walkInForm.phone}
+                  onChange={(e) => setWalkInForm((f) => ({ ...f, phone: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0151 12345678"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Bemerkung <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <textarea
+                  value={walkInForm.notes}
+                  onChange={(e) => setWalkInForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="z.B. Kam mit Mitglied XY, Schnuppertraining…"
+                />
+              </div>
+
+              {walkInError && (
+                <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{walkInError}</p>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={closeWalkIn}
+                  disabled={walkInLoading}
+                  className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  disabled={walkInLoading}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {walkInLoading ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <UserCheck className="w-4 h-4" />
+                  )}
+                  Einchecken
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -298,6 +517,8 @@ function ParticipantRow({
   const loadingUndo = undoId === participant.id;
   const busy = loadingCheckin || loadingUndo;
 
+  const subtitle = participant.email ?? participant.phone ?? "–";
+
   return (
     <div
       className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-colors ${
@@ -315,13 +536,21 @@ function ParticipantRow({
           {participant.first_name[0]}{participant.last_name[0]}
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">
+          <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
             {participant.first_name} {participant.last_name}
             {participant.guests > 0 && (
-              <span className="ml-1 text-xs text-gray-400">+{participant.guests}</span>
+              <span className="text-xs text-gray-400">+{participant.guests}</span>
+            )}
+            {participant.is_walk_in && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 leading-none">
+                Walk-in
+              </span>
             )}
           </p>
-          <p className="text-xs text-gray-400 truncate">{participant.email}</p>
+          <p className="text-xs text-gray-400 truncate">{subtitle}</p>
+          {participant.notes && (
+            <p className="text-xs text-gray-400 truncate italic">{participant.notes}</p>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0 ml-3">

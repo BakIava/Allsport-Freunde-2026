@@ -47,17 +47,24 @@ async function setup() {
       event_id INTEGER NOT NULL REFERENCES events(id),
       first_name VARCHAR(255) NOT NULL,
       last_name VARCHAR(255) NOT NULL,
-      email VARCHAR(255) NOT NULL,
+      email VARCHAR(255),
       phone VARCHAR(50),
       guests INTEGER NOT NULL DEFAULT 0,
       status VARCHAR(20) NOT NULL DEFAULT 'pending',
       status_token VARCHAR(255),
       status_changed_at TIMESTAMP,
       status_note TEXT,
+      is_walk_in BOOLEAN NOT NULL DEFAULT FALSE,
+      notes TEXT,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       UNIQUE(event_id, email)
     )
   `;
+  // Migrations for existing databases
+  await sql`ALTER TABLE registrations ALTER COLUMN email DROP NOT NULL`;
+  await sql`ALTER TABLE registrations ADD COLUMN IF NOT EXISTS is_walk_in BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE registrations ADD COLUMN IF NOT EXISTS notes TEXT`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_registrations_is_walk_in ON registrations(is_walk_in) WHERE is_walk_in = TRUE`;
   console.log("  ✓ Tabelle 'registrations' erstellt");
 
   await sql`
