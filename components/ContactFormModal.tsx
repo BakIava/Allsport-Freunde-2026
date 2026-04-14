@@ -284,7 +284,7 @@ export default function ContactFormModal({
                           required
                           value={form.email}
                           onChange={handleChange}
-                          maxLength={50}
+                          maxLength={254}
                           placeholder="max@beispiel.de"
                           autoComplete="email"
                         />
@@ -342,9 +342,12 @@ export default function ContactFormModal({
                           onChange={handleChange}
                           placeholder="Deine Frage oder Nachricht..."
                           rows={4}
-                          maxLength={1000}
+                          maxLength={2000}
                           className="resize-none"
                         />
+                        <div className="text-right text-xs text-gray-500">
+                          {form.message.length} / 2000 Zeichen
+                        </div>
                       </div>
 
                       {/* DSGVO consent */}

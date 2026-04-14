@@ -30,16 +30,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if(message.length > 1000) {
+    if(message.length > 2000) {
       return NextResponse.json(
         { error: "Die Nachricht darf maximal 1000 Zeichen lang sein." },
         { status: 400 }
       );
     }
 
-    if (email.length > 50) {
+    if (email.length > 254) {
       return NextResponse.json(
-        { error: "Die E-Mail-Adresse darf maximal 50 Zeichen lang sein." },
+        { error: "Die E-Mail-Adresse darf maximal 254 Zeichen lang sein." },
         { status: 400 }
       );
     }
