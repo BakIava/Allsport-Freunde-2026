@@ -1,4 +1,5 @@
 import { getAllEvents, createEvent } from "@/lib/db";
+import { invalidateCache } from "@/lib/cache";
 import { NextRequest, NextResponse } from "next/server";
 import type { EventCreateInput } from "@/lib/types";
 
@@ -46,6 +47,8 @@ export async function POST(request: NextRequest) {
       publish: bodyAny.publish === true,
     });
 
+    // Neues Event kann die öffentliche Liste verändern → Cache invalidieren
+    invalidateCache("events:");
     return NextResponse.json({ message: "Event erstellt!", id: result.id }, { status: 201 });
   } catch (error) {
     console.error("Fehler beim Erstellen des Events:", error);

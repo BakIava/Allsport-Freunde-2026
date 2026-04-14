@@ -1,4 +1,5 @@
 import { getEventFull, updateEvent, deleteEvent } from "@/lib/db";
+import { invalidateCache } from "@/lib/cache";
 import { NextRequest, NextResponse } from "next/server";
 import type { EventCreateInput } from "@/lib/types";
 
@@ -51,6 +52,8 @@ export async function PUT(
       images: Array.isArray(body.images) ? body.images : undefined,
     });
 
+    // Geändertes Event kann die öffentliche Liste betreffen → Cache invalidieren
+    invalidateCache("events:");
     return NextResponse.json({ message: "Event aktualisiert!" });
   } catch (error) {
     console.error("Fehler beim Aktualisieren:", error);
@@ -71,6 +74,8 @@ export async function DELETE(
     }
 
     await deleteEvent(eventId);
+    // Gelöschtes Event aus öffentlicher Liste entfernen → Cache invalidieren
+    invalidateCache("events:");
     return NextResponse.json({ message: "Event gelöscht!" });
   } catch (error) {
     console.error("Fehler beim Löschen:", error);

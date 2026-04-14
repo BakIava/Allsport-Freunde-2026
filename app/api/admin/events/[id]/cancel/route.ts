@@ -1,4 +1,5 @@
 import { cancelEvent } from "@/lib/db";
+import { invalidateCache } from "@/lib/cache";
 import { sendEventCancelledEmail } from "@/lib/email";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -41,6 +42,8 @@ export async function POST(
       });
     }
 
+    // Abgesagtes Event wird aus öffentlicher Liste entfernt → Cache invalidieren
+    invalidateCache("events:");
     return NextResponse.json({
       message: "Veranstaltung erfolgreich abgesagt.",
       emailsSent: result.registrations.length,
