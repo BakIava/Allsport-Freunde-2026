@@ -685,6 +685,9 @@ export async function getCheckinStatus(eventId: number): Promise<CheckinStatusRe
   const checkedIn = participants
     .filter((p) => p.checked_in_at !== null)
     .reduce((sum, p) => sum + p.guests + 1, 0);
+  const walkIns = participants.filter((p) => p.is_walk_in);
+  const walkInRegistrations = walkIns.length;
+  const walkInGuests = walkIns.reduce((sum, p) => sum + p.guests, 0);
 
   return {
     total,
@@ -692,6 +695,8 @@ export async function getCheckinStatus(eventId: number): Promise<CheckinStatusRe
     missing: total - checkedIn,
     total_registrations: totalRegistrations,
     total_guests: totalGuests,
+    walk_in_registrations: walkInRegistrations,
+    walk_in_guests: walkInGuests,
     participants,
   };
 }

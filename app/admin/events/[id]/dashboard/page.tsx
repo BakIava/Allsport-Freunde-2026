@@ -365,6 +365,9 @@ export default function CheckinDashboardPage() {
             <p className="text-xs text-gray-400 mt-0.5">
               {data.total_registrations} Anmeldungen · {data.total_guests} Begleitpersonen
             </p>
+            <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-100">
+              🚶 {data.walk_in_registrations} Walk-ins{data.walk_in_guests > 0 ? ` (+ ${data.walk_in_guests} Begleitpersonen)` : ""}
+            </p>
           </div>
 
           {/* Search */}

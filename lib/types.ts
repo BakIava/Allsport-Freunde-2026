@@ -125,6 +125,8 @@ export interface CheckinStatusResponse {
   missing: number;
   total_registrations: number;
   total_guests: number;
+  walk_in_registrations: number;
+  walk_in_guests: number;
   participants: CheckinParticipant[];
 }
 
