@@ -10,6 +10,8 @@ export interface Event {
   location: string;
   parking_location: string | null;
   price: string;
+  /** Numeric entry price per person in Euro (null = free / not set) */
+  entry_price?: number | null;
   dress_code: string;
   max_participants: number;
   status: EventStatus;
@@ -36,6 +38,10 @@ export interface EventWithRegistrations extends Event {
   current_participants: number;
   pending_participants?: number;
   images?: EventImage[];
+  /** Finance summary – included in admin getAllEvents query */
+  total_costs?: number;
+  expected_revenue?: number;
+  actual_revenue?: number;
 }
 
 export type RegistrationStatus = "pending" | "approved" | "rejected" | "cancelled";
@@ -200,9 +206,37 @@ export interface EventCreateInput {
   location: string;
   parking_location?: string;
   price: string;
+  /** Numeric entry price per person in Euro (null/undefined = free) */
+  entry_price?: number | null;
   dress_code: string;
   max_participants: number;
   images?: EventImageInput[];
+}
+
+// ─── Finance ──────────────────────────────────────────────
+
+export interface EventCost {
+  id: number;
+  event_id: number;
+  description: string;
+  amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventFinancials {
+  entry_price: number | null;
+  total_costs: number;
+  /** Approved registrations + their guests */
+  approved_persons: number;
+  approved_guests: number;
+  expected_revenue: number;
+  /** Checked-in registrations + their guests */
+  checkedin_persons: number;
+  checkedin_guests: number;
+  actual_revenue: number;
+  balance: number;
+  costs: EventCost[];
 }
 
 // ─── Contact / Inquiry ───────────────────────────────────

@@ -38,6 +38,7 @@ export async function PUT(
       return NextResponse.json({ error: "Bitte fülle alle Pflichtfelder aus." }, { status: 400 });
     }
 
+    const entryPrice = body.entry_price != null ? parseFloat(String(body.entry_price)) : null;
     await updateEvent(eventId, {
       title: body.title.trim(),
       category: body.category,
@@ -47,6 +48,7 @@ export async function PUT(
       location: body.location.trim(),
       parking_location: body.parking_location?.trim() || undefined,
       price: body.price.trim(),
+      entry_price: entryPrice != null && !isNaN(entryPrice) ? entryPrice : null,
       dress_code: (body.dress_code || "").trim(),
       max_participants: body.max_participants,
       images: Array.isArray(body.images) ? body.images : undefined,

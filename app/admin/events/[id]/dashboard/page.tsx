@@ -19,7 +19,8 @@ import {
   Check,
 } from "lucide-react";
 import RegistrationDetailButton from "@/components/RegistrationDetailButton";
-import type { CheckinParticipant, CheckinStatusResponse } from "@/lib/types";
+import type { CheckinParticipant, CheckinStatusResponse, EventFinancials } from "@/lib/types";
+import { formatEuro } from "@/lib/finance";
 
 function formatTime(iso: string | null) {
   if (!iso) return null;
@@ -54,6 +55,7 @@ export default function CheckinDashboardPage() {
   const [manualCheckinId, setManualCheckinId] = useState<number | null>(null);
   const [undoId, setUndoId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [financials, setFinancials] = useState<EventFinancials | null>(null);
 
   // Walk-in modal state
   const [showWalkIn, setShowWalkIn] = useState(false);
@@ -72,8 +74,12 @@ export default function CheckinDashboardPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(`/api/checkin/status/${eventId}`);
-      if (res.ok) setData(await res.json());
+      const [statusRes, finRes] = await Promise.all([
+        fetch(`/api/checkin/status/${eventId}`),
+        fetch(`/api/admin/events/${eventId}/finances`),
+      ]);
+      if (statusRes.ok) setData(await statusRes.json());
+      if (finRes.ok) setFinancials(await finRes.json());
     } catch {
       // silent
     } finally {
@@ -370,6 +376,68 @@ export default function CheckinDashboardPage() {
               🚶 {data.walk_in_registrations} Walk-ins{data.walk_in_guests > 0 ? ` (+ ${data.walk_in_guests} Begleitpersonen)` : ""}
             </p>
           </div>
+
+          {/* ── Finanzen ── */}
+          {financials && (financials.entry_price != null || financials.total_costs > 0) && (
+            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold">€</span>
+                Finanzen
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* Gesamtkosten */}
+                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                  <p className="text-xs text-gray-500">Gesamtkosten</p>
+                  <p className="text-base font-bold text-gray-900">{formatEuro(financials.total_costs)}</p>
+                </div>
+
+                {/* Erwarteter Umsatz */}
+                {financials.entry_price != null && financials.entry_price > 0 ? (
+                  <div className="bg-blue-50 rounded-lg p-3 space-y-1">
+                    <p className="text-xs text-blue-700">Erw. Umsatz</p>
+                    <p className="text-base font-bold text-blue-900">{formatEuro(financials.expected_revenue)}</p>
+                    <p className="text-xs text-blue-600">
+                      ({financials.approved_persons} Anm.{financials.approved_guests > 0 ? ` + ${financials.approved_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                    <p className="text-xs text-gray-500">Erw. Umsatz</p>
+                    <p className="text-sm text-gray-400 italic">Kein Preis gesetzt</p>
+                  </div>
+                )}
+
+                {/* Tatsächlicher Umsatz */}
+                {financials.entry_price != null && financials.entry_price > 0 ? (
+                  <div className="bg-green-50 rounded-lg p-3 space-y-1">
+                    <p className="text-xs text-green-700">Tats. Umsatz</p>
+                    <p className="text-base font-bold text-green-900">{formatEuro(financials.actual_revenue)}</p>
+                    <p className="text-xs text-green-600">
+                      ({financials.checkedin_persons} Eingecheckt{financials.checkedin_guests > 0 ? ` + ${financials.checkedin_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                    <p className="text-xs text-gray-500">Tats. Umsatz</p>
+                    <p className="text-sm text-gray-400 italic">Kein Preis gesetzt</p>
+                  </div>
+                )}
+
+                {/* Bilanz */}
+                {financials.entry_price != null && financials.entry_price > 0 && (
+                  <div className={`rounded-lg p-3 space-y-1 ${financials.balance > 0 ? "bg-green-100" : financials.balance < 0 ? "bg-red-100" : "bg-gray-50"}`}>
+                    <p className={`text-xs ${financials.balance > 0 ? "text-green-700" : financials.balance < 0 ? "text-red-700" : "text-gray-500"}`}>Bilanz</p>
+                    <p className={`text-base font-bold ${financials.balance > 0 ? "text-green-800" : financials.balance < 0 ? "text-red-800" : "text-gray-700"}`}>
+                      {financials.balance > 0 ? "+" : ""}{formatEuro(financials.balance)}
+                    </p>
+                    <p className={`text-xs ${financials.balance > 0 ? "text-green-600" : financials.balance < 0 ? "text-red-600" : "text-gray-400"}`}>
+                      {financials.balance > 0 ? "Überschuss" : financials.balance < 0 ? "Defizit" : "Ausgeglichen"}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Search */}
           <div className="relative">

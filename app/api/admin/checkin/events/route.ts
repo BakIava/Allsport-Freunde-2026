@@ -18,7 +18,7 @@ export async function GET() {
     const sql = getSQL();
     const today = todayString();
 
-    // Fetch events that are today or upcoming, regardless of registration status
+    // Fetch events that are today or upcoming, including finance summary
     const rows = await sql`
       SELECT
         e.id,
@@ -27,8 +27,12 @@ export async function GET() {
         TO_CHAR(e.date, 'YYYY-MM-DD') AS date,
         e.time::text AS time,
         e.location,
+        e.entry_price::float8 AS entry_price,
         COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved'), 0)::int AS approved_count,
-        COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved' AND r.checked_in_at IS NOT NULL), 0)::int AS checked_in_count
+        COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved' AND r.checked_in_at IS NOT NULL), 0)::int AS checked_in_count,
+        COALESCE((SELECT SUM(ec.amount)::float8 FROM event_costs ec WHERE ec.event_id = e.id), 0)::float8 AS total_costs,
+        (COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved'), 0) * COALESCE(e.entry_price, 0))::float8 AS expected_revenue,
+        (COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved' AND r.checked_in_at IS NOT NULL), 0) * COALESCE(e.entry_price, 0))::float8 AS actual_revenue
       FROM events e
       LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'approved'
       WHERE e.date >= ${today}

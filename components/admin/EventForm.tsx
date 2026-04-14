@@ -16,9 +16,10 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Globe, EyeOff, LayoutTemplate, Plus, Trash2, GripVertical, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Globe, EyeOff, LayoutTemplate, Plus, Trash2, GripVertical, AlertCircle, CheckCircle2, Euro } from "lucide-react";
 import { Reorder } from "framer-motion";
-import type { EventWithRegistrations, EventCreateInput, EventTemplate, EventImageInput } from "@/lib/types";
+import type { EventWithRegistrations, EventCreateInput, EventTemplate, EventImageInput, EventCost } from "@/lib/types";
+import { formatEuro } from "@/lib/finance";
 
 interface EventFormProps {
   event?: EventWithRegistrations;
@@ -62,11 +63,88 @@ export default function EventForm({ event }: EventFormProps) {
     location: event?.location ?? "",
     parking_location: event?.parking_location ?? "",
     price: event?.price ?? "",
+    entry_price: event?.entry_price ?? null,
     dress_code: event?.dress_code ?? "",
     max_participants: event?.max_participants ?? 20,
   });
   const [submitting, setSubmitting] = useState(false);
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
+
+  // ── Costs state (edit mode only) ──────────────────────
+  const [costs, setCosts] = useState<EventCost[]>([]);
+  const [costsLoading, setCostsLoading] = useState(false);
+  // editing an existing cost row
+  const [editingCostId, setEditingCostId] = useState<number | null>(null);
+  const [editDesc, setEditDesc] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  // new cost row
+  const [newDesc, setNewDesc] = useState("");
+  const [newAmount, setNewAmount] = useState("");
+  const [addingCost, setAddingCost] = useState(false);
+
+  useEffect(() => {
+    if (!isEdit || !event?.id) return;
+    setCostsLoading(true);
+    fetch(`/api/admin/events/${event.id}/costs`)
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setCosts(data); })
+      .catch(() => {})
+      .finally(() => setCostsLoading(false));
+  }, [isEdit, event?.id]);
+
+  const totalCosts = costs.reduce((s, c) => s + c.amount, 0);
+
+  async function handleAddCost() {
+    if (!newDesc.trim() || !newAmount.trim() || !event?.id) return;
+    const amount = parseFloat(newAmount.replace(",", "."));
+    if (isNaN(amount) || amount < 0) { toast("Ungültiger Betrag.", "error"); return; }
+    setAddingCost(true);
+    try {
+      const res = await fetch(`/api/admin/events/${event.id}/costs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: newDesc.trim(), amount }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || "Fehler.", "error"); return; }
+      setCosts((prev) => [...prev, data]);
+      setNewDesc("");
+      setNewAmount("");
+    } catch { toast("Netzwerkfehler.", "error"); }
+    finally { setAddingCost(false); }
+  }
+
+  function startEditCost(cost: EventCost) {
+    setEditingCostId(cost.id);
+    setEditDesc(cost.description);
+    setEditAmount(String(cost.amount));
+  }
+
+  async function saveEditCost(costId: number) {
+    if (!event?.id) return;
+    const amount = parseFloat(editAmount.replace(",", "."));
+    if (!editDesc.trim() || isNaN(amount) || amount < 0) { toast("Ungültige Eingabe.", "error"); return; }
+    try {
+      const res = await fetch(`/api/admin/events/${event.id}/costs/${costId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: editDesc.trim(), amount }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || "Fehler.", "error"); return; }
+      setCosts((prev) => prev.map((c) => (c.id === costId ? data : c)));
+      setEditingCostId(null);
+    } catch { toast("Netzwerkfehler.", "error"); }
+  }
+
+  async function handleDeleteCost(costId: number) {
+    if (!event?.id) return;
+    try {
+      const res = await fetch(`/api/admin/events/${event.id}/costs/${costId}`, { method: "DELETE" });
+      if (!res.ok) { const d = await res.json(); toast(d.error || "Fehler.", "error"); return; }
+      setCosts((prev) => prev.filter((c) => c.id !== costId));
+    } catch { toast("Netzwerkfehler.", "error"); }
+  }
 
   // Image management
   const [images, setImages] = useState<ImageEntry[]>(() =>
@@ -363,7 +441,7 @@ export default function EventForm({ event }: EventFormProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="price">Preis *</Label>
+                <Label htmlFor="price">Preis (Anzeige) *</Label>
                 <Input
                   id="price"
                   required
@@ -371,6 +449,24 @@ export default function EventForm({ event }: EventFormProps) {
                   onChange={(e) => update("price", e.target.value)}
                   placeholder='z.B. "Kostenlos", "5 €", "Spende"'
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="entry_price">Eintrittspreis (€, für Umsatzberechnung)</Label>
+                <div className="relative">
+                  <Euro className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="entry_price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.entry_price ?? ""}
+                    onChange={(e) => update("entry_price", e.target.value === "" ? null : parseFloat(e.target.value))}
+                    placeholder="0,00 – leer lassen wenn kostenlos"
+                    className="pl-9"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Wird für die automatische Umsatz- und Bilanzberechnung verwendet.</p>
               </div>
 
               <div className="space-y-2">
@@ -532,6 +628,136 @@ export default function EventForm({ event }: EventFormProps) {
           </form>
         </CardContent>
       </Card>
+
+      {/* ── Kostenpositionen (nur beim Bearbeiten) ───────── */}
+      {isEdit && event?.id && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Euro className="w-5 h-5 text-muted-foreground" />
+              Kostenpositionen
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {costsLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                <Loader2 className="w-4 h-4 animate-spin" /> Laden...
+              </div>
+            ) : (
+              <>
+                {/* Existing cost rows */}
+                {costs.length > 0 ? (
+                  <div className="space-y-2">
+                    {costs.map((cost) =>
+                      editingCostId === cost.id ? (
+                        <div key={cost.id} className="flex gap-2 items-center bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                          <Input
+                            value={editDesc}
+                            onChange={(e) => setEditDesc(e.target.value)}
+                            className="flex-1 h-8 text-sm"
+                            placeholder="Beschreibung"
+                            autoFocus
+                          />
+                          <div className="relative w-32 shrink-0">
+                            <Euro className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                            <Input
+                              value={editAmount}
+                              onChange={(e) => setEditAmount(e.target.value)}
+                              className="pl-7 h-8 text-sm"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => saveEditCost(cost.id)}>
+                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditingCostId(null)}>
+                            <AlertCircle className="w-4 h-4 text-gray-400" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div
+                          key={cost.id}
+                          className="flex gap-2 items-center border rounded-lg px-3 py-2 hover:bg-gray-50 cursor-pointer group"
+                          onClick={() => startEditCost(cost)}
+                          title="Klicken zum Bearbeiten"
+                        >
+                          <span className="flex-1 text-sm text-gray-800">{cost.description}</span>
+                          <span className="text-sm font-medium text-gray-700 shrink-0">
+                            {formatEuro(cost.amount)}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteCost(cost.id); }}
+                            title="Löschen"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )
+                    )}
+                    <div className="flex justify-between items-center px-3 pt-1 border-t">
+                      <span className="text-sm font-semibold text-gray-700">Gesamtkosten</span>
+                      <span className="text-base font-bold text-gray-900">{formatEuro(totalCosts)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-1">
+                    Noch keine Kostenpositionen. Füge Positionen wie Hallenmiete, Schiedsrichter oder Material hinzu.
+                  </p>
+                )}
+
+                {/* Add new cost row */}
+                <div className="flex gap-2 items-end pt-2 border-t">
+                  <div className="flex-1 space-y-1">
+                    <Label className="text-xs">Neue Position</Label>
+                    <Input
+                      value={newDesc}
+                      onChange={(e) => setNewDesc(e.target.value)}
+                      placeholder='z.B. "Hallenmiete", "Schiedsrichter"'
+                      className="h-9 text-sm"
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCost(); } }}
+                    />
+                  </div>
+                  <div className="w-32 shrink-0 space-y-1">
+                    <Label className="text-xs">Betrag (€)</Label>
+                    <div className="relative">
+                      <Euro className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                      <Input
+                        value={newAmount}
+                        onChange={(e) => setNewAmount(e.target.value)}
+                        placeholder="0,00"
+                        className="pl-7 h-9 text-sm"
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCost(); } }}
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 shrink-0"
+                    onClick={handleAddCost}
+                    disabled={addingCost || !newDesc.trim() || !newAmount.trim()}
+                  >
+                    {addingCost ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    <span className="ml-1 hidden sm:inline">Hinzufügen</span>
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {!isEdit && (
+        <div className="flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-blue-800">
+          <Euro className="w-5 h-5 shrink-0 mt-0.5" />
+          <p className="text-sm">
+            Kostenpositionen können nach dem Erstellen des Events hinzugefügt werden.
+          </p>
+        </div>
+      )}
 
       {/* Publish confirmation dialog */}
       <Dialog open={publishConfirmOpen} onOpenChange={(o) => { if (!o) setPublishConfirmOpen(false); }}>
