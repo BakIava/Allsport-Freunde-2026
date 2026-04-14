@@ -5,6 +5,7 @@ import type {
   AdminStats,
   EventCreateInput,
   RegistrationWithEvent,
+  RegistrationDetail,
   RegistrationStatusInfo,
   RegistrationStatus,
   Registration,
@@ -510,6 +511,28 @@ export async function getRegistrationWithEvent(id: number): Promise<Registration
     WHERE r.id = ${id}
   `;
   return (rows[0] as RegistrationWithEvent) ?? null;
+}
+
+export async function getRegistrationDetail(id: number): Promise<RegistrationDetail | null> {
+  if (!isPostgresConfigured()) {
+    const base = await getRegistrationWithEvent(id);
+    if (!base) return null;
+    return { ...base, event_time: "", event_location: "" };
+  }
+
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT r.*,
+      e.title AS event_title,
+      TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
+      e.time::text AS event_time,
+      e.category AS event_category,
+      e.location AS event_location
+    FROM registrations r
+    JOIN events e ON r.event_id = e.id
+    WHERE r.id = ${id}
+  `;
+  return (rows[0] as RegistrationDetail) ?? null;
 }
 
 export async function bulkUpdateRegistrationStatus(

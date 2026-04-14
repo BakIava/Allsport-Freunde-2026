@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Check,
 } from "lucide-react";
+import RegistrationDetailButton from "@/components/RegistrationDetailButton";
 import type { CheckinParticipant, CheckinStatusResponse } from "@/lib/types";
 
 function formatTime(iso: string | null) {
@@ -725,6 +726,7 @@ function ParticipantRow({
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0 ml-3">
+        <RegistrationDetailButton registrationId={participant.id} />
         {checked ? (
           <>
             <span className="flex items-center gap-1 text-xs font-medium text-green-700">
