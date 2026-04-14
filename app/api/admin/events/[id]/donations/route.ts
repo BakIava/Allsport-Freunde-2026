@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
 import { getEventDonations, createDonation, logAudit } from "@/lib/db";
 
 export async function GET(
