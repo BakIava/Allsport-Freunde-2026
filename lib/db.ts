@@ -23,6 +23,7 @@ import type {
   InquiryMessage,
   ContactFormInput,
   EventCost,
+  EventDonation,
   EventFinancials,
 } from "./types";
 
@@ -240,7 +241,8 @@ export async function getAllEvents(): Promise<EventWithRegistrations[]> {
       COALESCE((SELECT JSON_AGG(jsonb_build_object('id', i.id, 'event_id', i.event_id, 'url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM event_images i WHERE i.event_id = e.id), '[]') AS images,
       COALESCE((SELECT SUM(ec.amount)::float8 FROM event_costs ec WHERE ec.event_id = e.id), 0)::float8 AS total_costs,
       (COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0) * COALESCE(e.entry_price, 0))::float8 AS expected_revenue,
-      (COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0) * COALESCE(e.entry_price, 0))::float8 AS actual_revenue
+      (COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0) * COALESCE(e.entry_price, 0))::float8 AS actual_revenue,
+      COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
     GROUP BY e.id
@@ -985,6 +987,50 @@ export async function getEventCostById(costId: number): Promise<EventCost | null
   return (rows[0] as EventCost) ?? null;
 }
 
+// ─── Event Donations ─────────────────────────────────────
+
+export async function getEventDonations(eventId: number): Promise<EventDonation[]> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT id, event_id, registration_id, donor_name, amount::float8 AS amount, note, created_by, created_at
+    FROM event_donations
+    WHERE event_id = ${eventId}
+    ORDER BY created_at ASC
+  `;
+  return rows as EventDonation[];
+}
+
+export async function getDonationById(donationId: number): Promise<EventDonation | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT id, event_id, registration_id, donor_name, amount::float8 AS amount, note, created_by, created_at
+    FROM event_donations WHERE id = ${donationId}
+  `;
+  return (rows[0] as EventDonation) ?? null;
+}
+
+export async function createDonation(
+  eventId: number,
+  registrationId: number | null,
+  donorName: string,
+  amount: number,
+  note: string | null,
+  createdBy: string | null
+): Promise<EventDonation> {
+  const sql = getSQL();
+  const rows = await sql`
+    INSERT INTO event_donations (event_id, registration_id, donor_name, amount, note, created_by)
+    VALUES (${eventId}, ${registrationId}, ${donorName}, ${amount}, ${note}, ${createdBy})
+    RETURNING id, event_id, registration_id, donor_name, amount::float8 AS amount, note, created_by, created_at
+  `;
+  return rows[0] as EventDonation;
+}
+
+export async function deleteDonation(donationId: number): Promise<void> {
+  const sql = getSQL();
+  await sql`DELETE FROM event_donations WHERE id = ${donationId}`;
+}
+
 // ─── Event Financials ────────────────────────────────────
 
 export async function getEventFinancials(eventId: number): Promise<EventFinancials> {
@@ -1032,6 +1078,15 @@ export async function getEventFinancials(eventId: number): Promise<EventFinancia
   const checkinGuests = (checkinRows[0] as { count: number; total_guests: number }).total_guests;
   const actualRevenue = entryPrice != null ? (checkinCount + checkinGuests) * entryPrice : 0;
 
+  // Donations (table may not exist if migration not run yet)
+  let donations: EventDonation[] = [];
+  try {
+    donations = await getEventDonations(eventId);
+  } catch {
+    // event_donations table not yet migrated
+  }
+  const totalDonations = donations.reduce((sum, d) => sum + d.amount, 0);
+
   return {
     entry_price: entryPrice,
     total_costs: totalCosts,
@@ -1041,8 +1096,11 @@ export async function getEventFinancials(eventId: number): Promise<EventFinancia
     checkedin_persons: checkinCount,
     checkedin_guests: checkinGuests,
     actual_revenue: actualRevenue,
-    balance: actualRevenue - totalCosts,
+    total_donations: totalDonations,
+    donation_count: donations.length,
+    balance: actualRevenue + totalDonations - totalCosts,
     costs,
+    donations,
   };
 }
 

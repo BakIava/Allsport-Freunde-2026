@@ -12,7 +12,8 @@
     "test:coverage": "vitest run --coverage",
     "db:setup": "npx tsx scripts/setup-db.ts",
     "db:migrate-contact": "npx tsx scripts/migrate-contact.ts",
-    "db:migrate-finance": "npx tsx scripts/migrate-finance.ts"
+    "db:migrate-finance": "npx tsx scripts/migrate-finance.ts",
+    "db:migrate-donations": "npx tsx scripts/migrate-donations.ts"
   },
   "keywords": [],
   "author": "",

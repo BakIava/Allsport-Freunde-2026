@@ -42,6 +42,7 @@ export interface EventWithRegistrations extends Event {
   total_costs?: number;
   expected_revenue?: number;
   actual_revenue?: number;
+  total_donations?: number;
 }
 
 export type RegistrationStatus = "pending" | "approved" | "rejected" | "cancelled";
@@ -224,6 +225,17 @@ export interface EventCost {
   updated_at: string;
 }
 
+export interface EventDonation {
+  id: number;
+  event_id: number;
+  registration_id: number | null;
+  donor_name: string;
+  amount: number;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface EventFinancials {
   entry_price: number | null;
   total_costs: number;
@@ -235,8 +247,13 @@ export interface EventFinancials {
   checkedin_persons: number;
   checkedin_guests: number;
   actual_revenue: number;
+  /** Sum of all donations */
+  total_donations: number;
+  donation_count: number;
+  /** Actual revenue + donations − costs */
   balance: number;
   costs: EventCost[];
+  donations: EventDonation[];
 }
 
 // ─── Contact / Inquiry ───────────────────────────────────

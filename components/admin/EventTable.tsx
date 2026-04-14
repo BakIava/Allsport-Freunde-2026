@@ -29,10 +29,10 @@ function FinanceSummary({ event }: { event: EventWithRegistrations }) {
   const costs = event.total_costs ?? 0;
   const actual = event.actual_revenue ?? 0;
   const expected = event.expected_revenue ?? 0;
-  const balance = actual - costs;
+  const donations = event.total_donations ?? 0;
+  const balance = actual + donations - costs;
 
-  // Only show finance info for published events with a numeric price set
-  if (!hasPrice && costs === 0) return null;
+  if (!hasPrice && costs === 0 && donations === 0) return null;
 
   return (
     <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-gray-500">
@@ -42,18 +42,21 @@ function FinanceSummary({ event }: { event: EventWithRegistrations }) {
         </span>
       )}
       {hasPrice && (
-        <>
-          <span className="flex items-center gap-0.5">
-            Umsatz: <strong className="ml-0.5 text-gray-700">{formatEuro(actual)}</strong>
-            <span className="text-gray-400 ml-0.5">(erw. {formatEuro(expected)})</span>
-          </span>
-          {costs > 0 && (
-            <span className={`flex items-center gap-0.5 font-semibold ${balance > 0 ? "text-green-600" : balance < 0 ? "text-red-600" : "text-gray-500"}`}>
-              {balance > 0 ? <TrendingUp className="w-3 h-3" /> : balance < 0 ? <TrendingDown className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
-              {formatEuro(balance)}
-            </span>
-          )}
-        </>
+        <span className="flex items-center gap-0.5">
+          Umsatz: <strong className="ml-0.5 text-gray-700">{formatEuro(actual)}</strong>
+          <span className="text-gray-400 ml-0.5">(erw. {formatEuro(expected)})</span>
+        </span>
+      )}
+      {donations > 0 && (
+        <span className="flex items-center gap-0.5 text-rose-600">
+          +<strong className="ml-0.5">{formatEuro(donations)}</strong> Spenden
+        </span>
+      )}
+      {(hasPrice || donations > 0) && costs > 0 && (
+        <span className={`flex items-center gap-0.5 font-semibold ${balance > 0 ? "text-green-600" : balance < 0 ? "text-red-600" : "text-gray-500"}`}>
+          {balance > 0 ? <TrendingUp className="w-3 h-3" /> : balance < 0 ? <TrendingDown className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+          {formatEuro(balance)}
+        </span>
       )}
     </div>
   );

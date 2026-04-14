@@ -31,6 +31,7 @@ export async function GET() {
         COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved'), 0)::int AS approved_count,
         COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved' AND r.checked_in_at IS NOT NULL), 0)::int AS checked_in_count,
         COALESCE((SELECT SUM(ec.amount)::float8 FROM event_costs ec WHERE ec.event_id = e.id), 0)::float8 AS total_costs,
+        COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations,
         (COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved'), 0) * COALESCE(e.entry_price, 0))::float8 AS expected_revenue,
         (COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved' AND r.checked_in_at IS NOT NULL), 0) * COALESCE(e.entry_price, 0))::float8 AS actual_revenue
       FROM events e
