@@ -1,4 +1,5 @@
 import { publishEvent, unpublishEvent, getEventFull } from "@/lib/db";
+import { invalidateCache } from "@/lib/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 /** POST /api/admin/events/[id]/publish → publish a draft event */
@@ -25,6 +26,8 @@ export async function POST(
     if (!result.success) {
       return NextResponse.json({ error: "Veröffentlichung fehlgeschlagen." }, { status: 500 });
     }
+    // Event ist jetzt öffentlich sichtbar → Cache invalidieren
+    invalidateCache("events:");
     return NextResponse.json({ message: "Event veröffentlicht!" });
   } catch (error) {
     console.error("Fehler beim Veröffentlichen:", error);
@@ -59,6 +62,8 @@ export async function DELETE(
         { status: 409 }
       );
     }
+    // Event nicht mehr öffentlich sichtbar → Cache invalidieren
+    invalidateCache("events:");
     return NextResponse.json({ message: "Event zurück in Planung gesetzt." });
   } catch (error) {
     console.error("Fehler beim Zurückziehen:", error);
