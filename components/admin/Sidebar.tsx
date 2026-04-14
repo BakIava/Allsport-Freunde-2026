@@ -15,6 +15,7 @@ import {
   X,
   FileText,
   ClipboardCheck,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/admin/registrations", label: "Anmeldungen", icon: Users },
   { href: "/admin/templates", label: "Vorlagen", icon: FileText },
   { href: "/admin/checkin", label: "Check-In", icon: ClipboardCheck },
+  { href: "/admin/contact", label: "Anfragen", icon: MessageSquare },
 ];
 
 export default function Sidebar() {

@@ -168,6 +168,7 @@ export default function RegistrationModal({
                     id="first_name"
                     required
                     value={formData.first_name}
+                    maxLength={50}
                     onChange={(e) =>
                       setFormData({ ...formData, first_name: e.target.value })
                     }
@@ -180,6 +181,7 @@ export default function RegistrationModal({
                     id="last_name"
                     required
                     value={formData.last_name}
+                    maxLength={50}
                     onChange={(e) =>
                       setFormData({ ...formData, last_name: e.target.value })
                     }
@@ -195,6 +197,7 @@ export default function RegistrationModal({
                   type="email"
                   required
                   value={formData.email}
+                  maxLength={255}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
@@ -209,6 +212,7 @@ export default function RegistrationModal({
                   type="tel"
                   required
                   value={formData.phone}
+                  maxLength={20}
                   onChange={(e) =>
                     setFormData({ ...formData, phone: e.target.value })
                   }

@@ -17,6 +17,7 @@ import {
   Users,
   Copy,
   Check,
+  MessageSquare,
 } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
 import ImageCarousel from "./ImageCarousel";
@@ -51,6 +52,7 @@ interface EventDetailModalProps {
   open: boolean;
   onClose: () => void;
   onRegister: (event: EventWithRegistrations) => void;
+  onContact?: (eventId: number) => void;
 }
 
 export default function EventDetailModal({
@@ -58,6 +60,7 @@ export default function EventDetailModal({
   open,
   onClose,
   onRegister,
+  onContact,
 }: EventDetailModalProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [copiedLocation, setCopiedLocation] = useState(false);
@@ -338,6 +341,22 @@ export default function EventDetailModal({
                     Schließen
                   </Button>
                 </div>
+
+                {/* Contact button */}
+                {onContact && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-11 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-400 hover:text-green-800 transition-colors"
+                    onClick={() => {
+                      onClose();
+                      onContact(event.id);
+                    }}
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Noch Fragen? Schreib uns an! 🎯
+                  </Button>
+                )}
               </div>
             </div>
           </motion.div>

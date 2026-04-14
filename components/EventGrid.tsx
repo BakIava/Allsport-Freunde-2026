@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import EventCard from "./EventCard";
 import RegistrationModal from "./RegistrationModal";
 import EventDetailModal from "./EventDetailModal";
+import ContactFormModal from "./ContactFormModal";
 import type { EventWithRegistrations } from "@/lib/types";
 import { motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, MessageSquare } from "lucide-react";
 
 const categories = [
   { key: "alle", label: "Alle" },
@@ -27,6 +28,10 @@ export default function EventGrid() {
   // Detail modal state
   const [detailEvent, setDetailEvent] = useState<EventWithRegistrations | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  // Contact modal state
+  const [contactOpen, setContactOpen] = useState(false);
+  const [contactEventId, setContactEventId] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +72,11 @@ export default function EventGrid() {
 
   const handleRegistrationSuccess = () => {
     fetchEvents();
+  };
+
+  const handleContact = (eventId?: number) => {
+    setContactEventId(eventId ?? null);
+    setContactOpen(true);
   };
 
   return (
@@ -151,7 +161,28 @@ export default function EventGrid() {
           open={detailOpen}
           onClose={() => setDetailOpen(false)}
           onRegister={handleRegister}
+          onContact={handleContact}
         />
+
+        <ContactFormModal
+          open={contactOpen}
+          onClose={() => setContactOpen(false)}
+          eventId={contactEventId}
+          events={events}
+        />
+      </div>
+
+      {/* Contact button */}
+      <div className="mt-12 text-center">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-12 px-6 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-400 hover:text-green-800 transition-colors"
+          onClick={() => handleContact()}
+        >
+          <MessageSquare className="w-4 h-4 mr-2" />
+          Fragen oder Anmerkungen? Kontaktiere uns!
+        </Button>
       </div>
     </section>
   );
