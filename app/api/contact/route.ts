@@ -37,9 +37,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (email.length > 255) {
+    if (email.length > 50) {
       return NextResponse.json(
-        { error: "Die E-Mail-Adresse darf maximal 255 Zeichen lang sein." },
+        { error: "Die E-Mail-Adresse darf maximal 50 Zeichen lang sein." },
         { status: 400 }
       );
     }

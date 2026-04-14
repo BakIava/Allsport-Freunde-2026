@@ -284,7 +284,7 @@ export default function ContactFormModal({
                           required
                           value={form.email}
                           onChange={handleChange}
-                          maxLength={255}
+                          maxLength={50}
                           placeholder="max@beispiel.de"
                           autoComplete="email"
                         />
