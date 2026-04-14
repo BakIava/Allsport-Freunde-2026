@@ -322,7 +322,7 @@ export default function CheckinDashboardPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{data.total}</p>
-                <p className="text-sm text-gray-500">Gesamt</p>
+                <p className="text-sm text-gray-500">Personen gesamt</p>
               </div>
             </div>
             <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
@@ -330,7 +330,9 @@ export default function CheckinDashboardPage() {
                 <CheckCircle2 className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-green-700">{data.checked_in}</p>
+                <p className="text-2xl font-bold text-green-700">
+                  {data.checked_in} <span className="text-base font-medium text-gray-400">/ {data.total}</span>
+                </p>
                 <p className="text-sm text-gray-500">Eingecheckt</p>
               </div>
             </div>
@@ -358,7 +360,10 @@ export default function CheckinDashboardPage() {
               />
             </div>
             <p className="text-xs text-gray-400 mt-2">
-              {data.checked_in} von {data.total} Teilnehmern eingecheckt
+              {data.checked_in} von {data.total} Personen eingecheckt
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {data.total_registrations} Anmeldungen · {data.total_guests} Begleitpersonen
             </p>
           </div>
 

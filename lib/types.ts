@@ -123,6 +123,8 @@ export interface CheckinStatusResponse {
   total: number;
   checked_in: number;
   missing: number;
+  total_registrations: number;
+  total_guests: number;
   participants: CheckinParticipant[];
 }
 
