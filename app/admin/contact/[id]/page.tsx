@@ -38,6 +38,10 @@ function formatDateTime(iso: string) {
   });
 }
 
+function truncateText(text: string, maxLength = 25) {
+  return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
+}
+
 export default function AdminContactDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -144,7 +148,7 @@ export default function AdminContactDetailPage() {
           <div className="flex items-center gap-3">
             <MessageSquare className="w-6 h-6 text-green-600 shrink-0" />
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Anfrage von {name}</h1>
+              <h1 className="text-xl font-bold text-gray-900">Anfrage von {truncateText(name)}</h1>
               <p className="text-sm text-gray-500">{formatDateTime(inquiry.created_at)}</p>
             </div>
           </div>
@@ -220,7 +224,7 @@ export default function AdminContactDetailPage() {
                     : "bg-gray-100 text-gray-800 rounded-tl-sm"
                 }`}
               >
-                <p>{msg.message}</p>
+                <p className="wrap-break-word">{msg.message}</p>
                 <p
                   className={`text-xs mt-1.5 ${
                     msg.sender === "admin" ? "text-green-200" : "text-gray-400"
@@ -286,9 +290,9 @@ function InfoRow({
   return (
     <div className="flex items-start gap-2">
       <span className="mt-0.5 shrink-0">{icon}</span>
-      <div>
+      <div className="min-w-0">
         <p className="text-xs text-gray-400 font-medium">{label}</p>
-        <p className="text-gray-800">{value}</p>
+        <p className="text-gray-800 wrap-break-word">{value}</p>
       </div>
     </div>
   );

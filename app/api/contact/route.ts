@@ -30,6 +30,41 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if(message.length > 1000) {
+      return NextResponse.json(
+        { error: "Die Nachricht darf maximal 1000 Zeichen lang sein." },
+        { status: 400 }
+      );
+    }
+
+    if (email.length > 255) {
+      return NextResponse.json(
+        { error: "Die E-Mail-Adresse darf maximal 255 Zeichen lang sein." },
+        { status: 400 }
+      );
+    }
+
+    if (whatsapp_number && whatsapp_number.length > 20) {
+      return NextResponse.json(
+        { error: "Die WhatsApp-Nummer darf maximal 20 Zeichen lang sein." },
+        { status: 400 }
+      );
+    }
+
+    if (first_name && first_name.length > 50) {
+      return NextResponse.json(
+        { error: "Der Vorname darf maximal 50 Zeichen lang sein." },
+        { status: 400 }
+      );
+    }
+
+    if (last_name && last_name.length > 50) {
+      return NextResponse.json(
+        { error: "Der Nachname darf maximal 50 Zeichen lang sein." },
+        { status: 400 }
+      );
+    }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return NextResponse.json(

@@ -177,7 +177,7 @@ export default function ConversationPage() {
                 {isAdmin && (
                   <p className="text-xs text-green-200 font-medium mb-1">Allsport Team</p>
                 )}
-                <p>{msg.message}</p>
+                <p className="wrap-break-word">{msg.message}</p>
                 <p className={`text-xs mt-1.5 ${isAdmin ? "text-green-200" : "text-gray-400"}`}>
                   {formatDateTime(msg.sent_at)}
                 </p>

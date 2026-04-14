@@ -20,6 +20,14 @@ interface ContactFormModalProps {
 
 type Stage = "form" | "success";
 
+function formatDate(dateStr: string) {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 export default function ContactFormModal({
   open,
   onClose,
@@ -108,6 +116,26 @@ export default function ContactFormModal({
 
     setLoading(true);
     try {
+      if(form.first_name.trim().length > 50) {
+        setError("Der Vorname darf maximal 50 Zeichen lang sein.");
+        return;
+      }
+
+      if(form.last_name.trim().length > 50) {
+        setError("Der Nachname darf maximal 50 Zeichen lang sein.");
+        return;
+      }
+
+      if(form.email.trim().length > 255) {
+        setError("Die E-Mail-Adresse darf maximal 255 Zeichen lang sein.");
+        return;
+      }
+
+      if(form.message.length > 1000) {
+        setError("Die Nachricht darf maximal 1000 Zeichen lang sein.");
+        return;
+      }
+
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -225,6 +253,7 @@ export default function ContactFormModal({
                             name="first_name"
                             value={form.first_name}
                             onChange={handleChange}
+                            maxLength={50}
                             placeholder="Max"
                             autoComplete="given-name"
                           />
@@ -236,6 +265,7 @@ export default function ContactFormModal({
                             name="last_name"
                             value={form.last_name}
                             onChange={handleChange}
+                            maxLength={50}
                             placeholder="Mustermann"
                             autoComplete="family-name"
                           />
@@ -254,6 +284,7 @@ export default function ContactFormModal({
                           required
                           value={form.email}
                           onChange={handleChange}
+                          maxLength={255}
                           placeholder="max@beispiel.de"
                           autoComplete="email"
                         />
@@ -271,6 +302,7 @@ export default function ContactFormModal({
                           type="tel"
                           value={form.whatsapp_number}
                           onChange={handleChange}
+                          maxLength={20}
                           placeholder="+49 170 1234567"
                           autoComplete="tel"
                         />
@@ -290,7 +322,7 @@ export default function ContactFormModal({
                             <option value="">Keine Veranstaltung</option>
                             {events.map((ev) => (
                               <option key={ev.id} value={ev.id}>
-                                {ev.title} ({ev.date})
+                                {ev.title} ({formatDate(ev.date)})
                               </option>
                             ))}
                           </select>
@@ -310,6 +342,7 @@ export default function ContactFormModal({
                           onChange={handleChange}
                           placeholder="Deine Frage oder Nachricht..."
                           rows={4}
+                          maxLength={1000}
                           className="resize-none"
                         />
                       </div>
