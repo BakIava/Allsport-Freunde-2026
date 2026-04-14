@@ -85,6 +85,11 @@ export interface RegistrationWithEvent extends Registration {
   event_category: string;
 }
 
+export interface RegistrationDetail extends RegistrationWithEvent {
+  event_time: string;
+  event_location: string;
+}
+
 export interface RegistrationStatusInfo {
   id: number;
   first_name: string;

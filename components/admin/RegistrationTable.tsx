@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import StatusBadge from "@/components/status/StatusBadge";
 import { Trash2, Loader2, Search, Download, CheckCircle2, XCircle, Clock } from "lucide-react";
+import RegistrationDetailButton from "@/components/RegistrationDetailButton";
 import type { RegistrationWithEvent, RegistrationStatus } from "@/lib/types";
 
 interface RegistrationTableProps {
@@ -309,6 +310,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
                   <TableCell className="hidden sm:table-cell">{formatDateTime(r.created_at)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <RegistrationDetailButton registrationId={r.id} />
                       {r.status !== "approved" && r.status !== 'cancelled' && (
                         <Button
                           variant="ghost"
