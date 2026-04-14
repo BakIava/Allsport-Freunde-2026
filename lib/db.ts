@@ -990,12 +990,22 @@ export async function getEventCostById(costId: number): Promise<EventCost | null
 export async function getEventFinancials(eventId: number): Promise<EventFinancials> {
   const sql = getSQL();
 
-  // Entry price
-  const eventRows = await sql`SELECT entry_price::float8 AS entry_price FROM events WHERE id = ${eventId}`;
-  const entryPrice: number | null = (eventRows[0] as { entry_price: number | null })?.entry_price ?? null;
+  // Entry price (column may not exist if migration not run yet)
+  let entryPrice: number | null = null;
+  try {
+    const eventRows = await sql`SELECT entry_price::float8 AS entry_price FROM events WHERE id = ${eventId}`;
+    entryPrice = (eventRows[0] as { entry_price: number | null })?.entry_price ?? null;
+  } catch {
+    // entry_price column not yet migrated – treat as null
+  }
 
-  // Costs
-  const costs = await getEventCosts(eventId);
+  // Costs (table may not exist if migration not run yet)
+  let costs: EventCost[] = [];
+  try {
+    costs = await getEventCosts(eventId);
+  } catch {
+    // event_costs table not yet migrated – treat as empty
+  }
   const totalCosts = costs.reduce((sum, c) => sum + c.amount, 0);
 
   // Approved registrations (expected revenue)

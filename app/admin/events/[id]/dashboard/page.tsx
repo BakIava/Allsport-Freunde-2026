@@ -74,12 +74,30 @@ export default function CheckinDashboardPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const [statusRes, finRes] = await Promise.all([
+      const [statusRes, finRes] = await Promise.allSettled([
         fetch(`/api/checkin/status/${eventId}`),
         fetch(`/api/admin/events/${eventId}/finances`),
       ]);
-      if (statusRes.ok) setData(await statusRes.json());
-      if (finRes.ok) setFinancials(await finRes.json());
+      if (statusRes.status === "fulfilled" && statusRes.value.ok) {
+        setData(await statusRes.value.json());
+      }
+      if (finRes.status === "fulfilled" && finRes.value.ok) {
+        setFinancials(await finRes.value.json());
+      } else if (finRes.status === "fulfilled" && !finRes.value.ok) {
+        // API reachable but returned error – show empty financials so section appears
+        setFinancials({
+          entry_price: null,
+          total_costs: 0,
+          approved_persons: 0,
+          approved_guests: 0,
+          expected_revenue: 0,
+          checkedin_persons: 0,
+          checkedin_guests: 0,
+          actual_revenue: 0,
+          balance: 0,
+          costs: [],
+        });
+      }
     } catch {
       // silent
     } finally {
@@ -378,7 +396,7 @@ export default function CheckinDashboardPage() {
           </div>
 
           {/* ── Finanzen ── */}
-          {financials && (financials.entry_price != null || financials.total_costs > 0) && (
+          {financials && (
             <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
               <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold">€</span>
