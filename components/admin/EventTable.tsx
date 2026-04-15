@@ -18,11 +18,17 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { Pencil, Trash2, Users, Loader2, Search, Ban, Globe, EyeOff, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Pencil, Trash2, Users, Loader2, Search, Ban, Globe, EyeOff, TrendingUp, TrendingDown, Minus, History, ArrowRight } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
 import { formatEuro } from "@/lib/finance";
 
 type CategoryFilter = "alle" | "fussball" | "fitness" | "schwimmen";
+
+const today = new Date().toISOString().split("T")[0];
+
+function isPastEvent(event: EventWithRegistrations): boolean {
+  return event.status !== "draft" && event.status !== "cancelled" && event.date < today;
+}
 
 function FinanceSummary({ event }: { event: EventWithRegistrations }) {
   const hasPrice = event.entry_price != null && event.entry_price > 0;
@@ -62,11 +68,86 @@ function FinanceSummary({ event }: { event: EventWithRegistrations }) {
   );
 }
 
-function getPublishedStatus(event: EventWithRegistrations): { label: string; variant: "default" | "secondary" | "destructive" | "cancelled" } {
+function PastEventSummary({ event }: { event: EventWithRegistrations }) {
+  const totalReg = event.total_registrations ?? 0;
+  const checkinCount = event.checkin_count ?? 0;
+  const walkInCount = event.walk_in_count ?? 0;
+  const noShowRate = totalReg > 0 ? ((totalReg - checkinCount) / totalReg * 100) : null;
+
+  const costs = event.total_costs ?? 0;
+  const actual = event.actual_revenue ?? 0;
+  const donations = event.total_donations ?? 0;
+  const balance = actual + donations - costs;
+  const hasFinancials =
+    (event.entry_price != null && event.entry_price > 0) || costs > 0 || donations > 0;
+
+  return (
+    <div className="mt-1.5 space-y-1">
+      {/* KPI row */}
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
+        <span>
+          Anmeldungen: <strong className="text-gray-700">{totalReg}</strong>
+        </span>
+        <span className="text-gray-300">·</span>
+        <span>
+          Check-Ins: <strong className="text-gray-700">{checkinCount}</strong>
+        </span>
+        <span className="text-gray-300">·</span>
+        <span>
+          Walk-Ins: <strong className="text-gray-700">{walkInCount}</strong>
+        </span>
+        {noShowRate !== null && (
+          <>
+            <span className="text-gray-300">·</span>
+            <span className={noShowRate >= 20 ? "text-amber-600 font-medium" : ""}>
+              No-Show:{" "}
+              <strong>
+                {noShowRate.toLocaleString("de-DE", {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}{" "}
+                %
+              </strong>
+            </span>
+          </>
+        )}
+      </div>
+      {/* Financial result + link */}
+      {hasFinancials && (
+        <div className="flex items-center gap-3 text-xs">
+          <span
+            className={`font-medium ${
+              balance > 0
+                ? "text-green-600"
+                : balance < 0
+                ? "text-red-600"
+                : "text-gray-500"
+            }`}
+          >
+            Ergebnis: {balance > 0 ? "+" : ""}
+            {formatEuro(balance)}
+          </span>
+          <Link
+            href={`/admin/finanzen/${event.id}`}
+            className="inline-flex items-center gap-0.5 text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            Finanzdetails
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function getPublishedStatus(event: EventWithRegistrations): {
+  label: string;
+  variant: "default" | "secondary" | "destructive" | "cancelled";
+} {
   if (event.status === "cancelled") return { label: "Abgesagt", variant: "cancelled" };
-  const today = new Date().toISOString().split("T")[0];
-  if (event.date < today) return { label: "Beendet", variant: "destructive" };
-  if (event.current_participants >= event.max_participants) return { label: "Ausgebucht", variant: "secondary" };
+  if (event.date < today) return { label: "Beendet", variant: "secondary" };
+  if (event.current_participants >= event.max_participants)
+    return { label: "Ausgebucht", variant: "secondary" };
   return { label: "Aktiv", variant: "default" };
 }
 
@@ -78,6 +159,7 @@ const categoryLabels: Record<string, string> = {
 
 function EventRow({
   event,
+  past,
   onDelete,
   onCancel,
   onPublish,
@@ -85,6 +167,7 @@ function EventRow({
   formatDate,
 }: {
   event: EventWithRegistrations;
+  past?: boolean;
   onDelete: (e: EventWithRegistrations) => void;
   onCancel: (e: EventWithRegistrations) => void;
   onPublish: (e: EventWithRegistrations) => void;
@@ -94,11 +177,23 @@ function EventRow({
   const isDraft = event.status === "draft";
 
   return (
-    <TableRow className={isDraft ? "bg-amber-50/40" : undefined}>
+    <TableRow
+      className={
+        isDraft
+          ? "bg-amber-50/40"
+          : past
+          ? "bg-gray-50/80 text-gray-600"
+          : undefined
+      }
+    >
       <TableCell className="font-medium">
         <div>
-          {event.title}
-          <FinanceSummary event={event} />
+          <span className={past ? "text-gray-700" : undefined}>{event.title}</span>
+          {past ? (
+            <PastEventSummary event={event} />
+          ) : (
+            <FinanceSummary event={event} />
+          )}
         </div>
       </TableCell>
       <TableCell className="hidden sm:table-cell">
@@ -107,7 +202,9 @@ function EventRow({
         </Badge>
       </TableCell>
       <TableCell className="hidden md:table-cell">{formatDate(event.date)}</TableCell>
-      <TableCell className="hidden lg:table-cell max-w-[200px] truncate">{event.location}</TableCell>
+      <TableCell className="hidden lg:table-cell max-w-[200px] truncate">
+        {event.location}
+      </TableCell>
       <TableCell className="hidden lg:table-cell">{event.price}</TableCell>
       <TableCell>
         {isDraft ? "–" : `${event.current_participants}/${event.max_participants}`}
@@ -116,7 +213,9 @@ function EventRow({
         {isDraft ? (
           <Badge variant="draft">Entwurf</Badge>
         ) : (
-          <Badge variant={getPublishedStatus(event).variant}>{getPublishedStatus(event).label}</Badge>
+          <Badge variant={getPublishedStatus(event).variant}>
+            {getPublishedStatus(event).label}
+          </Badge>
         )}
       </TableCell>
       <TableCell>
@@ -134,12 +233,22 @@ function EventRow({
             </Link>
           )}
           {isDraft && (
-            <Button variant="ghost" size="icon" title="Veröffentlichen" onClick={() => onPublish(event)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Veröffentlichen"
+              onClick={() => onPublish(event)}
+            >
               <Globe className="w-4 h-4 text-green-600" />
             </Button>
           )}
           {event.status === "published" && (
-            <Button variant="ghost" size="icon" title="Zurückziehen" onClick={() => onUnpublish(event)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Zurückziehen"
+              onClick={() => onUnpublish(event)}
+            >
               <EyeOff className="w-4 h-4 text-amber-600" />
             </Button>
           )}
@@ -197,31 +306,56 @@ export default function EventTable() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchEvents(); }, []);
+  useEffect(() => {
+    fetchEvents();
+  }, []);
 
-  // Apply search + category filter to both sections
+  // Apply search + category filter
   const filtered = useMemo(() => {
     return events.filter((e) => {
       if (categoryFilter !== "alle" && e.category !== categoryFilter) return false;
       if (search) {
         const q = search.toLowerCase();
-        if (!e.title.toLowerCase().includes(q) && !e.location.toLowerCase().includes(q)) return false;
+        if (!e.title.toLowerCase().includes(q) && !e.location.toLowerCase().includes(q))
+          return false;
       }
       return true;
     });
   }, [events, categoryFilter, search]);
 
-  const publishedEvents = useMemo(
-    () => filtered.filter((e) => e.status !== "draft").sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)),
+  // Upcoming: published/cancelled with date >= today
+  const upcomingEvents = useMemo(
+    () =>
+      filtered
+        .filter((e) => e.status !== "draft" && e.date >= today)
+        .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)),
     [filtered]
   );
+
+  // Past: published (not cancelled) with date < today
+  const pastEvents = useMemo(
+    () =>
+      filtered
+        .filter((e) => isPastEvent(e))
+        .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time)),
+    [filtered]
+  );
+
+  // Drafts
   const draftEvents = useMemo(
-    () => filtered.filter((e) => e.status === "draft").sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    () =>
+      filtered
+        .filter((e) => e.status === "draft")
+        .sort((a, b) => b.created_at.localeCompare(a.created_at)),
     [filtered]
   );
 
   const formatDate = (d: string) =>
-    new Date(d + "T00:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+    new Date(d + "T00:00:00").toLocaleDateString("de-DE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
 
   // ── Handlers ──
 
@@ -339,7 +473,10 @@ export default function EventTable() {
 
   const rowProps = {
     onDelete: setDeleteTarget,
-    onCancel: (e: EventWithRegistrations) => { setCancelTarget(e); setCancelReason(""); },
+    onCancel: (e: EventWithRegistrations) => {
+      setCancelTarget(e);
+      setCancelReason("");
+    },
     onPublish: setPublishTarget,
     onUnpublish: handleUnpublish,
     formatDate,
@@ -358,7 +495,11 @@ export default function EventTable() {
             className="pl-9"
           />
         </div>
-        <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)} className="w-full sm:w-40">
+        <Select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
+          className="w-full sm:w-40"
+        >
           <option value="alle">Alle Kategorien</option>
           <option value="fussball">Fußball</option>
           <option value="fitness">Fitness</option>
@@ -366,22 +507,29 @@ export default function EventTable() {
         </Select>
       </div>
 
-      {/* ── Section 1: Published events ── */}
+      {/* ── Section 1: Upcoming published events ── */}
       <section>
         <h2 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
           <Globe className="w-4 h-4 text-green-600" />
-          Veröffentlichte Veranstaltungen
-          <span className="text-xs font-normal text-muted-foreground">({publishedEvents.length})</span>
+          Kommende Veranstaltungen
+          <span className="text-xs font-normal text-muted-foreground">
+            ({upcomingEvents.length})
+          </span>
         </h2>
-        {publishedEvents.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 pl-1">Keine veröffentlichten Events gefunden.</p>
+        {upcomingEvents.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4 pl-1">
+            Keine kommenden Events gefunden.
+          </p>
         ) : (
           <div className="border rounded-lg">
             <Table>
               {tableColumns}
               <TableBody>
-                {publishedEvents.map((event) => (
-                  <EventRow key={event.id} event={event} {...rowProps}
+                {upcomingEvents.map((event) => (
+                  <EventRow
+                    key={event.id}
+                    event={event}
+                    {...rowProps}
                     onPublish={publishing === event.id ? () => {} : rowProps.onPublish}
                     onUnpublish={publishing === event.id ? () => {} : rowProps.onUnpublish}
                   />
@@ -392,12 +540,50 @@ export default function EventTable() {
         )}
       </section>
 
-      {/* ── Section 2: Draft events ── */}
+      {/* ── Section 2: Past events ── */}
+      {(pastEvents.length > 0 || search || categoryFilter !== "alle") && (
+        <section>
+          <h2 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <History className="w-4 h-4 text-gray-400" />
+            Vergangene Veranstaltungen
+            <span className="text-xs font-normal text-muted-foreground">
+              ({pastEvents.length})
+            </span>
+          </h2>
+          {pastEvents.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 pl-1">
+              Keine vergangenen Events gefunden.
+            </p>
+          ) : (
+            <div className="border rounded-lg border-gray-200 bg-gray-50/40">
+              <Table>
+                {tableColumns}
+                <TableBody>
+                  {pastEvents.map((event) => (
+                    <EventRow
+                      key={event.id}
+                      event={event}
+                      past
+                      {...rowProps}
+                      onPublish={publishing === event.id ? () => {} : rowProps.onPublish}
+                      onUnpublish={publishing === event.id ? () => {} : rowProps.onUnpublish}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── Section 3: Draft events ── */}
       <section>
         <h2 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
           <EyeOff className="w-4 h-4 text-amber-500" />
           In Planung (Entwürfe)
-          <span className="text-xs font-normal text-muted-foreground">({draftEvents.length})</span>
+          <span className="text-xs font-normal text-muted-foreground">
+            ({draftEvents.length})
+          </span>
         </h2>
         {draftEvents.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 pl-1">Keine Entwürfe vorhanden.</p>
@@ -407,7 +593,10 @@ export default function EventTable() {
               {tableColumns}
               <TableBody>
                 {draftEvents.map((event) => (
-                  <EventRow key={event.id} event={event} {...rowProps}
+                  <EventRow
+                    key={event.id}
+                    event={event}
+                    {...rowProps}
                     onPublish={publishing === event.id ? () => {} : rowProps.onPublish}
                     onUnpublish={publishing === event.id ? () => {} : rowProps.onUnpublish}
                   />
@@ -419,13 +608,21 @@ export default function EventTable() {
       </section>
 
       {/* ── Cancel confirmation dialog ── */}
-      <Dialog open={!!cancelTarget} onOpenChange={(o) => { if (!o) { setCancelTarget(null); setCancelReason(""); } }}>
+      <Dialog
+        open={!!cancelTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setCancelTarget(null);
+            setCancelReason("");
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Veranstaltung absagen</DialogTitle>
             <DialogDescription>
-              Möchtest du die Veranstaltung &bdquo;{cancelTarget?.title}&ldquo; wirklich absagen?
-              Alle Teilnehmer werden per E-Mail benachrichtigt.
+              Möchtest du die Veranstaltung &bdquo;{cancelTarget?.title}&ldquo; wirklich
+              absagen? Alle Teilnehmer werden per E-Mail benachrichtigt.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 space-y-2">
@@ -439,7 +636,13 @@ export default function EventTable() {
             />
           </div>
           <div className="flex justify-end gap-3 mt-4">
-            <Button variant="outline" onClick={() => { setCancelTarget(null); setCancelReason(""); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCancelTarget(null);
+                setCancelReason("");
+              }}
+            >
               Abbrechen
             </Button>
             <Button variant="destructive" onClick={handleCancel} disabled={cancelling}>
@@ -456,8 +659,8 @@ export default function EventTable() {
           <DialogHeader>
             <DialogTitle>Event veröffentlichen</DialogTitle>
             <DialogDescription>
-              Möchtest du &bdquo;{publishTarget?.title}&ldquo; jetzt veröffentlichen?
-              Das Event wird für alle Besucher sichtbar und Anmeldungen sind möglich.
+              Möchtest du &bdquo;{publishTarget?.title}&ldquo; jetzt veröffentlichen? Das Event
+              wird für alle Besucher sichtbar und Anmeldungen sind möglich.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-3 mt-4">
@@ -468,7 +671,11 @@ export default function EventTable() {
               onClick={() => publishTarget && handlePublish(publishTarget)}
               disabled={publishing === publishTarget?.id}
             >
-              {publishing === publishTarget?.id ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Globe className="w-4 h-4 mr-2" />}
+              {publishing === publishTarget?.id ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Globe className="w-4 h-4 mr-2" />
+              )}
               Veröffentlichen
             </Button>
           </div>
@@ -481,8 +688,8 @@ export default function EventTable() {
           <DialogHeader>
             <DialogTitle>Event löschen</DialogTitle>
             <DialogDescription>
-              Möchtest du das Event &bdquo;{deleteTarget?.title}&ldquo; wirklich löschen?
-              Alle Anmeldungen werden ebenfalls gelöscht.
+              Möchtest du das Event &bdquo;{deleteTarget?.title}&ldquo; wirklich löschen? Alle
+              Anmeldungen werden ebenfalls gelöscht.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-3 mt-4">

@@ -242,7 +242,10 @@ export async function getAllEvents(): Promise<EventWithRegistrations[]> {
       COALESCE((SELECT SUM(ec.amount)::float8 FROM event_costs ec WHERE ec.event_id = e.id), 0)::float8 AS total_costs,
       (COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0) * COALESCE(e.entry_price, 0))::float8 AS expected_revenue,
       (COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0) * COALESCE(e.entry_price, 0))::float8 AS actual_revenue,
-      COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations
+      COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.is_walk_in = FALSE THEN 1 ELSE 0 END), 0)::int AS total_registrations,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.is_walk_in = FALSE AND r.checked_in_at IS NOT NULL THEN 1 ELSE 0 END), 0)::int AS checkin_count,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.is_walk_in = TRUE THEN 1 ELSE 0 END), 0)::int AS walk_in_count
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
     GROUP BY e.id

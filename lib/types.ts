@@ -43,6 +43,10 @@ export interface EventWithRegistrations extends Event {
   expected_revenue?: number;
   actual_revenue?: number;
   total_donations?: number;
+  /** Check-in summary for past events – included in admin getAllEvents query */
+  total_registrations?: number;  // approved non-walk-in registrations
+  checkin_count?: number;        // checked-in non-walk-in registrations
+  walk_in_count?: number;        // approved walk-in registrations
 }
 
 export type RegistrationStatus = "pending" | "approved" | "rejected" | "cancelled";
