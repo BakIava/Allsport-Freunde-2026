@@ -519,85 +519,6 @@ export default function EventForm({ event }: EventFormProps) {
               />
             </div>
 
-            {/* Image management */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Bilder</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addImage}>
-                  <Plus className="w-4 h-4 mr-1" />
-                  Bild hinzufügen
-                </Button>
-              </div>
-
-              {images.length > 0 && (
-                <Reorder.Group axis="y" values={images} onReorder={setImages} className="space-y-3">
-                  {images.map((img) => (
-                    <Reorder.Item key={img._key} value={img} className="flex gap-2 items-start bg-gray-50 border rounded-lg p-3">
-                      <div className="mt-2 cursor-grab active:cursor-grabbing text-gray-400 shrink-0">
-                        <GripVertical className="w-4 h-4" />
-                      </div>
-
-                      <div className="flex-1 space-y-2">
-                        <div className="flex gap-2 items-center">
-                          <div className="flex-1 relative">
-                            <Input
-                              value={img.url}
-                              onChange={(e) => updateImage(img._key, "url", e.target.value)}
-                              onBlur={(e) => validateImage(img._key, e.target.value)}
-                              placeholder="https://beispiel.de/bild.jpg"
-                              className={img.valid === false ? "border-red-400 pr-8" : img.valid === true ? "border-green-400 pr-8" : ""}
-                            />
-                            {img.valid === false && (
-                              <AlertCircle className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
-                            )}
-                            {img.valid === true && (
-                              <CheckCircle2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
-                            )}
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeImage(img._key)}
-                            className="shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-
-                        <Input
-                          value={img.alt_text}
-                          onChange={(e) => updateImage(img._key, "alt_text", e.target.value)}
-                          placeholder="Bildbeschreibung (Alt-Text)"
-                          className="text-sm"
-                        />
-
-                        {img.valid === true && img.url && (
-                          <div className="mt-1 rounded overflow-hidden border bg-gray-100 h-28">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={img.url}
-                              alt={img.alt_text || "Vorschau"}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
-                        {img.valid === false && (
-                          <p className="text-xs text-red-600">Die URL konnte nicht als Bild geladen werden. Bitte prüfe die URL.</p>
-                        )}
-                      </div>
-                    </Reorder.Item>
-                  ))}
-                </Reorder.Group>
-              )}
-
-              {images.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Noch keine Bilder hinzugefügt. Bilder werden im Karussell auf der Eventseite angezeigt.
-                </p>
-              )}
-            </div>
-
             <div className="flex flex-wrap gap-3">
               {isDraft ? (
                 <>
@@ -774,6 +695,75 @@ export default function EventForm({ event }: EventFormProps) {
           </p>
         </div>
       )}
+
+      {/* ── Bilder ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Bilder</span>
+            <Button type="button" variant="outline" size="sm" onClick={addImage}>
+              <Plus className="w-4 h-4 mr-1" />
+              Bild hinzufügen
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {images.length > 0 ? (
+            <Reorder.Group axis="y" values={images} onReorder={setImages} className="space-y-3">
+              {images.map((img) => (
+                <Reorder.Item key={img._key} value={img} className="flex gap-2 items-start bg-gray-50 border rounded-lg p-3">
+                  <div className="mt-2 cursor-grab active:cursor-grabbing text-gray-400 shrink-0">
+                    <GripVertical className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1 relative">
+                        <Input
+                          value={img.url}
+                          onChange={(e) => updateImage(img._key, "url", e.target.value)}
+                          onBlur={(e) => validateImage(img._key, e.target.value)}
+                          placeholder="https://beispiel.de/bild.jpg"
+                          className={img.valid === false ? "border-red-400 pr-8" : img.valid === true ? "border-green-400 pr-8" : ""}
+                        />
+                        {img.valid === false && <AlertCircle className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />}
+                        {img.valid === true && <CheckCircle2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeImage(img._key)}
+                        className="shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <Input
+                      value={img.alt_text}
+                      onChange={(e) => updateImage(img._key, "alt_text", e.target.value)}
+                      placeholder="Bildbeschreibung (Alt-Text)"
+                      className="text-sm"
+                    />
+                    {img.valid === true && img.url && (
+                      <div className="mt-1 rounded overflow-hidden border bg-gray-100 h-28">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={img.url} alt={img.alt_text || "Vorschau"} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    {img.valid === false && (
+                      <p className="text-xs text-red-600">Die URL konnte nicht als Bild geladen werden. Bitte prüfe die URL.</p>
+                    )}
+                  </div>
+                </Reorder.Item>
+              ))}
+            </Reorder.Group>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Noch keine Bilder hinzugefügt. Bilder werden im Karussell auf der Eventseite angezeigt.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Publish confirmation dialog */}
       <Dialog open={publishConfirmOpen} onOpenChange={(o) => { if (!o) setPublishConfirmOpen(false); }}>
