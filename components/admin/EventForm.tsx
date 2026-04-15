@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,80 +70,92 @@ export default function EventForm({ event }: EventFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
-  // ── Costs state (edit mode only) ──────────────────────
-  const [costs, setCosts] = useState<EventCost[]>([]);
+  // ── Costs state (edit mode only, deferred save) ───────
+  interface LocalCost { _key: string; id?: number; description: string; amount: number; }
+  const [costs, setCosts] = useState<LocalCost[]>([]);
   const [costsLoading, setCostsLoading] = useState(false);
+  const savedCostsRef = useRef<LocalCost[]>([]);
   // editing an existing cost row
-  const [editingCostId, setEditingCostId] = useState<number | null>(null);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editDesc, setEditDesc] = useState("");
   const [editAmount, setEditAmount] = useState("");
   // new cost row
   const [newDesc, setNewDesc] = useState("");
   const [newAmount, setNewAmount] = useState("");
-  const [addingCost, setAddingCost] = useState(false);
 
   useEffect(() => {
     if (!isEdit || !event?.id) return;
     setCostsLoading(true);
     fetch(`/api/admin/events/${event.id}/costs`)
       .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setCosts(data); })
+      .then((data: EventCost[]) => {
+        if (!Array.isArray(data)) return;
+        const loaded: LocalCost[] = data.map((c) => ({ _key: String(c.id), id: c.id, description: c.description, amount: c.amount }));
+        setCosts(loaded);
+        savedCostsRef.current = loaded;
+      })
       .catch(() => {})
       .finally(() => setCostsLoading(false));
   }, [isEdit, event?.id]);
 
   const totalCosts = costs.reduce((s, c) => s + c.amount, 0);
 
-  async function handleAddCost() {
-    if (!newDesc.trim() || !newAmount.trim() || !event?.id) return;
+  function handleAddCost() {
+    if (!newDesc.trim() || !newAmount.trim()) return;
     const amount = parseFloat(newAmount.replace(",", "."));
-    if (isNaN(amount) || amount < 0) { toast("Ungültiger Betrag.", "error"); return; }
-    setAddingCost(true);
-    try {
-      const res = await fetch(`/api/admin/events/${event.id}/costs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: newDesc.trim(), amount }),
-      });
-      const data = await res.json();
-      if (!res.ok) { toast(data.error || "Fehler.", "error"); return; }
-      setCosts((prev) => [...prev, data]);
-      setNewDesc("");
-      setNewAmount("");
-    } catch { toast("Netzwerkfehler.", "error"); }
-    finally { setAddingCost(false); }
+    if (isNaN(amount) || amount <= 0) { toast("Ungültiger Betrag.", "error"); return; }
+    setCosts((prev) => [...prev, { _key: crypto.randomUUID(), description: newDesc.trim(), amount }]);
+    setNewDesc("");
+    setNewAmount("");
   }
 
-  function startEditCost(cost: EventCost) {
-    setEditingCostId(cost.id);
+  function startEditCost(cost: LocalCost) {
+    setEditingKey(cost._key);
     setEditDesc(cost.description);
     setEditAmount(String(cost.amount));
   }
 
-  async function saveEditCost(costId: number) {
-    if (!event?.id) return;
+  function saveEditCost(key: string) {
     const amount = parseFloat(editAmount.replace(",", "."));
-    if (!editDesc.trim() || isNaN(amount) || amount < 0) { toast("Ungültige Eingabe.", "error"); return; }
-    try {
-      const res = await fetch(`/api/admin/events/${event.id}/costs/${costId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: editDesc.trim(), amount }),
-      });
-      const data = await res.json();
-      if (!res.ok) { toast(data.error || "Fehler.", "error"); return; }
-      setCosts((prev) => prev.map((c) => (c.id === costId ? data : c)));
-      setEditingCostId(null);
-    } catch { toast("Netzwerkfehler.", "error"); }
+    if (!editDesc.trim() || isNaN(amount) || amount <= 0) { toast("Ungültige Eingabe.", "error"); return; }
+    setCosts((prev) => prev.map((c) => (c._key === key ? { ...c, description: editDesc.trim(), amount } : c)));
+    setEditingKey(null);
   }
 
-  async function handleDeleteCost(costId: number) {
-    if (!event?.id) return;
-    try {
-      const res = await fetch(`/api/admin/events/${event.id}/costs/${costId}`, { method: "DELETE" });
-      if (!res.ok) { const d = await res.json(); toast(d.error || "Fehler.", "error"); return; }
-      setCosts((prev) => prev.filter((c) => c.id !== costId));
-    } catch { toast("Netzwerkfehler.", "error"); }
+  function handleDeleteCost(key: string) {
+    setCosts((prev) => prev.filter((c) => c._key !== key));
+  }
+
+  async function syncCosts(eventId: number) {
+    const saved = savedCostsRef.current;
+    const savedIds = new Set(saved.map((c) => c.id).filter(Boolean) as number[]);
+    const currentIds = new Set(costs.map((c) => c.id).filter(Boolean) as number[]);
+    // Delete removed
+    for (const id of savedIds) {
+      if (!currentIds.has(id)) {
+        await fetch(`/api/admin/events/${eventId}/costs/${id}`, { method: "DELETE" }).catch(() => {});
+      }
+    }
+    // Update changed
+    for (const c of costs.filter((c) => c.id)) {
+      const orig = saved.find((s) => s.id === c.id);
+      if (orig && (orig.description !== c.description || orig.amount !== c.amount)) {
+        await fetch(`/api/admin/events/${eventId}/costs/${c.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description: c.description, amount: c.amount }),
+        }).catch(() => {});
+      }
+    }
+    // Create new
+    for (const c of costs.filter((c) => !c.id)) {
+      await fetch(`/api/admin/events/${eventId}/costs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: c.description, amount: c.amount }),
+      }).catch(() => {});
+    }
+    savedCostsRef.current = costs;
   }
 
   // Image management
@@ -249,6 +261,11 @@ export default function EventForm({ event }: EventFormProps) {
       if (!res.ok) {
         toast(data.error || "Fehler beim Speichern.", "error");
         return;
+      }
+
+      // Sync deferred cost edits when saving an existing event
+      if (isEdit && event?.id) {
+        await syncCosts(event.id);
       }
 
       // After creating a new event from a template, apply template cost positions
@@ -543,8 +560,8 @@ export default function EventForm({ event }: EventFormProps) {
                 {costs.length > 0 ? (
                   <div className="space-y-2">
                     {costs.map((cost) =>
-                      editingCostId === cost.id ? (
-                        <div key={cost.id} className="flex gap-2 items-center bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                      editingKey === cost._key ? (
+                        <div key={cost._key} className="flex gap-2 items-center bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                           <Input
                             value={editDesc}
                             onChange={(e) => setEditDesc(e.target.value)}
@@ -561,16 +578,16 @@ export default function EventForm({ event }: EventFormProps) {
                               placeholder="0.00"
                             />
                           </div>
-                          <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => saveEditCost(cost.id)}>
+                          <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => saveEditCost(cost._key)}>
                             <CheckCircle2 className="w-4 h-4 text-green-600" />
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditingCostId(null)}>
+                          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditingKey(null)}>
                             <AlertCircle className="w-4 h-4 text-gray-400" />
                           </Button>
                         </div>
                       ) : (
                         <div
-                          key={cost.id}
+                          key={cost._key}
                           className="flex gap-2 items-center border rounded-lg px-3 py-2 hover:bg-gray-50 cursor-pointer group"
                           onClick={() => startEditCost(cost)}
                           title="Klicken zum Bearbeiten"
@@ -583,7 +600,7 @@ export default function EventForm({ event }: EventFormProps) {
                             size="sm"
                             variant="ghost"
                             className="h-8 px-2 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={(e) => { e.stopPropagation(); handleDeleteCost(cost.id); }}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteCost(cost._key); }}
                             title="Löschen"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -632,9 +649,9 @@ export default function EventForm({ event }: EventFormProps) {
                     size="sm"
                     className="h-9 shrink-0"
                     onClick={handleAddCost}
-                    disabled={addingCost || !newDesc.trim() || !newAmount.trim()}
+                    disabled={!newDesc.trim() || !newAmount.trim()}
                   >
-                    {addingCost ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    <Plus className="w-4 h-4" />
                     <span className="ml-1 hidden sm:inline">Hinzufügen</span>
                   </Button>
                 </div>
