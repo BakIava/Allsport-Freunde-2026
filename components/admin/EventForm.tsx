@@ -335,7 +335,7 @@ export default function EventForm({ event }: EventFormProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24">
       {/* Draft banner */}
       {isDraft && isEdit && (
         <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
@@ -385,7 +385,7 @@ export default function EventForm({ event }: EventFormProps) {
           <CardTitle>{isEdit ? "Event bearbeiten" : "Neues Event erstellen"}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
+          <form id="event-form" onSubmit={(e) => handleSubmit(e, false)} className="space-y-6 pb-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Titel *</Label>
@@ -519,49 +519,6 @@ export default function EventForm({ event }: EventFormProps) {
               />
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              {isDraft ? (
-                <>
-                  <Button
-                    type="button"
-                    disabled={submitting}
-                    onClick={() => setPublishConfirmOpen(true)}
-                  >
-                    <Globe className="w-4 h-4 mr-2" />
-                    Jetzt veröffentlichen
-                  </Button>
-                  <Button type="submit" variant="outline" disabled={submitting}>
-                    {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Als Entwurf speichern
-                  </Button>
-                </>
-              ) : (
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Speichern...
-                    </>
-                  ) : (
-                    "Änderungen speichern"
-                  )}
-                </Button>
-              )}
-
-              {/* Save-as-template button */}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => { setTemplateName(formData.title || ""); setSaveTemplateOpen(true); }}
-              >
-                <LayoutTemplate className="w-4 h-4 mr-2" />
-                Als Vorlage speichern
-              </Button>
-
-              <Button type="button" variant="outline" onClick={() => router.back()}>
-                Abbrechen
-              </Button>
-            </div>
           </form>
         </CardContent>
       </Card>
@@ -822,6 +779,53 @@ export default function EventForm({ event }: EventFormProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Sticky action bar ── */}
+      <div className="fixed bottom-0 left-0 right-0 lg:left-64 z-20 bg-white border-t border-gray-200 shadow-lg">
+        <div className="max-w-screen-xl mx-auto px-4 md:px-8 py-3 flex flex-wrap items-center gap-2">
+          {isDraft ? (
+            <>
+              <Button
+                type="button"
+                form="event-form"
+                disabled={submitting}
+                onClick={() => setPublishConfirmOpen(true)}
+              >
+                <Globe className="w-4 h-4 mr-2" />
+                Jetzt veröffentlichen
+              </Button>
+              <Button type="submit" form="event-form" variant="outline" disabled={submitting}>
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Als Entwurf speichern
+              </Button>
+            </>
+          ) : (
+            <Button type="submit" form="event-form" disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Speichern...
+                </>
+              ) : (
+                "Änderungen speichern"
+              )}
+            </Button>
+          )}
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => { setTemplateName(formData.title || ""); setSaveTemplateOpen(true); }}
+          >
+            <LayoutTemplate className="w-4 h-4 mr-2" />
+            Als Vorlage speichern
+          </Button>
+
+          <Button type="button" variant="outline" onClick={() => router.back()}>
+            Abbrechen
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
