@@ -205,12 +205,13 @@ export default function EventForm({ event }: EventFormProps) {
       description: tpl.description,
       location: tpl.location,
       price: tpl.price,
+      entry_price: tpl.entry_price ?? null,
       dress_code: tpl.dress_code,
       max_participants: tpl.max_participants,
     }));
     // Pre-fill images from template
     setImages(
-      (tpl.images ?? []).map((img, i) => ({
+      (tpl.images ?? []).map((img) => ({
         _key: crypto.randomUUID(),
         url: img.url,
         alt_text: img.alt_text,
@@ -248,6 +249,19 @@ export default function EventForm({ event }: EventFormProps) {
       if (!res.ok) {
         toast(data.error || "Fehler beim Speichern.", "error");
         return;
+      }
+
+      // After creating a new event from a template, apply template cost positions
+      if (!isEdit && data.id && selectedTemplateId) {
+        const tpl = templates.find((t) => String(t.id) === selectedTemplateId);
+        const tplCosts = tpl?.template_costs ?? [];
+        for (const c of tplCosts) {
+          await fetch(`/api/admin/events/${data.id}/costs`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description: c.description, amount: c.amount }),
+          }).catch(() => {});
+        }
       }
 
       // If editing a draft and publishing was requested, call the publish endpoint
@@ -290,8 +304,10 @@ export default function EventForm({ event }: EventFormProps) {
           description: formData.description,
           location: formData.location,
           price: formData.price,
+          entry_price: formData.entry_price ?? null,
           dress_code: formData.dress_code,
           max_participants: formData.max_participants,
+          template_costs: costs.map((c) => ({ description: c.description, amount: c.amount })),
         }),
       });
       const data = await res.json();

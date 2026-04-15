@@ -573,6 +573,14 @@ async function setTemplateImages(templateId: number, images: EventImageInput[]):
   }
 }
 
+async function setTemplateCosts(templateId: number, costs: { description: string; amount: number }[]): Promise<void> {
+  const sql = getSQL();
+  await sql`DELETE FROM template_costs WHERE template_id = ${templateId}`;
+  for (const c of costs) {
+    await sql`INSERT INTO template_costs (template_id, description, amount) VALUES (${templateId}, ${c.description}, ${c.amount})`;
+  }
+}
+
 export async function getAllTemplates(): Promise<EventTemplate[]> {
   if (!isPostgresConfigured()) {
     const { getLocalAllTemplates } = await import("./local-data");
@@ -581,7 +589,8 @@ export async function getAllTemplates(): Promise<EventTemplate[]> {
   const sql = getSQL();
   const rows = await sql`
     SELECT t.*,
-      COALESCE((SELECT JSON_AGG(jsonb_build_object('url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM template_images i WHERE i.template_id = t.id), '[]') AS images
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM template_images i WHERE i.template_id = t.id), '[]') AS images,
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('id', c.id, 'template_id', c.template_id, 'description', c.description, 'amount', c.amount::float8) ORDER BY c.id) FROM template_costs c WHERE c.template_id = t.id), '[]') AS template_costs
     FROM event_templates t
     ORDER BY t.last_used_at DESC NULLS LAST, t.created_at DESC
   `;
@@ -596,7 +605,8 @@ export async function getTemplate(id: number): Promise<EventTemplate | null> {
   const sql = getSQL();
   const rows = await sql`
     SELECT t.*,
-      COALESCE((SELECT JSON_AGG(jsonb_build_object('url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM template_images i WHERE i.template_id = t.id), '[]') AS images
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM template_images i WHERE i.template_id = t.id), '[]') AS images,
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('id', c.id, 'template_id', c.template_id, 'description', c.description, 'amount', c.amount::float8) ORDER BY c.id) FROM template_costs c WHERE c.template_id = t.id), '[]') AS template_costs
     FROM event_templates t
     WHERE t.id = ${id}
   `;
@@ -610,12 +620,13 @@ export async function createTemplate(data: EventTemplateInput): Promise<{ id: nu
   }
   const sql = getSQL();
   const rows = await sql`
-    INSERT INTO event_templates (name, title, category, description, location, price, dress_code, max_participants)
-    VALUES (${data.name}, ${data.title}, ${data.category}, ${data.description}, ${data.location}, ${data.price}, ${data.dress_code}, ${data.max_participants})
+    INSERT INTO event_templates (name, title, category, description, location, price, entry_price, dress_code, max_participants)
+    VALUES (${data.name}, ${data.title}, ${data.category}, ${data.description}, ${data.location}, ${data.price}, ${data.entry_price ?? null}, ${data.dress_code}, ${data.max_participants})
     RETURNING id
   `;
   const { id } = rows[0] as { id: number };
   if (data.images?.length) await setTemplateImages(id, data.images);
+  if (data.template_costs?.length) await setTemplateCosts(id, data.template_costs);
   return { id };
 }
 
@@ -634,11 +645,13 @@ export async function updateTemplate(id: number, data: EventTemplateInput): Prom
       description = ${data.description},
       location = ${data.location},
       price = ${data.price},
+      entry_price = ${data.entry_price ?? null},
       dress_code = ${data.dress_code},
       max_participants = ${data.max_participants}
     WHERE id = ${id}
   `;
   if (data.images !== undefined) await setTemplateImages(id, data.images);
+  if (data.template_costs !== undefined) await setTemplateCosts(id, data.template_costs);
 }
 
 export async function deleteTemplate(id: number): Promise<void> {

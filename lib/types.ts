@@ -169,6 +169,18 @@ export interface CancelEventResult {
   registrations: Pick<Registration, "email" | "first_name" | "last_name" | "status_token">[];
 }
 
+export interface TemplateCost {
+  id: number;
+  template_id: number;
+  description: string;
+  amount: number;
+}
+
+export interface TemplateCostInput {
+  description: string;
+  amount: number;
+}
+
 export interface EventTemplate {
   id: number;
   /** Display name of the template, e.g. "Monatliches Vereinstraining" */
@@ -179,11 +191,13 @@ export interface EventTemplate {
   description: string;
   location: string;
   price: string;
+  entry_price?: number | null;
   dress_code: string;
   max_participants: number;
   last_used_at: string | null;
   created_at: string;
   images?: EventImageInput[];
+  template_costs?: TemplateCost[];
 }
 
 export interface EventTemplateInput {
@@ -193,9 +207,11 @@ export interface EventTemplateInput {
   description: string;
   location: string;
   price: string;
+  entry_price?: number | null;
   dress_code: string;
   max_participants: number;
   images?: EventImageInput[];
+  template_costs?: TemplateCostInput[];
 }
 
 export interface EventCreateInput {
