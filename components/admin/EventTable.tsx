@@ -136,6 +136,16 @@ function PastEventSummary({ event }: { event: EventWithRegistrations }) {
           </Link>
         </div>
       )}
+      {/* Report link */}
+      <div className="text-xs">
+        <Link
+          href={`/admin/events/${event.id}/report`}
+          className="inline-flex items-center gap-0.5 text-gray-500 hover:text-gray-800 hover:underline"
+        >
+          Auswertung
+          <ArrowRight className="w-3 h-3" />
+        </Link>
+      </div>
     </div>
   );
 }
