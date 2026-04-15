@@ -314,7 +314,7 @@ export default function EventForm({ event }: EventFormProps) {
     }
   };
 
-  const update = (field: keyof EventCreateInput, value: string | number) => {
+  const update = (field: keyof EventCreateInput, value: string | number | null) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
