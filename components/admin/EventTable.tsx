@@ -18,10 +18,49 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { Pencil, Trash2, Users, Loader2, Search, Ban, Globe, EyeOff } from "lucide-react";
+import { Pencil, Trash2, Users, Loader2, Search, Ban, Globe, EyeOff, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
+import { formatEuro } from "@/lib/finance";
 
 type CategoryFilter = "alle" | "fussball" | "fitness" | "schwimmen";
+
+function FinanceSummary({ event }: { event: EventWithRegistrations }) {
+  const hasPrice = event.entry_price != null && event.entry_price > 0;
+  const costs = event.total_costs ?? 0;
+  const actual = event.actual_revenue ?? 0;
+  const expected = event.expected_revenue ?? 0;
+  const donations = event.total_donations ?? 0;
+  const balance = actual + donations - costs;
+
+  if (!hasPrice && costs === 0 && donations === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-gray-500">
+      {costs > 0 && (
+        <span className="flex items-center gap-0.5">
+          Kosten: <strong className="ml-0.5 text-gray-700">{formatEuro(costs)}</strong>
+        </span>
+      )}
+      {hasPrice && (
+        <span className="flex items-center gap-0.5">
+          Umsatz: <strong className="ml-0.5 text-gray-700">{formatEuro(actual)}</strong>
+          <span className="text-gray-400 ml-0.5">(erw. {formatEuro(expected)})</span>
+        </span>
+      )}
+      {donations > 0 && (
+        <span className="flex items-center gap-0.5 text-rose-600">
+          +<strong className="ml-0.5">{formatEuro(donations)}</strong> Spenden
+        </span>
+      )}
+      {(hasPrice || donations > 0) && costs > 0 && (
+        <span className={`flex items-center gap-0.5 font-semibold ${balance > 0 ? "text-green-600" : balance < 0 ? "text-red-600" : "text-gray-500"}`}>
+          {balance > 0 ? <TrendingUp className="w-3 h-3" /> : balance < 0 ? <TrendingDown className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+          {formatEuro(balance)}
+        </span>
+      )}
+    </div>
+  );
+}
 
 function getPublishedStatus(event: EventWithRegistrations): { label: string; variant: "default" | "secondary" | "destructive" | "cancelled" } {
   if (event.status === "cancelled") return { label: "Abgesagt", variant: "cancelled" };
@@ -56,7 +95,12 @@ function EventRow({
 
   return (
     <TableRow className={isDraft ? "bg-amber-50/40" : undefined}>
-      <TableCell className="font-medium">{event.title}</TableCell>
+      <TableCell className="font-medium">
+        <div>
+          {event.title}
+          <FinanceSummary event={event} />
+        </div>
+      </TableCell>
       <TableCell className="hidden sm:table-cell">
         <Badge variant={event.category as "fussball" | "fitness" | "schwimmen"}>
           {categoryLabels[event.category]}

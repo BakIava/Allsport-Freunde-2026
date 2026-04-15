@@ -517,8 +517,14 @@ export function getLocalTemplate(id: number): EventTemplate | null {
 
 export function createLocalTemplate(data: EventTemplateInput): { id: number } {
   const id = nextTemplateId++;
-  const { images, ...templateFields } = data;
-  localTemplates.push({ id, ...templateFields, last_used_at: null, created_at: new Date().toISOString() });
+  const { images, template_costs, ...templateFields } = data;
+  localTemplates.push({
+    id,
+    ...templateFields,
+    template_costs: (template_costs ?? []).map((c, i) => ({ id: i + 1, template_id: id, ...c })),
+    last_used_at: null,
+    created_at: new Date().toISOString(),
+  });
   if (images?.length) setLocalTemplateImages(id, images);
   return { id };
 }
@@ -526,8 +532,11 @@ export function createLocalTemplate(data: EventTemplateInput): { id: number } {
 export function updateLocalTemplate(id: number, data: EventTemplateInput): void {
   const tpl = localTemplates.find((t) => t.id === id);
   if (tpl) {
-    const { images, ...templateFields } = data;
+    const { images, template_costs, ...templateFields } = data;
     Object.assign(tpl, templateFields);
+    if (template_costs !== undefined) {
+      tpl.template_costs = template_costs.map((c, i) => ({ id: i + 1, template_id: id, ...c }));
+    }
     if (images !== undefined) setLocalTemplateImages(id, images);
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +16,10 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Globe, EyeOff, LayoutTemplate, Plus, Trash2, GripVertical, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Globe, EyeOff, LayoutTemplate, Plus, Trash2, GripVertical, AlertCircle, CheckCircle2, Euro } from "lucide-react";
 import { Reorder } from "framer-motion";
-import type { EventWithRegistrations, EventCreateInput, EventTemplate, EventImageInput } from "@/lib/types";
+import type { EventWithRegistrations, EventCreateInput, EventTemplate, EventImageInput, EventCost } from "@/lib/types";
+import { formatEuro } from "@/lib/finance";
 
 interface EventFormProps {
   event?: EventWithRegistrations;
@@ -62,11 +63,100 @@ export default function EventForm({ event }: EventFormProps) {
     location: event?.location ?? "",
     parking_location: event?.parking_location ?? "",
     price: event?.price ?? "",
+    entry_price: event?.entry_price ?? null,
     dress_code: event?.dress_code ?? "",
     max_participants: event?.max_participants ?? 20,
   });
   const [submitting, setSubmitting] = useState(false);
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
+
+  // ── Costs state (edit mode only, deferred save) ───────
+  interface LocalCost { _key: string; id?: number; description: string; amount: number; }
+  const [costs, setCosts] = useState<LocalCost[]>([]);
+  const [costsLoading, setCostsLoading] = useState(false);
+  const savedCostsRef = useRef<LocalCost[]>([]);
+  // editing an existing cost row
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editDesc, setEditDesc] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  // new cost row
+  const [newDesc, setNewDesc] = useState("");
+  const [newAmount, setNewAmount] = useState("");
+
+  useEffect(() => {
+    if (!isEdit || !event?.id) return;
+    setCostsLoading(true);
+    fetch(`/api/admin/events/${event.id}/costs`)
+      .then((r) => r.json())
+      .then((data: EventCost[]) => {
+        if (!Array.isArray(data)) return;
+        const loaded: LocalCost[] = data.map((c) => ({ _key: String(c.id), id: c.id, description: c.description, amount: c.amount }));
+        setCosts(loaded);
+        savedCostsRef.current = loaded;
+      })
+      .catch(() => {})
+      .finally(() => setCostsLoading(false));
+  }, [isEdit, event?.id]);
+
+  const totalCosts = costs.reduce((s, c) => s + c.amount, 0);
+
+  function handleAddCost() {
+    if (!newDesc.trim() || !newAmount.trim()) return;
+    const amount = parseFloat(newAmount.replace(",", "."));
+    if (isNaN(amount) || amount <= 0) { toast("Ungültiger Betrag.", "error"); return; }
+    setCosts((prev) => [...prev, { _key: crypto.randomUUID(), description: newDesc.trim(), amount }]);
+    setNewDesc("");
+    setNewAmount("");
+  }
+
+  function startEditCost(cost: LocalCost) {
+    setEditingKey(cost._key);
+    setEditDesc(cost.description);
+    setEditAmount(String(cost.amount));
+  }
+
+  function saveEditCost(key: string) {
+    const amount = parseFloat(editAmount.replace(",", "."));
+    if (!editDesc.trim() || isNaN(amount) || amount <= 0) { toast("Ungültige Eingabe.", "error"); return; }
+    setCosts((prev) => prev.map((c) => (c._key === key ? { ...c, description: editDesc.trim(), amount } : c)));
+    setEditingKey(null);
+  }
+
+  function handleDeleteCost(key: string) {
+    setCosts((prev) => prev.filter((c) => c._key !== key));
+  }
+
+  async function syncCosts(eventId: number) {
+    const saved = savedCostsRef.current;
+    const savedIds = new Set(saved.map((c) => c.id).filter(Boolean) as number[]);
+    const currentIds = new Set(costs.map((c) => c.id).filter(Boolean) as number[]);
+    // Delete removed
+    for (const id of savedIds) {
+      if (!currentIds.has(id)) {
+        await fetch(`/api/admin/events/${eventId}/costs/${id}`, { method: "DELETE" }).catch(() => {});
+      }
+    }
+    // Update changed
+    for (const c of costs.filter((c) => c.id)) {
+      const orig = saved.find((s) => s.id === c.id);
+      if (orig && (orig.description !== c.description || orig.amount !== c.amount)) {
+        await fetch(`/api/admin/events/${eventId}/costs/${c.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description: c.description, amount: c.amount }),
+        }).catch(() => {});
+      }
+    }
+    // Create new
+    for (const c of costs.filter((c) => !c.id)) {
+      await fetch(`/api/admin/events/${eventId}/costs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: c.description, amount: c.amount }),
+      }).catch(() => {});
+    }
+    savedCostsRef.current = costs;
+  }
 
   // Image management
   const [images, setImages] = useState<ImageEntry[]>(() =>
@@ -127,12 +217,13 @@ export default function EventForm({ event }: EventFormProps) {
       description: tpl.description,
       location: tpl.location,
       price: tpl.price,
+      entry_price: tpl.entry_price ?? null,
       dress_code: tpl.dress_code,
       max_participants: tpl.max_participants,
     }));
     // Pre-fill images from template
     setImages(
-      (tpl.images ?? []).map((img, i) => ({
+      (tpl.images ?? []).map((img) => ({
         _key: crypto.randomUUID(),
         url: img.url,
         alt_text: img.alt_text,
@@ -170,6 +261,24 @@ export default function EventForm({ event }: EventFormProps) {
       if (!res.ok) {
         toast(data.error || "Fehler beim Speichern.", "error");
         return;
+      }
+
+      // Sync deferred cost edits when saving an existing event
+      if (isEdit && event?.id) {
+        await syncCosts(event.id);
+      }
+
+      // After creating a new event from a template, apply template cost positions
+      if (!isEdit && data.id && selectedTemplateId) {
+        const tpl = templates.find((t) => String(t.id) === selectedTemplateId);
+        const tplCosts = tpl?.template_costs ?? [];
+        for (const c of tplCosts) {
+          await fetch(`/api/admin/events/${data.id}/costs`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description: c.description, amount: c.amount }),
+          }).catch(() => {});
+        }
       }
 
       // If editing a draft and publishing was requested, call the publish endpoint
@@ -212,8 +321,10 @@ export default function EventForm({ event }: EventFormProps) {
           description: formData.description,
           location: formData.location,
           price: formData.price,
+          entry_price: formData.entry_price ?? null,
           dress_code: formData.dress_code,
           max_participants: formData.max_participants,
+          template_costs: costs.map((c) => ({ description: c.description, amount: c.amount })),
         }),
       });
       const data = await res.json();
@@ -236,12 +347,12 @@ export default function EventForm({ event }: EventFormProps) {
     }
   };
 
-  const update = (field: keyof EventCreateInput, value: string | number) => {
+  const update = (field: keyof EventCreateInput, value: string | number | null) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24">
       {/* Draft banner */}
       {isDraft && isEdit && (
         <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
@@ -291,7 +402,7 @@ export default function EventForm({ event }: EventFormProps) {
           <CardTitle>{isEdit ? "Event bearbeiten" : "Neues Event erstellen"}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
+          <form id="event-form" onSubmit={(e) => handleSubmit(e, false)} className="space-y-6 pb-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Titel *</Label>
@@ -363,7 +474,7 @@ export default function EventForm({ event }: EventFormProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="price">Preis *</Label>
+                <Label htmlFor="price">Preis (Anzeige) *</Label>
                 <Input
                   id="price"
                   required
@@ -371,6 +482,24 @@ export default function EventForm({ event }: EventFormProps) {
                   onChange={(e) => update("price", e.target.value)}
                   placeholder='z.B. "Kostenlos", "5 €", "Spende"'
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="entry_price">Eintrittspreis (€, für Umsatzberechnung)</Label>
+                <div className="relative">
+                  <Euro className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="entry_price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.entry_price ?? ""}
+                    onChange={(e) => update("entry_price", e.target.value === "" ? null : parseFloat(e.target.value))}
+                    placeholder="0,00 – leer lassen wenn kostenlos"
+                    className="pl-9"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Wird für die automatische Umsatz- und Bilanzberechnung verwendet.</p>
               </div>
 
               <div className="space-y-2">
@@ -407,129 +536,206 @@ export default function EventForm({ event }: EventFormProps) {
               />
             </div>
 
-            {/* Image management */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Bilder</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addImage}>
-                  <Plus className="w-4 h-4 mr-1" />
-                  Bild hinzufügen
-                </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* ── Kostenpositionen (nur beim Bearbeiten) ───────── */}
+      {isEdit && event?.id && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Euro className="w-5 h-5 text-muted-foreground" />
+              Kostenpositionen
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {costsLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                <Loader2 className="w-4 h-4 animate-spin" /> Laden...
               </div>
-
-              {images.length > 0 && (
-                <Reorder.Group axis="y" values={images} onReorder={setImages} className="space-y-3">
-                  {images.map((img) => (
-                    <Reorder.Item key={img._key} value={img} className="flex gap-2 items-start bg-gray-50 border rounded-lg p-3">
-                      <div className="mt-2 cursor-grab active:cursor-grabbing text-gray-400 shrink-0">
-                        <GripVertical className="w-4 h-4" />
-                      </div>
-
-                      <div className="flex-1 space-y-2">
-                        <div className="flex gap-2 items-center">
-                          <div className="flex-1 relative">
+            ) : (
+              <>
+                {/* Existing cost rows */}
+                {costs.length > 0 ? (
+                  <div className="space-y-2">
+                    {costs.map((cost) =>
+                      editingKey === cost._key ? (
+                        <div key={cost._key} className="flex gap-2 items-center bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                          <Input
+                            value={editDesc}
+                            onChange={(e) => setEditDesc(e.target.value)}
+                            className="flex-1 h-8 text-sm"
+                            placeholder="Beschreibung"
+                            autoFocus
+                          />
+                          <div className="relative w-32 shrink-0">
+                            <Euro className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                             <Input
-                              value={img.url}
-                              onChange={(e) => updateImage(img._key, "url", e.target.value)}
-                              onBlur={(e) => validateImage(img._key, e.target.value)}
-                              placeholder="https://beispiel.de/bild.jpg"
-                              className={img.valid === false ? "border-red-400 pr-8" : img.valid === true ? "border-green-400 pr-8" : ""}
+                              value={editAmount}
+                              onChange={(e) => setEditAmount(e.target.value)}
+                              className="pl-7 h-8 text-sm"
+                              placeholder="0.00"
                             />
-                            {img.valid === false && (
-                              <AlertCircle className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
-                            )}
-                            {img.valid === true && (
-                              <CheckCircle2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
-                            )}
                           </div>
+                          <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => saveEditCost(cost._key)}>
+                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditingKey(null)}>
+                            <AlertCircle className="w-4 h-4 text-gray-400" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div
+                          key={cost._key}
+                          className="flex gap-2 items-center border rounded-lg px-3 py-2 hover:bg-gray-50 cursor-pointer group"
+                          onClick={() => startEditCost(cost)}
+                          title="Klicken zum Bearbeiten"
+                        >
+                          <span className="flex-1 text-sm text-gray-800">{cost.description}</span>
+                          <span className="text-sm font-medium text-gray-700 shrink-0">
+                            {formatEuro(cost.amount)}
+                          </span>
                           <Button
-                            type="button"
+                            size="sm"
                             variant="ghost"
-                            size="icon"
-                            onClick={() => removeImage(img._key)}
-                            className="shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            className="h-8 px-2 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteCost(cost._key); }}
+                            title="Löschen"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
+                      )
+                    )}
+                    <div className="flex justify-between items-center px-3 pt-1 border-t">
+                      <span className="text-sm font-semibold text-gray-700">Gesamtkosten</span>
+                      <span className="text-base font-bold text-gray-900">{formatEuro(totalCosts)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-1">
+                    Noch keine Kostenpositionen. Füge Positionen wie Hallenmiete, Schiedsrichter oder Material hinzu.
+                  </p>
+                )}
 
-                        <Input
-                          value={img.alt_text}
-                          onChange={(e) => updateImage(img._key, "alt_text", e.target.value)}
-                          placeholder="Bildbeschreibung (Alt-Text)"
-                          className="text-sm"
-                        />
-
-                        {img.valid === true && img.url && (
-                          <div className="mt-1 rounded overflow-hidden border bg-gray-100 h-28">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={img.url}
-                              alt={img.alt_text || "Vorschau"}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
-                        {img.valid === false && (
-                          <p className="text-xs text-red-600">Die URL konnte nicht als Bild geladen werden. Bitte prüfe die URL.</p>
-                        )}
-                      </div>
-                    </Reorder.Item>
-                  ))}
-                </Reorder.Group>
-              )}
-
-              {images.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Noch keine Bilder hinzugefügt. Bilder werden im Karussell auf der Eventseite angezeigt.
-                </p>
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              {isDraft ? (
-                <>
+                {/* Add new cost row */}
+                <div className="flex gap-2 items-end pt-2 border-t">
+                  <div className="flex-1 space-y-1">
+                    <Label className="text-xs">Neue Position</Label>
+                    <Input
+                      value={newDesc}
+                      onChange={(e) => setNewDesc(e.target.value)}
+                      placeholder='z.B. "Hallenmiete", "Schiedsrichter"'
+                      className="h-9 text-sm"
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCost(); } }}
+                    />
+                  </div>
+                  <div className="w-32 shrink-0 space-y-1">
+                    <Label className="text-xs">Betrag (€)</Label>
+                    <div className="relative">
+                      <Euro className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                      <Input
+                        value={newAmount}
+                        onChange={(e) => setNewAmount(e.target.value)}
+                        placeholder="0,00"
+                        className="pl-7 h-9 text-sm"
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCost(); } }}
+                      />
+                    </div>
+                  </div>
                   <Button
                     type="button"
-                    disabled={submitting}
-                    onClick={() => setPublishConfirmOpen(true)}
+                    size="sm"
+                    className="h-9 shrink-0"
+                    onClick={handleAddCost}
+                    disabled={!newDesc.trim() || !newAmount.trim()}
                   >
-                    <Globe className="w-4 h-4 mr-2" />
-                    Jetzt veröffentlichen
+                    <Plus className="w-4 h-4" />
+                    <span className="ml-1 hidden sm:inline">Hinzufügen</span>
                   </Button>
-                  <Button type="submit" variant="outline" disabled={submitting}>
-                    {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Als Entwurf speichern
-                  </Button>
-                </>
-              ) : (
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Speichern...
-                    </>
-                  ) : (
-                    "Änderungen speichern"
-                  )}
-                </Button>
-              )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-              {/* Save-as-template button */}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => { setTemplateName(formData.title || ""); setSaveTemplateOpen(true); }}
-              >
-                <LayoutTemplate className="w-4 h-4 mr-2" />
-                Als Vorlage speichern
-              </Button>
+      {!isEdit && (
+        <div className="flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-blue-800">
+          <Euro className="w-5 h-5 shrink-0 mt-0.5" />
+          <p className="text-sm">
+            Kostenpositionen können nach dem Erstellen des Events hinzugefügt werden.
+          </p>
+        </div>
+      )}
 
-              <Button type="button" variant="outline" onClick={() => router.back()}>
-                Abbrechen
-              </Button>
-            </div>
-          </form>
+      {/* ── Bilder ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Bilder</span>
+            <Button type="button" variant="outline" size="sm" onClick={addImage}>
+              <Plus className="w-4 h-4 mr-1" />
+              Bild hinzufügen
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {images.length > 0 ? (
+            <Reorder.Group axis="y" values={images} onReorder={setImages} className="space-y-3">
+              {images.map((img) => (
+                <Reorder.Item key={img._key} value={img} className="flex gap-2 items-start bg-gray-50 border rounded-lg p-3">
+                  <div className="mt-2 cursor-grab active:cursor-grabbing text-gray-400 shrink-0">
+                    <GripVertical className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1 relative">
+                        <Input
+                          value={img.url}
+                          onChange={(e) => updateImage(img._key, "url", e.target.value)}
+                          onBlur={(e) => validateImage(img._key, e.target.value)}
+                          placeholder="https://beispiel.de/bild.jpg"
+                          className={img.valid === false ? "border-red-400 pr-8" : img.valid === true ? "border-green-400 pr-8" : ""}
+                        />
+                        {img.valid === false && <AlertCircle className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />}
+                        {img.valid === true && <CheckCircle2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeImage(img._key)}
+                        className="shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <Input
+                      value={img.alt_text}
+                      onChange={(e) => updateImage(img._key, "alt_text", e.target.value)}
+                      placeholder="Bildbeschreibung (Alt-Text)"
+                      className="text-sm"
+                    />
+                    {img.valid === true && img.url && (
+                      <div className="mt-1 rounded overflow-hidden border bg-gray-100 h-28">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={img.url} alt={img.alt_text || "Vorschau"} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    {img.valid === false && (
+                      <p className="text-xs text-red-600">Die URL konnte nicht als Bild geladen werden. Bitte prüfe die URL.</p>
+                    )}
+                  </div>
+                </Reorder.Item>
+              ))}
+            </Reorder.Group>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Noch keine Bilder hinzugefügt. Bilder werden im Karussell auf der Eventseite angezeigt.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -590,6 +796,53 @@ export default function EventForm({ event }: EventFormProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Sticky action bar ── */}
+      <div className="fixed bottom-0 left-0 right-0 lg:left-64 z-20 bg-white border-t border-gray-200 shadow-lg">
+        <div className="max-w-screen-xl mx-auto px-4 md:px-8 py-3 flex flex-wrap items-center gap-2">
+          {isDraft ? (
+            <>
+              <Button
+                type="button"
+                form="event-form"
+                disabled={submitting}
+                onClick={() => setPublishConfirmOpen(true)}
+              >
+                <Globe className="w-4 h-4 mr-2" />
+                Jetzt veröffentlichen
+              </Button>
+              <Button type="submit" form="event-form" variant="outline" disabled={submitting}>
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Als Entwurf speichern
+              </Button>
+            </>
+          ) : (
+            <Button type="submit" form="event-form" disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Speichern...
+                </>
+              ) : (
+                "Änderungen speichern"
+              )}
+            </Button>
+          )}
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => { setTemplateName(formData.title || ""); setSaveTemplateOpen(true); }}
+          >
+            <LayoutTemplate className="w-4 h-4 mr-2" />
+            Als Vorlage speichern
+          </Button>
+
+          <Button type="button" variant="outline" onClick={() => router.back()}>
+            Abbrechen
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

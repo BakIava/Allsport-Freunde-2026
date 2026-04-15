@@ -38,9 +38,11 @@ export async function POST(request: NextRequest) {
       description: (body.description || "").trim(),
       location: body.location.trim(),
       price: body.price.trim(),
+      entry_price: typeof body.entry_price === "number" ? body.entry_price : null,
       dress_code: (body.dress_code || "").trim(),
       max_participants: body.max_participants,
       images: Array.isArray(body.images) ? body.images : [],
+      template_costs: Array.isArray(body.template_costs) ? body.template_costs : [],
     });
 
     return NextResponse.json({ message: "Vorlage erstellt!", id: result.id }, { status: 201 });

@@ -10,6 +10,8 @@ export interface Event {
   location: string;
   parking_location: string | null;
   price: string;
+  /** Numeric entry price per person in Euro (null = free / not set) */
+  entry_price?: number | null;
   dress_code: string;
   max_participants: number;
   status: EventStatus;
@@ -36,6 +38,11 @@ export interface EventWithRegistrations extends Event {
   current_participants: number;
   pending_participants?: number;
   images?: EventImage[];
+  /** Finance summary – included in admin getAllEvents query */
+  total_costs?: number;
+  expected_revenue?: number;
+  actual_revenue?: number;
+  total_donations?: number;
 }
 
 export type RegistrationStatus = "pending" | "approved" | "rejected" | "cancelled";
@@ -162,6 +169,18 @@ export interface CancelEventResult {
   registrations: Pick<Registration, "email" | "first_name" | "last_name" | "status_token">[];
 }
 
+export interface TemplateCost {
+  id: number;
+  template_id: number;
+  description: string;
+  amount: number;
+}
+
+export interface TemplateCostInput {
+  description: string;
+  amount: number;
+}
+
 export interface EventTemplate {
   id: number;
   /** Display name of the template, e.g. "Monatliches Vereinstraining" */
@@ -172,11 +191,13 @@ export interface EventTemplate {
   description: string;
   location: string;
   price: string;
+  entry_price?: number | null;
   dress_code: string;
   max_participants: number;
   last_used_at: string | null;
   created_at: string;
   images?: EventImageInput[];
+  template_costs?: TemplateCost[];
 }
 
 export interface EventTemplateInput {
@@ -186,9 +207,11 @@ export interface EventTemplateInput {
   description: string;
   location: string;
   price: string;
+  entry_price?: number | null;
   dress_code: string;
   max_participants: number;
   images?: EventImageInput[];
+  template_costs?: TemplateCostInput[];
 }
 
 export interface EventCreateInput {
@@ -200,9 +223,53 @@ export interface EventCreateInput {
   location: string;
   parking_location?: string;
   price: string;
+  /** Numeric entry price per person in Euro (null/undefined = free) */
+  entry_price?: number | null;
   dress_code: string;
   max_participants: number;
   images?: EventImageInput[];
+}
+
+// ─── Finance ──────────────────────────────────────────────
+
+export interface EventCost {
+  id: number;
+  event_id: number;
+  description: string;
+  amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventDonation {
+  id: number;
+  event_id: number;
+  registration_id: number | null;
+  donor_name: string;
+  amount: number;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface EventFinancials {
+  entry_price: number | null;
+  total_costs: number;
+  /** Approved registrations + their guests */
+  approved_persons: number;
+  approved_guests: number;
+  expected_revenue: number;
+  /** Checked-in registrations + their guests */
+  checkedin_persons: number;
+  checkedin_guests: number;
+  actual_revenue: number;
+  /** Sum of all donations */
+  total_donations: number;
+  donation_count: number;
+  /** Actual revenue + donations − costs */
+  balance: number;
+  costs: EventCost[];
+  donations: EventDonation[];
 }
 
 // ─── Contact / Inquiry ───────────────────────────────────

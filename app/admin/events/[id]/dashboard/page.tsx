@@ -17,9 +17,12 @@ import {
   Copy,
   ExternalLink,
   Check,
+  Heart,
+  Trash2,
 } from "lucide-react";
 import RegistrationDetailButton from "@/components/RegistrationDetailButton";
-import type { CheckinParticipant, CheckinStatusResponse } from "@/lib/types";
+import type { CheckinParticipant, CheckinStatusResponse, EventFinancials, EventDonation } from "@/lib/types";
+import { formatEuro } from "@/lib/finance";
 
 function formatTime(iso: string | null) {
   if (!iso) return null;
@@ -34,6 +37,20 @@ interface WalkInForm {
   notes: string;
   guests: number;
 }
+
+interface DonationForm {
+  registration_id: number | null;
+  donor_name: string;
+  amount: string;
+  note: string;
+}
+
+const EMPTY_DONATION: DonationForm = {
+  registration_id: null,
+  donor_name: "",
+  amount: "",
+  note: "",
+};
 
 const EMPTY_FORM: WalkInForm = {
   first_name: "",
@@ -54,6 +71,7 @@ export default function CheckinDashboardPage() {
   const [manualCheckinId, setManualCheckinId] = useState<number | null>(null);
   const [undoId, setUndoId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [financials, setFinancials] = useState<EventFinancials | null>(null);
 
   // Walk-in modal state
   const [showWalkIn, setShowWalkIn] = useState(false);
@@ -70,10 +88,43 @@ export default function CheckinDashboardPage() {
   const [qrError, setQrError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Donation modal state
+  const [showDonation, setShowDonation] = useState(false);
+  const [donationForm, setDonationForm] = useState<DonationForm>(EMPTY_DONATION);
+  const [donationLoading, setDonationLoading] = useState(false);
+  const [donationError, setDonationError] = useState<string | null>(null);
+  const [deletingDonationId, setDeletingDonationId] = useState<number | null>(null);
+  const donorNameRef = useRef<HTMLInputElement>(null);
+
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(`/api/checkin/status/${eventId}`);
-      if (res.ok) setData(await res.json());
+      const [statusRes, finRes] = await Promise.allSettled([
+        fetch(`/api/checkin/status/${eventId}`),
+        fetch(`/api/admin/events/${eventId}/finances`),
+      ]);
+      if (statusRes.status === "fulfilled" && statusRes.value.ok) {
+        setData(await statusRes.value.json());
+      }
+      if (finRes.status === "fulfilled" && finRes.value.ok) {
+        setFinancials(await finRes.value.json());
+      } else if (finRes.status === "fulfilled" && !finRes.value.ok) {
+        // API reachable but returned error – show empty financials so section appears
+        setFinancials({
+          entry_price: null,
+          total_costs: 0,
+          approved_persons: 0,
+          approved_guests: 0,
+          expected_revenue: 0,
+          checkedin_persons: 0,
+          checkedin_guests: 0,
+          actual_revenue: 0,
+          total_donations: 0,
+          donation_count: 0,
+          balance: 0,
+          costs: [],
+          donations: [],
+        });
+      }
     } catch {
       // silent
     } finally {
@@ -88,14 +139,21 @@ export default function CheckinDashboardPage() {
     return () => clearInterval(interval);
   }, [fetchStatus]);
 
-  // Focus first field when modal opens
+  // Focus first field when walk-in modal opens
   useEffect(() => {
     if (showWalkIn) {
       setTimeout(() => firstNameRef.current?.focus(), 50);
     }
   }, [showWalkIn]);
 
-  // Close modal on Escape key
+  // Focus donor name when donation modal opens
+  useEffect(() => {
+    if (showDonation) {
+      setTimeout(() => donorNameRef.current?.focus(), 50);
+    }
+  }, [showDonation]);
+
+  // Close modals on Escape key
   useEffect(() => {
     if (!showWalkIn) return;
     const handleKey = (e: KeyboardEvent) => {
@@ -104,6 +162,15 @@ export default function CheckinDashboardPage() {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [showWalkIn]);
+
+  useEffect(() => {
+    if (!showDonation) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeDonation();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [showDonation]);
 
   function openWalkIn() {
     setWalkInForm(EMPTY_FORM);
@@ -115,6 +182,72 @@ export default function CheckinDashboardPage() {
     if (walkInLoading) return;
     setShowWalkIn(false);
     setWalkInError(null);
+  }
+
+  function openDonation() {
+    setDonationForm(EMPTY_DONATION);
+    setDonationError(null);
+    setShowDonation(true);
+  }
+
+  function closeDonation() {
+    if (donationLoading) return;
+    setShowDonation(false);
+    setDonationError(null);
+  }
+
+  async function handleDonationSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setDonationError(null);
+    const amount = parseFloat(donationForm.amount.replace(",", "."));
+    if (!donationForm.donor_name.trim()) {
+      setDonationError("Name des Spenders ist erforderlich.");
+      return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+      setDonationError("Betrag muss größer als 0 sein.");
+      return;
+    }
+    setDonationLoading(true);
+    try {
+      const res = await fetch(`/api/admin/events/${eventId}/donations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          registration_id: donationForm.registration_id,
+          donor_name: donationForm.donor_name.trim(),
+          amount,
+          note: donationForm.note.trim() || undefined,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setDonationError(body.error ?? "Fehler beim Speichern.");
+      } else {
+        // Stay open for quick multi-entry; reset form but keep modal open
+        setDonationForm(EMPTY_DONATION);
+        await fetchStatus();
+        setTimeout(() => donorNameRef.current?.focus(), 50);
+      }
+    } catch {
+      setDonationError("Netzwerkfehler.");
+    } finally {
+      setDonationLoading(false);
+    }
+  }
+
+  async function handleDeleteDonation(donationId: number) {
+    setDeletingDonationId(donationId);
+    try {
+      const res = await fetch(`/api/admin/events/${eventId}/donations/${donationId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) await fetchStatus();
+    } catch {
+      // silent
+    } finally {
+      setDeletingDonationId(null);
+    }
   }
 
   async function handleShowQR() {
@@ -290,6 +423,13 @@ export default function CheckinDashboardPage() {
             Teilnehmer hinzufügen
           </button>
           <button
+            onClick={openDonation}
+            className="flex items-center gap-2 px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <Heart className="w-4 h-4" />
+            Spende eintragen
+          </button>
+          <button
             onClick={fetchStatus}
             className="flex items-center gap-2 px-3 py-2 border border-gray-200 hover:bg-gray-50 rounded-lg text-sm text-gray-600 transition-colors"
           >
@@ -370,6 +510,140 @@ export default function CheckinDashboardPage() {
               🚶 {data.walk_in_registrations} Walk-ins{data.walk_in_guests > 0 ? ` (+ ${data.walk_in_guests} Begleitpersonen)` : ""}
             </p>
           </div>
+
+          {/* ── Finanzen ── */}
+          {financials && (
+            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold">€</span>
+                Finanzen
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                {/* Gesamtkosten */}
+                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                  <p className="text-xs text-gray-500">Gesamtkosten</p>
+                  <p className="text-base font-bold text-gray-900">{formatEuro(financials.total_costs)}</p>
+                </div>
+
+                {/* Erwarteter Umsatz */}
+                {financials.entry_price != null && financials.entry_price > 0 ? (
+                  <div className="bg-blue-50 rounded-lg p-3 space-y-1">
+                    <p className="text-xs text-blue-700">Erw. Umsatz</p>
+                    <p className="text-base font-bold text-blue-900">{formatEuro(financials.expected_revenue)}</p>
+                    <p className="text-xs text-blue-600">
+                      ({financials.approved_persons} Anm.{financials.approved_guests > 0 ? ` + ${financials.approved_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                    <p className="text-xs text-gray-500">Erw. Umsatz</p>
+                    <p className="text-sm text-gray-400 italic">Kein Preis</p>
+                  </div>
+                )}
+
+                {/* Tatsächlicher Umsatz */}
+                {financials.entry_price != null && financials.entry_price > 0 ? (
+                  <div className="bg-green-50 rounded-lg p-3 space-y-1">
+                    <p className="text-xs text-green-700">Tats. Umsatz</p>
+                    <p className="text-base font-bold text-green-900">{formatEuro(financials.actual_revenue)}</p>
+                    <p className="text-xs text-green-600">
+                      ({financials.checkedin_persons} eingecheckt{financials.checkedin_guests > 0 ? ` + ${financials.checkedin_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                    <p className="text-xs text-gray-500">Tats. Umsatz</p>
+                    <p className="text-sm text-gray-400 italic">Kein Preis</p>
+                  </div>
+                )}
+
+                {/* Spenden */}
+                <div className="bg-rose-50 rounded-lg p-3 space-y-1">
+                  <p className="text-xs text-rose-700 flex items-center gap-1">
+                    <Heart className="w-3 h-3" />
+                    Spenden
+                  </p>
+                  <p className="text-base font-bold text-rose-900">{formatEuro(financials.total_donations ?? 0)}</p>
+                  <p className="text-xs text-rose-600">{financials.donation_count ?? 0} Spende{(financials.donation_count ?? 0) !== 1 ? "n" : ""}</p>
+                </div>
+
+                {/* Bilanz */}
+                {(financials.entry_price != null && financials.entry_price > 0) || (financials.total_donations ?? 0) > 0 || financials.total_costs > 0 ? (
+                  <div className={`rounded-lg p-3 space-y-1 ${financials.balance > 0 ? "bg-green-100" : financials.balance < 0 ? "bg-red-100" : "bg-gray-50"}`}>
+                    <p className={`text-xs ${financials.balance > 0 ? "text-green-700" : financials.balance < 0 ? "text-red-700" : "text-gray-500"}`}>Bilanz</p>
+                    <p className={`text-base font-bold ${financials.balance > 0 ? "text-green-800" : financials.balance < 0 ? "text-red-800" : "text-gray-700"}`}>
+                      {financials.balance > 0 ? "+" : ""}{formatEuro(financials.balance)}
+                    </p>
+                    <p className={`text-xs ${financials.balance > 0 ? "text-green-600" : financials.balance < 0 ? "text-red-600" : "text-gray-400"}`}>
+                      {financials.balance > 0 ? "Überschuss" : financials.balance < 0 ? "Defizit" : "Ausgeglichen"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                    <p className="text-xs text-gray-500">Bilanz</p>
+                    <p className="text-sm text-gray-400 italic">–</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Spenden-Liste ── */}
+          {financials && (
+            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-rose-500" />
+                  Spenden ({financials.donation_count ?? 0})
+                </h2>
+                <button
+                  onClick={openDonation}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium transition-colors"
+                >
+                  <Heart className="w-3 h-3" />
+                  Eintragen
+                </button>
+              </div>
+
+              {(financials.donations ?? []).length === 0 ? (
+                <p className="text-sm text-gray-400 italic py-2">Noch keine Spenden erfasst.</p>
+              ) : (
+                <div className="space-y-2">
+                  {(financials.donations ?? []).map((d: EventDonation) => (
+                    <div key={d.id} className="flex items-start justify-between gap-3 rounded-lg border border-rose-100 bg-rose-50/40 px-3 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900">{d.donor_name}</p>
+                        {d.note && <p className="text-xs text-gray-500 truncate">{d.note}</p>}
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {new Date(d.created_at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm font-bold text-rose-700">{formatEuro(d.amount)}</span>
+                        <button
+                          onClick={() => handleDeleteDonation(d.id)}
+                          disabled={deletingDonationId === d.id}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                          title="Spende löschen"
+                        >
+                          {deletingDonationId === d.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex justify-end pt-1 border-t border-gray-100">
+                    <p className="text-sm font-semibold text-gray-700">
+                      Gesamt: <span className="text-rose-700">{formatEuro(financials.total_donations ?? 0)}</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Search */}
           <div className="relative">
@@ -576,6 +850,145 @@ export default function CheckinDashboardPage() {
                   Einchecken
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Donation Modal */}
+      {showDonation && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+          onClick={(e) => { if (e.target === e.currentTarget) closeDonation(); }}
+        >
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-rose-500" />
+                <h2 className="text-lg font-semibold text-gray-900">Spende eintragen</h2>
+              </div>
+              <button
+                onClick={closeDonation}
+                disabled={donationLoading}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleDonationSubmit} className="px-6 py-5 space-y-4">
+              {/* Participant select or external donor */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Teilnehmer <span className="text-gray-400 font-normal">(optional – für registrierte Teilnehmer)</span>
+                </label>
+                <select
+                  value={donationForm.registration_id ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) {
+                      setDonationForm((f) => ({ ...f, registration_id: null, donor_name: "" }));
+                    } else {
+                      const participant = data?.participants.find((p) => p.id === Number(val));
+                      setDonationForm((f) => ({
+                        ...f,
+                        registration_id: Number(val),
+                        donor_name: participant ? `${participant.first_name} ${participant.last_name}` : f.donor_name,
+                      }));
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 bg-white"
+                >
+                  <option value="">— Externer Spender —</option>
+                  {(data?.participants ?? []).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.first_name} {p.last_name}{p.guests > 0 ? ` (+${p.guests})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Donor name */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Name des Spenders <span className="text-red-500">*</span>
+                </label>
+                <input
+                  ref={donorNameRef}
+                  type="text"
+                  required
+                  maxLength={254}
+                  value={donationForm.donor_name}
+                  onChange={(e) => setDonationForm((f) => ({ ...f, donor_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+                  placeholder="Max Mustermann"
+                />
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Betrag (€) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  required
+                  value={donationForm.amount}
+                  max={999_999_999}
+                  onChange={(e) => setDonationForm((f) => ({ ...f, amount: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+                  placeholder="10,00"
+                />
+              </div>
+
+              {/* Note */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Kommentar <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={200}
+                  value={donationForm.note}
+                  onChange={(e) => setDonationForm((f) => ({ ...f, note: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+                  placeholder="z.B. Für die Jugendarbeit"
+                />
+              </div>
+
+              {donationError && (
+                <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{donationError}</p>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={closeDonation}
+                  disabled={donationLoading}
+                  className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  Schließen
+                </button>
+                <button
+                  type="submit"
+                  disabled={donationLoading}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {donationLoading ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Heart className="w-4 h-4" />
+                  )}
+                  Spende speichern
+                </button>
+              </div>
+
+              <p className="text-xs text-gray-400 text-center">
+                Nach dem Speichern bleibt das Formular offen für weitere Eingaben.
+              </p>
             </form>
           </div>
         </div>

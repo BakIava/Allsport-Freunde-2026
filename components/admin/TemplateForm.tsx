@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Plus, Trash2, GripVertical, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Plus, Trash2, GripVertical, AlertCircle, CheckCircle2, Euro } from "lucide-react";
 import { Reorder } from "framer-motion";
 import type { EventTemplate, EventTemplateInput, EventImageInput } from "@/lib/types";
 
@@ -22,6 +22,12 @@ interface ImageEntry {
   url: string;
   alt_text: string;
   valid: boolean | null;
+}
+
+interface CostEntry {
+  _key: string;
+  description: string;
+  amount: string;
 }
 
 function validateImageUrl(url: string): Promise<boolean> {
@@ -40,16 +46,25 @@ export default function TemplateForm({ template }: TemplateFormProps) {
   const { toast } = useToast();
   const isEdit = !!template;
 
-  const [formData, setFormData] = useState<Omit<EventTemplateInput, "images">>({
+  const [formData, setFormData] = useState<Omit<EventTemplateInput, "images" | "template_costs">>({
     name: template?.name ?? "",
     title: template?.title ?? "",
     category: template?.category ?? "fussball",
     description: template?.description ?? "",
     location: template?.location ?? "",
     price: template?.price ?? "",
+    entry_price: template?.entry_price ?? null,
     dress_code: template?.dress_code ?? "",
     max_participants: template?.max_participants ?? 20,
   });
+
+  const [costs, setCosts] = useState<CostEntry[]>(() =>
+    (template?.template_costs ?? []).map((c) => ({
+      _key: crypto.randomUUID(),
+      description: c.description,
+      amount: String(c.amount),
+    }))
+  );
 
   const [images, setImages] = useState<ImageEntry[]>(() =>
     (template?.images ?? []).map((img, i) => ({
@@ -73,9 +88,14 @@ export default function TemplateForm({ template }: TemplateFormProps) {
     setImages((prev) => prev.map((i) => (i._key === key ? { ...i, valid: ok } : i)));
   }, []);
 
-  const update = (field: keyof Omit<EventTemplateInput, "images">, value: string | number) => {
+  const update = (field: keyof Omit<EventTemplateInput, "images" | "template_costs">, value: string | number | null) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const addCost = () => setCosts((prev) => [...prev, { _key: crypto.randomUUID(), description: "", amount: "" }]);
+  const removeCost = (key: string) => setCosts((prev) => prev.filter((c) => c._key !== key));
+  const updateCost = (key: string, field: "description" | "amount", value: string) =>
+    setCosts((prev) => prev.map((c) => (c._key === key ? { ...c, [field]: value } : c)));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,10 +106,17 @@ export default function TemplateForm({ template }: TemplateFormProps) {
       const imagePayload: EventImageInput[] = images
         .filter((i) => i.url.trim())
         .map((i, idx) => ({ url: i.url.trim(), alt_text: i.alt_text.trim(), position: idx }));
+      const costsPayload = costs
+        .filter((c) => c.description.trim() && c.amount.trim())
+        .map((c) => ({
+          description: c.description.trim(),
+          amount: parseFloat(c.amount.replace(",", ".")),
+        }))
+        .filter((c) => c.amount > 0);
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, images: imagePayload }),
+        body: JSON.stringify({ ...formData, images: imagePayload, template_costs: costsPayload }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -174,6 +201,27 @@ export default function TemplateForm({ template }: TemplateFormProps) {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="entry_price">
+                Eintrittspreis (€)
+                <span className="text-muted-foreground font-normal ml-1 text-xs">(für Umsatzberechnung, optional)</span>
+              </Label>
+              <div className="relative">
+                <Euro className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="entry_price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.entry_price ?? ""}
+                  onChange={(e) => update("entry_price", e.target.value === "" ? null : parseFloat(e.target.value))}
+                  placeholder="0,00 – leer lassen wenn kostenlos"
+                  className="pl-9"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Wird beim Anlegen eines Events aus dieser Vorlage übernommen.</p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="dress_code">Kleiderordnung</Label>
               <Input
                 id="dress_code"
@@ -205,6 +253,68 @@ export default function TemplateForm({ template }: TemplateFormProps) {
               placeholder="Standard-Beschreibung für diesen Veranstaltungstyp..."
               rows={4}
             />
+          </div>
+
+          {/* Cost positions */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Standard-Kostenpositionen</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Werden beim Erstellen eines Events aus dieser Vorlage automatisch angelegt.</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={addCost}>
+                <Plus className="w-4 h-4 mr-1" />
+                Position hinzufügen
+              </Button>
+            </div>
+
+            {costs.length > 0 ? (
+              <div className="space-y-2">
+                {costs.map((cost) => (
+                  <div key={cost._key} className="flex gap-2 items-center bg-gray-50 border rounded-lg p-3">
+                    <div className="flex-1 min-w-0">
+                      <Input
+                        value={cost.description}
+                        onChange={(e) => updateCost(cost._key, "description", e.target.value)}
+                        placeholder="Beschreibung (z.B. Hallenmiete)"
+                        className="mb-2"
+                      />
+                      <div className="relative">
+                        <Euro className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={cost.amount}
+                          onChange={(e) => updateCost(cost._key, "amount", e.target.value)}
+                          placeholder="0,00"
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeCost(cost._key)}
+                      className="shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">
+                  Gesamt: {costs
+                    .filter((c) => c.amount.trim())
+                    .reduce((s, c) => s + (parseFloat(c.amount.replace(",", ".")) || 0), 0)
+                    .toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Noch keine Kostenpositionen. Diese werden beim Anlegen eines Events aus der Vorlage als Standard-Kostenpositionen übernommen.
+              </p>
+            )}
           </div>
 
           {/* Image management */}

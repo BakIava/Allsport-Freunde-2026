@@ -11,7 +11,10 @@ import {
   RefreshCw,
   CheckCircle2,
   Users,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
+import { formatEuro } from "@/lib/finance";
 
 interface CheckinEvent {
   id: number;
@@ -22,6 +25,11 @@ interface CheckinEvent {
   location: string;
   approved_count: number;
   checked_in_count: number;
+  entry_price: number | null;
+  total_costs: number;
+  total_donations: number;
+  expected_revenue: number;
+  actual_revenue: number;
 }
 
 interface CheckinEventsResponse {
@@ -82,6 +90,35 @@ function TodayCard({ event }: { event: CheckinEvent }) {
       </div>
 
       <ProgressBar value={event.checked_in_count} max={event.approved_count} />
+
+      {/* Compact finance line */}
+      {(event.total_costs > 0 || (event.entry_price != null && event.entry_price > 0) || event.total_donations > 0) && (
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 pt-1 border-t border-gray-100">
+          {event.total_costs > 0 && (
+            <span>Kosten: <strong className="text-gray-700">{formatEuro(event.total_costs)}</strong></span>
+          )}
+          {event.entry_price != null && event.entry_price > 0 && (
+            <span>
+              Umsatz: <strong className="text-gray-700">{formatEuro(event.actual_revenue)}</strong>
+              <span className="text-gray-400"> / {formatEuro(event.expected_revenue)} erw.</span>
+            </span>
+          )}
+          {event.total_donations > 0 && (
+            <span className="text-rose-600">
+              +<strong>{formatEuro(event.total_donations)}</strong> Spenden
+            </span>
+          )}
+          {(event.total_costs > 0) && (() => {
+            const balance = event.actual_revenue + event.total_donations - event.total_costs;
+            return (
+              <span className={`flex items-center gap-0.5 font-semibold ${balance > 0 ? "text-green-600" : balance < 0 ? "text-red-600" : "text-gray-500"}`}>
+                {balance > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                {balance > 0 ? "+" : ""}{formatEuro(balance)}
+              </span>
+            );
+          })()}
+        </div>
+      )}
 
       <div className="flex gap-2 pt-1">
         <Link

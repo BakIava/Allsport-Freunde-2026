@@ -16,6 +16,7 @@ import {
   FileText,
   ClipboardCheck,
   MessageSquare,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/admin/registrations", label: "Anmeldungen", icon: Users },
   { href: "/admin/templates", label: "Vorlagen", icon: FileText },
   { href: "/admin/checkin", label: "Check-In", icon: ClipboardCheck },
+  { href: "/admin/finanzen", label: "Finanzen", icon: BarChart3 },
   { href: "/admin/contact", label: "Anfragen", icon: MessageSquare },
 ];
 

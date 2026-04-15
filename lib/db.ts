@@ -22,6 +22,9 @@ import type {
   ContactInquiryDetail,
   InquiryMessage,
   ContactFormInput,
+  EventCost,
+  EventDonation,
+  EventFinancials,
 } from "./types";
 
 function getDatabaseUrl(): string | undefined {
@@ -232,10 +235,14 @@ export async function getAllEvents(): Promise<EventWithRegistrations[]> {
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.parking_location, e.price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.published_at, e.created_at,
+      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.parking_location, e.price, e.entry_price::float8 AS entry_price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.published_at, e.created_at,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
       COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants,
-      COALESCE((SELECT JSON_AGG(jsonb_build_object('id', i.id, 'event_id', i.event_id, 'url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM event_images i WHERE i.event_id = e.id), '[]') AS images
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('id', i.id, 'event_id', i.event_id, 'url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM event_images i WHERE i.event_id = e.id), '[]') AS images,
+      COALESCE((SELECT SUM(ec.amount)::float8 FROM event_costs ec WHERE ec.event_id = e.id), 0)::float8 AS total_costs,
+      (COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0) * COALESCE(e.entry_price, 0))::float8 AS expected_revenue,
+      (COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0) * COALESCE(e.entry_price, 0))::float8 AS actual_revenue,
+      COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
     GROUP BY e.id
@@ -253,7 +260,7 @@ export async function getEventFull(id: number): Promise<EventWithRegistrations |
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.parking_location, e.price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.published_at, e.created_at,
+      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.parking_location, e.price, e.entry_price::float8 AS entry_price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.published_at, e.created_at,
       COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
       COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants,
       COALESCE((SELECT JSON_AGG(jsonb_build_object('id', i.id, 'event_id', i.event_id, 'url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM event_images i WHERE i.event_id = e.id), '[]') AS images
@@ -300,9 +307,10 @@ export async function createEvent(data: EventCreateInput & { publish?: boolean }
   const sql = getSQL();
   const status = data.publish ? "published" : "draft";
   const publishedAt = data.publish ? new Date().toISOString() : null;
+  const entryPrice = (data.entry_price != null && data.entry_price > 0) ? data.entry_price : null;
   const rows = await sql`
-    INSERT INTO events (title, category, description, date, time, location, parking_location, price, dress_code, max_participants, status, published_at)
-    VALUES (${data.title}, ${data.category}, ${data.description}, ${data.date}, ${data.time}, ${data.location}, ${data.parking_location ?? null}, ${data.price}, ${data.dress_code}, ${data.max_participants}, ${status}, ${publishedAt})
+    INSERT INTO events (title, category, description, date, time, location, parking_location, price, entry_price, dress_code, max_participants, status, published_at)
+    VALUES (${data.title}, ${data.category}, ${data.description}, ${data.date}, ${data.time}, ${data.location}, ${data.parking_location ?? null}, ${data.price}, ${entryPrice}, ${data.dress_code}, ${data.max_participants}, ${status}, ${publishedAt})
     RETURNING id
   `;
   const { id } = rows[0] as { id: number };
@@ -350,6 +358,7 @@ export async function updateEvent(id: number, data: EventCreateInput): Promise<v
   }
 
   const sql = getSQL();
+  const entryPrice = (data.entry_price != null && data.entry_price > 0) ? data.entry_price : null;
   await sql`
     UPDATE events SET
       title = ${data.title},
@@ -360,6 +369,7 @@ export async function updateEvent(id: number, data: EventCreateInput): Promise<v
       location = ${data.location},
       parking_location = ${data.parking_location ?? null},
       price = ${data.price},
+      entry_price = ${entryPrice},
       dress_code = ${data.dress_code},
       max_participants = ${data.max_participants}
     WHERE id = ${id}
@@ -563,6 +573,14 @@ async function setTemplateImages(templateId: number, images: EventImageInput[]):
   }
 }
 
+async function setTemplateCosts(templateId: number, costs: { description: string; amount: number }[]): Promise<void> {
+  const sql = getSQL();
+  await sql`DELETE FROM template_costs WHERE template_id = ${templateId}`;
+  for (const c of costs) {
+    await sql`INSERT INTO template_costs (template_id, description, amount) VALUES (${templateId}, ${c.description}, ${c.amount})`;
+  }
+}
+
 export async function getAllTemplates(): Promise<EventTemplate[]> {
   if (!isPostgresConfigured()) {
     const { getLocalAllTemplates } = await import("./local-data");
@@ -571,7 +589,8 @@ export async function getAllTemplates(): Promise<EventTemplate[]> {
   const sql = getSQL();
   const rows = await sql`
     SELECT t.*,
-      COALESCE((SELECT JSON_AGG(jsonb_build_object('url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM template_images i WHERE i.template_id = t.id), '[]') AS images
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM template_images i WHERE i.template_id = t.id), '[]') AS images,
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('id', c.id, 'template_id', c.template_id, 'description', c.description, 'amount', c.amount::float8) ORDER BY c.id) FROM template_costs c WHERE c.template_id = t.id), '[]') AS template_costs
     FROM event_templates t
     ORDER BY t.last_used_at DESC NULLS LAST, t.created_at DESC
   `;
@@ -586,7 +605,8 @@ export async function getTemplate(id: number): Promise<EventTemplate | null> {
   const sql = getSQL();
   const rows = await sql`
     SELECT t.*,
-      COALESCE((SELECT JSON_AGG(jsonb_build_object('url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM template_images i WHERE i.template_id = t.id), '[]') AS images
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM template_images i WHERE i.template_id = t.id), '[]') AS images,
+      COALESCE((SELECT JSON_AGG(jsonb_build_object('id', c.id, 'template_id', c.template_id, 'description', c.description, 'amount', c.amount::float8) ORDER BY c.id) FROM template_costs c WHERE c.template_id = t.id), '[]') AS template_costs
     FROM event_templates t
     WHERE t.id = ${id}
   `;
@@ -600,12 +620,13 @@ export async function createTemplate(data: EventTemplateInput): Promise<{ id: nu
   }
   const sql = getSQL();
   const rows = await sql`
-    INSERT INTO event_templates (name, title, category, description, location, price, dress_code, max_participants)
-    VALUES (${data.name}, ${data.title}, ${data.category}, ${data.description}, ${data.location}, ${data.price}, ${data.dress_code}, ${data.max_participants})
+    INSERT INTO event_templates (name, title, category, description, location, price, entry_price, dress_code, max_participants)
+    VALUES (${data.name}, ${data.title}, ${data.category}, ${data.description}, ${data.location}, ${data.price}, ${data.entry_price ?? null}, ${data.dress_code}, ${data.max_participants})
     RETURNING id
   `;
   const { id } = rows[0] as { id: number };
   if (data.images?.length) await setTemplateImages(id, data.images);
+  if (data.template_costs?.length) await setTemplateCosts(id, data.template_costs);
   return { id };
 }
 
@@ -624,11 +645,13 @@ export async function updateTemplate(id: number, data: EventTemplateInput): Prom
       description = ${data.description},
       location = ${data.location},
       price = ${data.price},
+      entry_price = ${data.entry_price ?? null},
       dress_code = ${data.dress_code},
       max_participants = ${data.max_participants}
     WHERE id = ${id}
   `;
   if (data.images !== undefined) await setTemplateImages(id, data.images);
+  if (data.template_costs !== undefined) await setTemplateCosts(id, data.template_costs);
 }
 
 export async function deleteTemplate(id: number): Promise<void> {
@@ -919,4 +942,204 @@ export async function getOpenInquiryCount(): Promise<number> {
     WHERE status = 'open' AND delete_at > NOW()
   `;
   return (rows[0] as { count: number }).count;
+}
+
+// ─── Event Costs ─────────────────────────────────────────
+
+export async function getEventCosts(eventId: number): Promise<EventCost[]> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT id, event_id, description, amount::float8 AS amount, created_at, updated_at
+    FROM event_costs
+    WHERE event_id = ${eventId}
+    ORDER BY created_at ASC
+  `;
+  return rows as EventCost[];
+}
+
+export async function createEventCost(
+  eventId: number,
+  description: string,
+  amount: number
+): Promise<EventCost> {
+  const sql = getSQL();
+  const rows = await sql`
+    INSERT INTO event_costs (event_id, description, amount)
+    VALUES (${eventId}, ${description}, ${amount})
+    RETURNING id, event_id, description, amount::float8 AS amount, created_at, updated_at
+  `;
+  return rows[0] as EventCost;
+}
+
+export async function updateEventCost(
+  costId: number,
+  description: string,
+  amount: number
+): Promise<EventCost | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    UPDATE event_costs
+    SET description = ${description}, amount = ${amount}, updated_at = NOW()
+    WHERE id = ${costId}
+    RETURNING id, event_id, description, amount::float8 AS amount, created_at, updated_at
+  `;
+  return (rows[0] as EventCost) ?? null;
+}
+
+export async function deleteEventCost(costId: number): Promise<void> {
+  const sql = getSQL();
+  await sql`DELETE FROM event_costs WHERE id = ${costId}`;
+}
+
+export async function getEventCostById(costId: number): Promise<EventCost | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT id, event_id, description, amount::float8 AS amount, created_at, updated_at
+    FROM event_costs WHERE id = ${costId}
+  `;
+  return (rows[0] as EventCost) ?? null;
+}
+
+// ─── Event Donations ─────────────────────────────────────
+
+export async function getEventDonations(eventId: number): Promise<EventDonation[]> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT id, event_id, registration_id, donor_name, amount::float8 AS amount, note, created_by, created_at
+    FROM event_donations
+    WHERE event_id = ${eventId}
+    ORDER BY created_at ASC
+  `;
+  return rows as EventDonation[];
+}
+
+export async function getDonationById(donationId: number): Promise<EventDonation | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT id, event_id, registration_id, donor_name, amount::float8 AS amount, note, created_by, created_at
+    FROM event_donations WHERE id = ${donationId}
+  `;
+  return (rows[0] as EventDonation) ?? null;
+}
+
+export async function createDonation(
+  eventId: number,
+  registrationId: number | null,
+  donorName: string,
+  amount: number,
+  note: string | null,
+  createdBy: string | null
+): Promise<EventDonation> {
+  const sql = getSQL();
+  const rows = await sql`
+    INSERT INTO event_donations (event_id, registration_id, donor_name, amount, note, created_by)
+    VALUES (${eventId}, ${registrationId}, ${donorName}, ${amount}, ${note}, ${createdBy})
+    RETURNING id, event_id, registration_id, donor_name, amount::float8 AS amount, note, created_by, created_at
+  `;
+  return rows[0] as EventDonation;
+}
+
+export async function deleteDonation(donationId: number): Promise<void> {
+  const sql = getSQL();
+  await sql`DELETE FROM event_donations WHERE id = ${donationId}`;
+}
+
+// ─── Event Financials ────────────────────────────────────
+
+export async function getEventFinancials(eventId: number): Promise<EventFinancials> {
+  const sql = getSQL();
+
+  // Entry price (column may not exist if migration not run yet)
+  let entryPrice: number | null = null;
+  try {
+    const eventRows = await sql`SELECT entry_price::float8 AS entry_price FROM events WHERE id = ${eventId}`;
+    entryPrice = (eventRows[0] as { entry_price: number | null })?.entry_price ?? null;
+  } catch {
+    // entry_price column not yet migrated – treat as null
+  }
+
+  // Costs (table may not exist if migration not run yet)
+  let costs: EventCost[] = [];
+  try {
+    costs = await getEventCosts(eventId);
+  } catch {
+    // event_costs table not yet migrated – treat as empty
+  }
+  const totalCosts = costs.reduce((sum, c) => sum + c.amount, 0);
+
+  // Approved registrations (expected revenue)
+  const approvedRows = await sql`
+    SELECT
+      COUNT(*)::int AS count,
+      COALESCE(SUM(guests), 0)::int AS total_guests
+    FROM registrations
+    WHERE event_id = ${eventId} AND status = 'approved'
+  `;
+  const approvedCount = (approvedRows[0] as { count: number; total_guests: number }).count;
+  const approvedGuests = (approvedRows[0] as { count: number; total_guests: number }).total_guests;
+  const expectedRevenue = entryPrice != null ? (approvedCount + approvedGuests) * entryPrice : 0;
+
+  // Checked-in registrations (actual revenue)
+  const checkinRows = await sql`
+    SELECT
+      COUNT(*)::int AS count,
+      COALESCE(SUM(guests), 0)::int AS total_guests
+    FROM registrations
+    WHERE event_id = ${eventId} AND status = 'approved' AND checked_in_at IS NOT NULL
+  `;
+  const checkinCount = (checkinRows[0] as { count: number; total_guests: number }).count;
+  const checkinGuests = (checkinRows[0] as { count: number; total_guests: number }).total_guests;
+  const actualRevenue = entryPrice != null ? (checkinCount + checkinGuests) * entryPrice : 0;
+
+  // Donations (table may not exist if migration not run yet)
+  let donations: EventDonation[] = [];
+  try {
+    donations = await getEventDonations(eventId);
+  } catch {
+    // event_donations table not yet migrated
+  }
+  const totalDonations = donations.reduce((sum, d) => sum + d.amount, 0);
+
+  return {
+    entry_price: entryPrice,
+    total_costs: totalCosts,
+    approved_persons: approvedCount,
+    approved_guests: approvedGuests,
+    expected_revenue: expectedRevenue,
+    checkedin_persons: checkinCount,
+    checkedin_guests: checkinGuests,
+    actual_revenue: actualRevenue,
+    total_donations: totalDonations,
+    donation_count: donations.length,
+    balance: actualRevenue + totalDonations - totalCosts,
+    costs,
+    donations,
+  };
+}
+
+// ─── Audit Logging ───────────────────────────────────────
+
+export async function logAudit(
+  adminUsername: string | null,
+  action: string,
+  entityType: string,
+  entityId: string | number | null,
+  details?: Record<string, unknown>
+): Promise<void> {
+  try {
+    const sql = getSQL();
+    await sql`
+      INSERT INTO audit_logs (admin_username, action, entity_type, entity_id, details)
+      VALUES (
+        ${adminUsername},
+        ${action},
+        ${entityType},
+        ${entityId != null ? String(entityId) : null},
+        ${details ? JSON.stringify(details) : null}
+      )
+    `;
+  } catch {
+    // Audit logging must never break the main operation
+    console.error("Audit-Log-Fehler (nicht-kritisch)");
+  }
 }

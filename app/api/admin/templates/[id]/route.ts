@@ -42,9 +42,11 @@ export async function PUT(
       description: (body.description || "").trim(),
       location: body.location.trim(),
       price: body.price.trim(),
+      entry_price: typeof body.entry_price === "number" ? body.entry_price : null,
       dress_code: (body.dress_code || "").trim(),
       max_participants: body.max_participants,
       images: Array.isArray(body.images) ? body.images : undefined,
+      template_costs: Array.isArray(body.template_costs) ? body.template_costs : [],
     });
     return NextResponse.json({ message: "Vorlage aktualisiert!" });
   } catch (error) {
