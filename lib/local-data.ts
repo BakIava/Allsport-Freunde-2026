@@ -147,6 +147,55 @@ export function setLocalEventImages(eventId: number, images: EventImageInput[]):
   });
 }
 
+// ─── Check-In (local fallback) ───────────────────────────
+
+export function getLocalCheckinEvents() {
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  function buildRow(e: EventWithRegistrations) {
+    const regs = localRegistrations.filter(
+      (r) => r.event_id === e.id && r.status === "approved"
+    );
+    const approved_count = regs.reduce((s, r) => s + 1 + r.guests, 0);
+    const checked_in_count = regs
+      .filter((r) => r.checked_in_at !== null)
+      .reduce((s, r) => s + 1 + r.guests, 0);
+    const entry_price = (e as { entry_price?: number | null }).entry_price ?? null;
+    return {
+      id: e.id,
+      title: e.title,
+      category: e.category,
+      date: e.date,
+      time: e.time,
+      location: e.location,
+      entry_price,
+      approved_count,
+      checked_in_count,
+      total_costs: 0,
+      total_donations: 0,
+      expected_revenue: entry_price != null ? approved_count * entry_price : 0,
+      actual_revenue: entry_price != null ? checked_in_count * entry_price : 0,
+    };
+  }
+
+  const published = localEvents.filter((e) => e.status === "published");
+  const upcoming = published
+    .filter((e) => e.date >= todayStr)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+    .map(buildRow);
+  const past = published
+    .filter((e) => e.date < todayStr)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time))
+    .slice(0, 10)
+    .map(buildRow);
+
+  return {
+    today: upcoming.filter((r) => r.date === todayStr),
+    upcoming: upcoming.filter((r) => r.date > todayStr),
+    past,
+  };
+}
+
 // ─── Public ──────────────────────────────────────────────
 
 export function getLocalEvents(): EventWithRegistrations[] {
