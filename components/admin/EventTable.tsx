@@ -83,50 +83,9 @@ function PastEventSummary({ event }: { event: EventWithRegistrations }) {
 
   return (
     <div className="mt-1.5 space-y-1">
-      {/* KPI row */}
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
-        <span>
-          Anmeldungen: <strong className="text-gray-700">{totalReg}</strong>
-        </span>
-        <span className="text-gray-300">·</span>
-        <span>
-          Check-Ins: <strong className="text-gray-700">{checkinCount}</strong>
-        </span>
-        <span className="text-gray-300">·</span>
-        <span>
-          Walk-Ins: <strong className="text-gray-700">{walkInCount}</strong>
-        </span>
-        {noShowRate !== null && (
-          <>
-            <span className="text-gray-300">·</span>
-            <span className={noShowRate >= 20 ? "text-amber-600 font-medium" : ""}>
-              No-Show:{" "}
-              <strong>
-                {noShowRate.toLocaleString("de-DE", {
-                  minimumFractionDigits: 1,
-                  maximumFractionDigits: 1,
-                })}{" "}
-                %
-              </strong>
-            </span>
-          </>
-        )}
-      </div>
       {/* Financial result + link */}
       {hasFinancials && (
         <div className="flex items-center gap-3 text-xs">
-          <span
-            className={`font-medium ${
-              balance > 0
-                ? "text-green-600"
-                : balance < 0
-                ? "text-red-600"
-                : "text-gray-500"
-            }`}
-          >
-            Ergebnis: {balance > 0 ? "+" : ""}
-            {formatEuro(balance)}
-          </span>
           <Link
             href={`/admin/finanzen/${event.id}`}
             className="inline-flex items-center gap-0.5 text-blue-600 hover:text-blue-800 hover:underline"

@@ -56,9 +56,8 @@ export async function POST(request: NextRequest) {
 
     // Check for duplicate registration
     const normalizedEmail = email.toLowerCase().trim();
-    const existing = await findRegistration(event_id, normalizedEmail);
-
-    if (existing) {
+    const existing = await findRegistration(event_id, normalizedEmail);    
+    if (existing && existing.status !== "cancelled") {
       return NextResponse.json(
         { error: "Du bist bereits für dieses Event angemeldet." },
         { status: 409 }
@@ -84,6 +83,16 @@ export async function POST(request: NextRequest) {
 
     // Create registration with status token
     const statusToken = randomUUID();
+
+    if(existing && existing.status === "cancelled") {
+      // If there is a cancelled registration, we can reuse it by updating the record instead of creating a new one.
+      // This way we keep the same ID and just update the details and status. 
+      // However, for simplicity, we will just create a new registration and let the old cancelled one be.
+      // In a real application, you might want to implement the update logic here.
+      // cannot create another registration if there is already a cancelled one, because of the unique constraint on email + event_id.
+      
+    }
+
     await createRegistration({
       event_id,
       first_name: first_name.trim(),

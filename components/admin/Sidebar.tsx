@@ -17,6 +17,8 @@ import {
   ClipboardCheck,
   MessageSquare,
   BarChart3,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -30,7 +32,7 @@ const navItems = [
   { href: "/admin/contact", label: "Anfragen", icon: MessageSquare },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: (collapsed: boolean) => void }) {
   const { status } = useSession();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -44,12 +46,24 @@ export default function Sidebar() {
 
   const nav = (
     <>
-      <div className="p-6 border-b border-gray-800">
-        <h2 className="text-lg font-bold text-white">Admin</h2>
-        <p className="text-xs text-gray-400 mt-1">Allsport Freunde 2026</p>
+      <div className={cn("p-6 border-b border-gray-800 flex justify-between", collapsed && "px-4")}>
+        {!collapsed && (
+          <div className="flex flex-col">
+            <h2 className="text-lg font-bold text-white">Admin</h2>
+            <p className="text-xs text-gray-400">Allsport Freunde 2026</p>
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onToggle(!collapsed)}
+          className="text-white hover:bg-gray-800"
+        >
+          {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+        </Button>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className={cn("flex-1 p-4 space-y-1", collapsed && "p-2")}>
         {navItems.map((item) => (
           <Link
             key={item.href}
@@ -57,13 +71,14 @@ export default function Sidebar() {
             onClick={() => setOpen(false)}
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+              collapsed && "justify-center px-2",
               isActive(item.href)
                 ? "bg-green-600 text-white"
                 : "text-gray-300 hover:bg-gray-800 hover:text-white"
             )}
           >
             <item.icon className="w-5 h-5" />
-            {item.label}
+            {!collapsed && item.label}
           </Link>
         ))}
 
@@ -73,18 +88,24 @@ export default function Sidebar() {
           href="/"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors",
+            collapsed && "justify-center px-2"
+          )}
         >
           <ExternalLink className="w-5 h-5" />
-          Zur Webseite
+          {!collapsed && "Zur Webseite"}
         </a>
 
         <button
           onClick={() => signOut({ callbackUrl: "/admin/login" })}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors w-full cursor-pointer"
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors w-full cursor-pointer",
+            collapsed && "justify-center px-2"
+          )}
         >
           <LogOut className="w-5 h-5" />
-          Abmelden
+          {!collapsed && "Abmelden"}
         </button>
       </nav>
     </>
@@ -124,7 +145,10 @@ export default function Sidebar() {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex fixed top-0 left-0 bottom-0 w-64 bg-gray-900 flex-col z-30">
+      <aside className={cn(
+        "hidden lg:flex flex-col bg-gray-900 transition-all duration-300",
+        collapsed ? "w-16" : "w-64"
+      )}>
         {nav}
       </aside>
     </>

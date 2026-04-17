@@ -297,7 +297,12 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
                   </TableCell>
                   <TableCell>
                     <div>
-                      <span className="font-medium">{r.first_name} {r.last_name}</span>
+                      <span className="font-medium">{r.first_name} {r.last_name}{" "}
+                        {r.is_walk_in && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 leading-none">
+                            Walk-in
+                          </span>
+                        )}</span>
                       <span className="block sm:hidden text-xs text-gray-500">{r.email}</span>
                     </div>
                   </TableCell>

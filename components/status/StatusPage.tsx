@@ -12,8 +12,8 @@ const categoryLabels: Record<string, string> = {
   schwimmen: "Schwimmen",
 };
 
-function formatDate(d: string) {
-  return new Date(d + "T00:00:00").toLocaleDateString("de-DE", {
+function formatDate(d: string) {  
+  return new Date(d).toLocaleDateString("de-DE", {
     weekday: "long",
     day: "numeric",
     month: "long",
