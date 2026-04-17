@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Mail, Phone, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -85,12 +86,12 @@ export default function Footer() {
         <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-gray-500">
           <p>&copy; 2026 Allsport Freunde 2026 e.V. – Gemeinnütziger Verein</p>
           <div className="flex gap-4">
-            <a href="#" className="hover:text-white transition-colors">
+            <Link href="/impressum" className="hover:text-white transition-colors">
               Impressum
-            </a>
-            <a href="#" className="hover:text-white transition-colors">
+            </Link>
+            <Link href="/datenschutz" className="hover:text-white transition-colors">
               Datenschutz
-            </a>
+            </Link>
           </div>
         </div>
       </div>
