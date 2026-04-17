@@ -36,7 +36,7 @@ export async function GET() {
         (COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved' AND r.checked_in_at IS NOT NULL), 0) * COALESCE(e.entry_price, 0))::float8 AS actual_revenue
       FROM events e
       LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'approved'
-      WHERE e.date >= ${today}
+      WHERE e.status = 'published' AND e.date >= ${today}
       GROUP BY e.id
       ORDER BY e.date ASC, e.time ASC
     `;
@@ -62,7 +62,7 @@ export async function GET() {
         (COALESCE(SUM(r.guests + 1) FILTER (WHERE r.status = 'approved' AND r.checked_in_at IS NOT NULL), 0) * COALESCE(e.entry_price, 0))::float8 AS actual_revenue
       FROM events e
       LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'approved'
-      WHERE e.date < ${today}
+      WHERE e.status = 'published' AND e.date < ${today}
       GROUP BY e.id
       ORDER BY e.date DESC, e.time DESC
       LIMIT 10

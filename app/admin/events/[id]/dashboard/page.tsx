@@ -732,7 +732,9 @@ export default function CheckinDashboardPage() {
             )}
             {filtered.length === 0 && (
               <p className="text-center text-gray-400 py-10 text-sm">
-                Keine Teilnehmer gefunden.
+                {search
+                  ? "Keine Teilnehmer gefunden."
+                  : "Noch keine Teilnehmer – Teilnehmer können manuell oder per Walk-in hinzugefügt werden."}
               </p>
             )}
           </div>

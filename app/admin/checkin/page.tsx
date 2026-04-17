@@ -194,7 +194,7 @@ export default function CheckinOverviewPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Check-In</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Übersicht aller Events mit genehmigten Anmeldungen</p>
+          <p className="text-sm text-gray-500 mt-0.5">Übersicht aller veröffentlichten Events</p>
         </div>
         <button
           onClick={load}
@@ -226,7 +226,7 @@ export default function CheckinOverviewPage() {
 
             {!data?.today || data.today.length === 0 ? (
               <p className="text-sm text-green-700/60 py-4 text-center">
-                Heute keine Events mit genehmigten Anmeldungen.
+                Heute keine veröffentlichten Events.
               </p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
@@ -246,7 +246,7 @@ export default function CheckinOverviewPage() {
 
             {!data?.upcoming || data.upcoming.length === 0 ? (
               <p className="text-sm text-gray-400 py-6 text-center">
-                Keine kommenden Events mit genehmigten Anmeldungen.
+                Keine kommenden veröffentlichten Events.
               </p>
             ) : (
               <div className="space-y-2">
@@ -266,7 +266,7 @@ export default function CheckinOverviewPage() {
 
             {!data?.past || data.past.length === 0 ? (
               <p className="text-sm text-gray-400 py-6 text-center">
-                Keine vergangenen Events mit genehmigten Anmeldungen.
+                Keine vergangenen veröffentlichten Events.
               </p>
             ) : (
               <div className="space-y-2">
