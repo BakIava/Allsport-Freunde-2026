@@ -63,7 +63,7 @@ export default function ImpressumPage() {
                 <span className="font-semibold text-gray-900 w-48 shrink-0">
                   Vereinsname
                 </span>
-                <span>AllsportFreunde 2026 e.V.</span>
+                <span>Allsport Freunde 2026 e.V.</span>
               </div>
               <div className="flex flex-col sm:flex-row sm:gap-4">
                 <span className="font-semibold text-gray-900 w-48 shrink-0">
@@ -72,9 +72,9 @@ export default function ImpressumPage() {
                 <span className="flex items-start gap-1.5">
                   <MapPin className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
                   <span>
-                    <Placeholder>PLATZHALTER: Straße und Hausnummer</Placeholder>
+                    Wackernheimer Straße 35
                     <br />
-                    <Placeholder>PLATZHALTER: PLZ und Ort</Placeholder>
+                    55218 Ingelheim am Rhein
                   </span>
                 </span>
               </div>
@@ -83,7 +83,7 @@ export default function ImpressumPage() {
                   Vertretungsberechtigter Vorstand
                 </span>
                 <span>
-                  <Placeholder>PLATZHALTER: Vorname Name (1. Vorsitzende/r)</Placeholder>
+                  Ömer Halit Saygili (1. Vorsitzende/r)
                 </span>
               </div>
             </div>
@@ -94,12 +94,12 @@ export default function ImpressumPage() {
               <div className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-green-600 shrink-0" />
                 <span className="font-semibold text-gray-900 w-20">E-Mail:</span>
-                <Placeholder>PLATZHALTER: E-Mail-Adresse des Vereins</Placeholder>
+                info@allsport-freunde.com
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-green-600 shrink-0" />
                 <span className="font-semibold text-gray-900 w-20">Telefon:</span>
-                <Placeholder>PLATZHALTER: Telefonnummer (optional)</Placeholder>
+                +49 176 73548538
               </div>
             </div>
           </Section>
@@ -110,21 +110,21 @@ export default function ImpressumPage() {
                 <span className="font-semibold text-gray-900 w-48 shrink-0">
                   Registergericht
                 </span>
-                <Placeholder>PLATZHALTER: z. B. Amtsgericht Mainz</Placeholder>
+                Amtsgericht Mainz
               </div>
               <div className="flex flex-col sm:flex-row sm:gap-4">
                 <span className="font-semibold text-gray-900 w-48 shrink-0">
                   Vereinsregisternummer
                 </span>
-                <Placeholder>PLATZHALTER: VR XXXX</Placeholder>
+                (Eintragung beantragt)
               </div>
             </div>
           </Section>
 
           <Section title="Inhaltlich Verantwortlicher gemäß § 18 Abs. 2 MStV">
             <p className="text-sm leading-relaxed">
-              <Placeholder>PLATZHALTER: Vorname Name</Placeholder>,{" "}
-              <Placeholder>PLATZHALTER: Anschrift</Placeholder>
+              Ömer Halit Saygili,{" "}
+              Wackernheimer Straße 35, 55218 Ingelheim am Rhein
             </p>
           </Section>
 

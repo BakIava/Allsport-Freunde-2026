@@ -12,7 +12,7 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-const fromEmail = process.env.EMAIL_FROM || "Allsport Freunde <noreply@allsport-freunde.com>";
+const fromEmail = process.env.EMAIL_FROM || "Allsport Freunde 2026 e.V. <noreply@allsport-freunde.com>";
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 function formatDateDE(date: string): string {

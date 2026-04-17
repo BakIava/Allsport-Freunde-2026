@@ -238,17 +238,17 @@ export default function DatenschutzPage() {
                   AllsportFreunde 2026 e.V.
                 </p>
                 <p>
-                  <Placeholder>PLATZHALTER: Straße und Hausnummer</Placeholder>
+                  Wackernheimer Straße 35
                   <br />
-                  <Placeholder>PLATZHALTER: PLZ und Ort</Placeholder>
+                  55218 Ingelheim am Rhein
                 </p>
                 <p>
                   E-Mail:{" "}
-                  <Placeholder>PLATZHALTER: E-Mail-Adresse</Placeholder>
+                  info@allsport-freunde.com
                 </p>
                 <p>
                   Telefon:{" "}
-                  <Placeholder>PLATZHALTER: Telefonnummer (optional)</Placeholder>
+                  +49 176 73548538
                 </p>
               </div>
               <p>
@@ -470,7 +470,7 @@ export default function DatenschutzPage() {
               Sie haben gegenüber uns folgende Rechte hinsichtlich der Sie
               betreffenden personenbezogenen Daten. Zur Ausübung Ihrer Rechte
               wenden Sie sich bitte an:{" "}
-              <Placeholder>PLATZHALTER: Kontakt-E-Mail des Vereins</Placeholder>
+              info@allsport-freunde.com
             </p>
             <Accordion>
               {betroffenenrechte.map((r, i) => (

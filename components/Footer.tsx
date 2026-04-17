@@ -36,7 +36,7 @@ export default function Footer() {
                   href="mailto:info@allsport-freunde.de"
                   className="hover:text-white transition-colors"
                 >
-                  info@allsport-freunde.de
+                  info@allsport-freunde.com
                 </a>
               </li>
               <li className="flex items-center gap-2">
@@ -45,15 +45,15 @@ export default function Footer() {
                   href="tel:+4969123456"
                   className="hover:text-white transition-colors"
                 >
-                  +49 (0) 69 123 456
+                  +49 176 73548538
                 </a>
               </li>
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-green-400 mt-0.5" />
                 <span>
-                  Musterstraße 42
+                  Wackernheimer Straße 35
                   <br />
-                  60000 Frankfurt am Main
+                  55218 Ingelheim am Rhein
                 </span>
               </li>
             </ul>
