@@ -16,6 +16,7 @@ import {
   Heart,
   Wallet,
   LayoutDashboard,
+  FileText,
 } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
 import { formatEuro } from "@/lib/finance";
@@ -493,7 +494,13 @@ export default function FinanzenPage() {
                           className={`border-b border-gray-50 last:border-0 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}
                         >
                           <td className="px-3 py-3 font-medium text-gray-900 max-w-[240px]">
-                            <span className="truncate block">{e.title}</span>
+                            <Link
+                              href={`/admin/finanzen/${e.id}`}
+                              className="truncate block hover:text-green-700 hover:underline"
+                              title="Finanzdetails öffnen"
+                            >
+                              {e.title}
+                            </Link>
                           </td>
                           <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>
                           <td className="px-3 py-3 text-right text-gray-700 tabular-nums">
@@ -538,13 +545,22 @@ export default function FinanzenPage() {
                             </span>
                           </td>
                           <td className="px-3 py-3">
-                            <Link
-                              href={`/admin/events/${e.id}/dashboard`}
-                              title="Check-In Dashboard"
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors inline-flex"
-                            >
-                              <LayoutDashboard className="w-4 h-4" />
-                            </Link>
+                            <div className="flex items-center gap-1">
+                              <Link
+                                href={`/admin/finanzen/${e.id}`}
+                                title="Finanzdetails"
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors inline-flex"
+                              >
+                                <FileText className="w-4 h-4" />
+                              </Link>
+                              <Link
+                                href={`/admin/events/${e.id}/dashboard`}
+                                title="Check-In Dashboard"
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors inline-flex"
+                              >
+                                <LayoutDashboard className="w-4 h-4" />
+                              </Link>
+                            </div>
                           </td>
                         </tr>
                       );

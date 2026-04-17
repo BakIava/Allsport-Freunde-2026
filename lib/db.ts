@@ -97,19 +97,20 @@ export async function getRegistrationCount(eventId: number): Promise<number> {
 export async function findRegistration(
   eventId: number,
   email: string
-): Promise<{ id: number } | null> {
+): Promise<{ id: number, status: string } | null> {
   if (!isPostgresConfigured()) {
     const { findLocalRegistration } = await import("./local-data");
     const reg = findLocalRegistration(eventId, email);
-    return reg ? { id: reg.id } : null;
+    return reg ? { id: reg.id, status: reg.status } : null;
   }
 
   const sql = getSQL();
   const rows = await sql`
-    SELECT id FROM registrations
+    SELECT id, status FROM registrations
     WHERE event_id = ${eventId} AND email = ${email}
-  `;
-  return (rows[0] as { id: number }) ?? null;
+  `; 
+
+  return (rows[0] as { id: number, status: string }) ?? null;
 }
 
 export async function createRegistration(data: {
@@ -131,6 +132,14 @@ export async function createRegistration(data: {
   await sql`
     INSERT INTO registrations (event_id, first_name, last_name, email, phone, guests, status, status_token)
     VALUES (${data.event_id}, ${data.first_name}, ${data.last_name}, ${data.email}, ${data.phone}, ${data.guests}, 'pending', ${data.status_token})
+    ON CONFLICT (email, event_id)
+    DO UPDATE SET
+      first_name = EXCLUDED.first_name,
+      last_name = EXCLUDED.last_name,
+      phone = EXCLUDED.phone,
+      guests = EXCLUDED.guests,
+      status = 'pending',
+      status_token = EXCLUDED.status_token
   `;
 }
 
@@ -242,7 +251,10 @@ export async function getAllEvents(): Promise<EventWithRegistrations[]> {
       COALESCE((SELECT SUM(ec.amount)::float8 FROM event_costs ec WHERE ec.event_id = e.id), 0)::float8 AS total_costs,
       (COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0) * COALESCE(e.entry_price, 0))::float8 AS expected_revenue,
       (COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0) * COALESCE(e.entry_price, 0))::float8 AS actual_revenue,
-      COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations
+      COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.is_walk_in = FALSE THEN 1 ELSE 0 END), 0)::int AS total_registrations,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.is_walk_in = FALSE AND r.checked_in_at IS NOT NULL THEN 1 ELSE 0 END), 0)::int AS checkin_count,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.is_walk_in = TRUE THEN 1 ELSE 0 END), 0)::int AS walk_in_count
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
     GROUP BY e.id

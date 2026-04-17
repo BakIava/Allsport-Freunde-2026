@@ -19,6 +19,7 @@ import {
   Check,
   Heart,
   Trash2,
+  MoreHorizontal,
 } from "lucide-react";
 import RegistrationDetailButton from "@/components/RegistrationDetailButton";
 import type { CheckinParticipant, CheckinStatusResponse, EventFinancials, EventDonation } from "@/lib/types";
@@ -93,6 +94,7 @@ export default function CheckinDashboardPage() {
   const [donationForm, setDonationForm] = useState<DonationForm>(EMPTY_DONATION);
   const [donationLoading, setDonationLoading] = useState(false);
   const [donationError, setDonationError] = useState<string | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [deletingDonationId, setDeletingDonationId] = useState<number | null>(null);
   const donorNameRef = useRef<HTMLInputElement>(null);
 
@@ -171,6 +173,17 @@ export default function CheckinDashboardPage() {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [showDonation]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownOpen && !(event.target as Element).closest('.relative')) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [dropdownOpen]);
 
   function openWalkIn() {
     setWalkInForm(EMPTY_FORM);
@@ -400,50 +413,70 @@ export default function CheckinDashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">Check-In Dashboard</h1>
           <p className="text-sm text-gray-500 mt-0.5">Event #{eventId} · Live-Übersicht</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex items-center gap-3">
+          {/* Primär: Großer Scanner Button */}
           <button
             onClick={() => router.push(`/admin/events/${eventId}/scanner`)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-3 px-6 py-3 bg-green-700 hover:bg-green-800 text-white rounded-lg text-base font-semibold transition-colors shadow-md"
           >
-            <QrCode className="w-4 h-4" />
+            <QrCode className="w-5 h-5" />
             Scanner öffnen
           </button>
-          <button
-            onClick={handleShowQR}
-            className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <QrCode className="w-4 h-4" />
-            Walk-in QR
-          </button>
-          <button
-            onClick={openWalkIn}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <UserPlus className="w-4 h-4" />
-            Teilnehmer hinzufügen
-          </button>
-          <button
-            onClick={openDonation}
-            className="flex items-center gap-2 px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <Heart className="w-4 h-4" />
-            Spende eintragen
-          </button>
-          <button
-            onClick={fetchStatus}
-            className="flex items-center gap-2 px-3 py-2 border border-gray-200 hover:bg-gray-50 rounded-lg text-sm text-gray-600 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Aktualisieren
-          </button>
-          <button
-            onClick={exportCSV}
-            disabled={!data}
-            className="flex items-center gap-2 px-3 py-2 border border-gray-200 hover:bg-gray-50 disabled:opacity-50 rounded-lg text-sm text-gray-600 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            CSV
-          </button>
+
+          {/* Sekundär: Walk-in QR und Teilnehmer hinzufügen */}
+          <div className="flex gap-2">
+            <button
+              onClick={handleShowQR}
+              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <QrCode className="w-4 h-4" />
+              Walk-in QR
+            </button>
+            <button
+              onClick={openWalkIn}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <UserPlus className="w-4 h-4" />
+              Teilnehmer hinzufügen
+            </button>
+          </div>
+
+          {/* Tertiär: Dropdown für Mehr */}
+          <div className="relative">
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex items-center gap-2 px-3 py-2 border border-gray-200 hover:bg-gray-50 rounded-lg text-sm text-gray-600 transition-colors"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+              Mehr
+            </button>
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                <button
+                  onClick={() => { setDropdownOpen(false); openDonation(); }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 text-sm text-gray-700"
+                >
+                  <Heart className="w-4 h-4" />
+                  Spende eintragen
+                </button>
+                <button
+                  onClick={() => { setDropdownOpen(false); fetchStatus(); }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 text-sm text-gray-700"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Aktualisieren
+                </button>
+                <button
+                  onClick={() => { setDropdownOpen(false); exportCSV(); }}
+                  disabled={!data}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 disabled:opacity-50 text-sm text-gray-700"
+                >
+                  <Download className="w-4 h-4" />
+                  CSV
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

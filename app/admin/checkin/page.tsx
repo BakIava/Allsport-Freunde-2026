@@ -35,6 +35,7 @@ interface CheckinEvent {
 interface CheckinEventsResponse {
   today: CheckinEvent[];
   upcoming: CheckinEvent[];
+  past: CheckinEvent[];
 }
 
 const categoryLabels: Record<string, string> = {
@@ -168,13 +169,17 @@ function UpcomingCard({ event }: { event: CheckinEvent }) {
   );
 }
 
+function PastCard({ event }: { event: CheckinEvent }) {
+  return UpcomingCard({ event });
+}
+
 export default function CheckinOverviewPage() {
   const [data, setData] = useState<CheckinEventsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     try {
-      const res = await fetch("/api/admin/checkin/events");
+      const res = await fetch("/api/admin/checkin/events");      
       if (res.ok) setData(await res.json());
     } finally {
       setLoading(false);
@@ -184,9 +189,9 @@ export default function CheckinOverviewPage() {
   useEffect(() => { load(); }, []);
 
   return (
-    <div className="space-y-8 max-w-3xl">
+    <div className="space-y-8 w-full">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Check-In</h1>
           <p className="text-sm text-gray-500 mt-0.5">Übersicht aller Events mit genehmigten Anmeldungen</p>
@@ -247,6 +252,26 @@ export default function CheckinOverviewPage() {
               <div className="space-y-2">
                 {data.upcoming.map((event) => (
                   <UpcomingCard key={event.id} event={event} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* ── Vergangene Events ── */}
+          <section className="space-y-3">
+            <h2 className="font-semibold text-gray-700 text-base flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-gray-400" />
+              Vergangene Events
+            </h2>
+
+            {!data?.past || data.past.length === 0 ? (
+              <p className="text-sm text-gray-400 py-6 text-center">
+                Keine vergangenen Events mit genehmigten Anmeldungen.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {data.past.map((event) => (
+                  <PastCard key={event.id} event={event} />
                 ))}
               </div>
             )}

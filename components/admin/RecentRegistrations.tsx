@@ -59,7 +59,12 @@ export default function RecentRegistrations() {
               <TableBody>
                 {registrations.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.first_name} {r.last_name}</TableCell>
+                    <TableCell className="font-medium">{r.first_name} {r.last_name} {" "}
+                      {r.is_walk_in && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 leading-none">
+                          Walk-in
+                        </span>
+                      )}</TableCell>
                     <TableCell className="hidden sm:table-cell">{r.email}</TableCell>
                     <TableCell className="hidden md:table-cell max-w-[200px] truncate">{r.event_title}</TableCell>
                     <TableCell>

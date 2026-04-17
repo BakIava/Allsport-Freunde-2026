@@ -47,7 +47,7 @@ export default function AdminContactPage() {
   const openCount = inquiries.filter((i) => i.status === "open").length;
 
   return (
-    <div className="p-6 max-w-8xl mx-auto">
+    <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -84,7 +84,7 @@ export default function AdminContactPage() {
       ) : (
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-auto min-w-[720px]">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="text-left px-4 py-3 font-semibold text-gray-700">Name</th>
@@ -92,7 +92,7 @@ export default function AdminContactPage() {
                   <th className="text-left px-4 py-3 font-semibold text-gray-700 hidden sm:table-cell">Veranstaltung</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700">Status</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700 hidden md:table-cell">Eingang</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-700"></th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-700 w-[1%]"></th>
                 </tr>
               </thead>
               <tbody>
@@ -104,8 +104,8 @@ export default function AdminContactPage() {
                       key={inq.id}
                       className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                     >
-                      <td className="px-4 py-3 font-medium text-gray-900">{name}</td>
-                      <td className="px-4 py-3 text-gray-600 max-w-[160px] truncate">{inq.email}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900 max-w-[220px] truncate">{name}</td>
+                      <td className="px-4 py-3 text-gray-600 max-w-[180px] truncate">{inq.email}</td>
                       <td className="px-4 py-3 text-gray-500 hidden sm:table-cell max-w-[180px] truncate">
                         {inq.event_title ?? <span className="italic text-gray-400">Keine</span>}
                       </td>
@@ -115,7 +115,7 @@ export default function AdminContactPage() {
                       <td className="px-4 py-3 text-gray-500 hidden md:table-cell whitespace-nowrap">
                         {formatDateTime(inq.created_at)}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right whitespace-nowrap w-[1%]">
                         <Link href={`/admin/contact/${inq.id}`}>
                           <Button size="sm" variant="outline">
                             Öffnen
