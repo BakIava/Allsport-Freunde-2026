@@ -11,17 +11,25 @@ interface Column<Row> {
 interface ResponsiveTableProps<Row> {
   columns: Column<Row>[];
   data: Row[];
-  /** Renders action buttons per row. On mobile, placed below the field list. */
+  /** Renders action buttons per row. On desktop: right-aligned in last column. On mobile: below fields. */
   actions?: (row: Row) => ReactNode;
   keyField: keyof Row;
   emptyMessage?: string;
   className?: string;
   /**
    * Layout for action buttons on mobile.
-   * "grid" (default) → grid-cols-2 side-by-side (ideal for 2 buttons).
-   * "stack" → flex-col stacked (ideal for 1 or 3+ buttons).
+   * "grid" (default) → grid-cols-2 side-by-side (ideal for 2 labeled buttons).
+   * "stack" → flex-col stacked (ideal for 1 or 3+ labeled buttons).
    */
   actionLayout?: "grid" | "stack";
+  /** Extra Tailwind classes added to the desktop table's wrapper div (e.g. "border rounded-lg"). */
+  tableWrapperClassName?: string;
+  /**
+   * Returns extra Tailwind classes per row.
+   * Desktop: appended to <tr>. Mobile: replaces the default card bg/border classes.
+   * Example: (row) => row.isDraft ? "bg-amber-50/40 border-amber-200" : "bg-white border-gray-200"
+   */
+  rowClassName?: (row: Row) => string;
 }
 
 const alignClass: Record<NonNullable<Column<unknown>["align"]>, string> = {
@@ -41,6 +49,7 @@ const alignClass: Record<NonNullable<Column<unknown>["align"]>, string> = {
  *   ]}
  *   data={rows}
  *   keyField="id"
+ *   tableWrapperClassName="border rounded-lg"
  *   actions={(row) => <Button onClick={() => edit(row)}>Bearbeiten</Button>}
  * />
  */
@@ -52,6 +61,8 @@ export function ResponsiveTable<Row extends Record<string, unknown>>({
   emptyMessage = "Keine Einträge",
   className = "",
   actionLayout = "grid",
+  tableWrapperClassName = "",
+  rowClassName,
 }: ResponsiveTableProps<Row>) {
   const mobileColumns = columns.filter((c) => !c.hideOnMobile);
 
@@ -69,7 +80,7 @@ export function ResponsiveTable<Row extends Record<string, unknown>>({
   return (
     <div className={className}>
       {/* ── Desktop: klassische Tabelle ── */}
-      <div className="hidden md:block overflow-x-auto">
+      <div className={`hidden md:block overflow-x-auto ${tableWrapperClassName}`}>
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
@@ -96,7 +107,7 @@ export function ResponsiveTable<Row extends Record<string, unknown>>({
             {data.map((row) => (
               <tr
                 key={String(row[keyField])}
-                className="hover:bg-gray-50 transition-colors"
+                className={`hover:bg-gray-50 transition-colors ${rowClassName?.(row) ?? ""}`}
               >
                 {columns.map((col) => (
                   <td
@@ -107,8 +118,10 @@ export function ResponsiveTable<Row extends Record<string, unknown>>({
                   </td>
                 ))}
                 {actions && (
-                  <td className="px-4 py-3 text-right text-sm">
-                    {actions(row)}
+                  <td className="px-4 py-3 text-sm">
+                    <div className="flex items-center justify-end gap-1">
+                      {actions(row)}
+                    </div>
                   </td>
                 )}
               </tr>
@@ -122,7 +135,7 @@ export function ResponsiveTable<Row extends Record<string, unknown>>({
         {data.map((row) => (
           <div
             key={String(row[keyField])}
-            className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+            className={`border rounded-lg p-4 shadow-sm ${rowClassName?.(row) ?? "bg-white border-gray-200"}`}
           >
             <dl className="space-y-2">
               {mobileColumns.map((col) => (
