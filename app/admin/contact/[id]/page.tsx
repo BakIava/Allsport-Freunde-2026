@@ -218,13 +218,13 @@ export default function AdminContactDetailPage() {
                 )}
               </div>
               <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                className={`max-w-[80%] min-w-0 rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
                   msg.sender === "admin"
                     ? "bg-green-600 text-white rounded-tr-sm"
                     : "bg-gray-100 text-gray-800 rounded-tl-sm"
                 }`}
               >
-                <p className="wrap-break-word">{msg.message}</p>
+                <p className="break-all">{msg.message}</p>
                 <p
                   className={`text-xs mt-1.5 ${
                     msg.sender === "admin" ? "text-green-200" : "text-gray-400"
