@@ -140,7 +140,7 @@ export default function TemplateList() {
 
   return (
     <div className="space-y-4">
-      <ResponsiveTable<EventTemplate>
+      <ResponsiveTable
         columns={[
           {
             key: "name",

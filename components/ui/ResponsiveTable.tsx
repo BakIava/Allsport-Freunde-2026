@@ -53,7 +53,7 @@ const alignClass: Record<NonNullable<Column<unknown>["align"]>, string> = {
  *   actions={(row) => <Button onClick={() => edit(row)}>Bearbeiten</Button>}
  * />
  */
-export function ResponsiveTable<Row extends Record<string, unknown>>({
+export function ResponsiveTable<Row extends object>({
   columns,
   data,
   actions,
@@ -74,8 +74,12 @@ export function ResponsiveTable<Row extends Record<string, unknown>>({
     );
   }
 
+  // Cast through unknown so we can call String() on any value without Record<string,unknown> constraint.
+  const valueOf = (row: Row, key: keyof Row): unknown =>
+    (row as Record<PropertyKey, unknown>)[key];
+
   const cellValue = (row: Row, col: Column<Row>): ReactNode =>
-    col.render ? col.render(row) : String(row[col.key] ?? "");
+    col.render ? col.render(row) : String(valueOf(row, col.key) ?? "");
 
   return (
     <div className={className}>
@@ -106,7 +110,7 @@ export function ResponsiveTable<Row extends Record<string, unknown>>({
           <tbody className="bg-white divide-y divide-gray-200">
             {data.map((row) => (
               <tr
-                key={String(row[keyField])}
+                key={String(valueOf(row, keyField))}
                 className={`hover:bg-gray-50 transition-colors ${rowClassName?.(row) ?? ""}`}
               >
                 {columns.map((col) => (
@@ -134,7 +138,7 @@ export function ResponsiveTable<Row extends Record<string, unknown>>({
       <div className="md:hidden space-y-3">
         {data.map((row) => (
           <div
-            key={String(row[keyField])}
+            key={String(valueOf(row, keyField))}
             className={`border rounded-lg p-4 shadow-sm ${rowClassName?.(row) ?? "bg-white border-gray-200"}`}
           >
             <dl className="space-y-2">
