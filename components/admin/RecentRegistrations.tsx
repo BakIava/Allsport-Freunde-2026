@@ -69,7 +69,7 @@ export default function RecentRegistrations() {
                 key: "status",
                 label: "Status",
                 render: (r) => (
-                  <StatusBadge status={(r.status as string) || "pending"} />
+                  <StatusBadge status={r.status || "pending"} />
                 ),
               },
               {
