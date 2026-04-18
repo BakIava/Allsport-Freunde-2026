@@ -96,13 +96,19 @@ export default function AdminContactPage() {
               key: "first_name",
               label: "Name",
               render: (inq) => (
-                <span className="font-medium text-gray-900">
+                <span className="font-medium text-gray-900 truncate block">
                   {[inq.first_name, inq.last_name].filter(Boolean).join(" ") ||
                     "–"}
                 </span>
               ),
             },
-            { key: "email", label: "E-Mail" },
+            {
+              key: "email",
+              label: "E-Mail",
+              render: (inq) => (
+                <span className="truncate block">{inq.email as string}</span>
+              ),
+            },
             {
               key: "event_title",
               label: "Veranstaltung",

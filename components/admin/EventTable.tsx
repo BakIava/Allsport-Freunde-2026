@@ -126,6 +126,108 @@ const categoryLabels: Record<string, string> = {
   schwimmen: "Schwimmen",
 };
 
+function MobileEventCard({
+  event,
+  past,
+  onDelete,
+  onCancel,
+  onPublish,
+  onUnpublish,
+  formatDate,
+}: {
+  event: EventWithRegistrations;
+  past?: boolean;
+  onDelete: (e: EventWithRegistrations) => void;
+  onCancel: (e: EventWithRegistrations) => void;
+  onPublish: (e: EventWithRegistrations) => void;
+  onUnpublish: (e: EventWithRegistrations) => void;
+  formatDate: (d: string) => string;
+}) {
+  const isDraft = event.status === "draft";
+  const cardBg = isDraft
+    ? "bg-amber-50/40 border-amber-200"
+    : past
+    ? "bg-gray-50/80 border-gray-200"
+    : "bg-white border-gray-200";
+
+  return (
+    <div className={`border rounded-lg p-4 shadow-sm overflow-hidden ${cardBg}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-gray-900 truncate">{event.title}</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {formatDate(event.date)} · {event.location}
+          </p>
+        </div>
+        <div className="shrink-0">
+          {isDraft ? (
+            <Badge variant="draft">Entwurf</Badge>
+          ) : (
+            <Badge variant={getPublishedStatus(event).variant}>
+              {getPublishedStatus(event).label}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 mt-2">
+        <Badge variant={event.category as "fussball" | "fitness" | "schwimmen"}>
+          {categoryLabels[event.category]}
+        </Badge>
+        {!isDraft && (
+          <span className="text-xs text-gray-500">
+            {event.current_participants}/{event.max_participants} Plätze
+          </span>
+        )}
+      </div>
+
+      {past ? <PastEventSummary event={event} /> : !isDraft ? <FinanceSummary event={event} /> : null}
+
+      <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2">
+        <Link href={`/admin/events/${event.id}/edit`}>
+          <Button variant="outline" size="sm" className="w-full">
+            <Pencil className="w-3.5 h-3.5 mr-1.5" />
+            Bearbeiten
+          </Button>
+        </Link>
+
+        {!isDraft ? (
+          <Link href={`/admin/events/${event.id}/registrations`}>
+            <Button variant="outline" size="sm" className="w-full">
+              <Users className="w-3.5 h-3.5 mr-1.5" />
+              Anmeldungen
+            </Button>
+          </Link>
+        ) : (
+          <Button variant="outline" size="sm" className="w-full text-green-600" onClick={() => onPublish(event)}>
+            <Globe className="w-3.5 h-3.5 mr-1.5" />
+            Veröffentlichen
+          </Button>
+        )}
+
+        {event.status === "published" && (
+          <Button variant="outline" size="sm" className="w-full text-amber-600" onClick={() => onUnpublish(event)}>
+            <EyeOff className="w-3.5 h-3.5 mr-1.5" />
+            Zurückziehen
+          </Button>
+        )}
+
+        {event.status !== "cancelled" && (
+          <Button variant="outline" size="sm" className="w-full text-purple-600" onClick={() => onCancel(event)}>
+            <Ban className="w-3.5 h-3.5 mr-1.5" />
+            Absagen
+          </Button>
+        )}
+
+        <Button variant="outline" size="sm" className="w-full text-red-500" onClick={() => onDelete(event)}>
+          <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+          Löschen
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function EventRow({
   event,
   past,
@@ -490,22 +592,35 @@ export default function EventTable() {
             Keine kommenden Events gefunden.
           </p>
         ) : (
-          <div className="border rounded-lg">
-            <Table>
-              {tableColumns}
-              <TableBody>
-                {upcomingEvents.map((event) => (
-                  <EventRow
-                    key={event.id}
-                    event={event}
-                    {...rowProps}
-                    onPublish={publishing === event.id ? () => {} : rowProps.onPublish}
-                    onUnpublish={publishing === event.id ? () => {} : rowProps.onUnpublish}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <>
+            <div className="hidden md:block border rounded-lg">
+              <Table>
+                {tableColumns}
+                <TableBody>
+                  {upcomingEvents.map((event) => (
+                    <EventRow
+                      key={event.id}
+                      event={event}
+                      {...rowProps}
+                      onPublish={publishing === event.id ? () => {} : rowProps.onPublish}
+                      onUnpublish={publishing === event.id ? () => {} : rowProps.onUnpublish}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="md:hidden space-y-3">
+              {upcomingEvents.map((event) => (
+                <MobileEventCard
+                  key={event.id}
+                  event={event}
+                  {...rowProps}
+                  onPublish={publishing === event.id ? () => {} : rowProps.onPublish}
+                  onUnpublish={publishing === event.id ? () => {} : rowProps.onUnpublish}
+                />
+              ))}
+            </div>
+          </>
         )}
       </section>
 
@@ -524,23 +639,37 @@ export default function EventTable() {
               Keine vergangenen Events gefunden.
             </p>
           ) : (
-            <div className="border rounded-lg border-gray-200 bg-gray-50/40">
-              <Table>
-                {tableColumns}
-                <TableBody>
-                  {pastEvents.map((event) => (
-                    <EventRow
-                      key={event.id}
-                      event={event}
-                      past
-                      {...rowProps}
-                      onPublish={publishing === event.id ? () => {} : rowProps.onPublish}
-                      onUnpublish={publishing === event.id ? () => {} : rowProps.onUnpublish}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <>
+              <div className="hidden md:block border rounded-lg border-gray-200 bg-gray-50/40">
+                <Table>
+                  {tableColumns}
+                  <TableBody>
+                    {pastEvents.map((event) => (
+                      <EventRow
+                        key={event.id}
+                        event={event}
+                        past
+                        {...rowProps}
+                        onPublish={publishing === event.id ? () => {} : rowProps.onPublish}
+                        onUnpublish={publishing === event.id ? () => {} : rowProps.onUnpublish}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="md:hidden space-y-3">
+                {pastEvents.map((event) => (
+                  <MobileEventCard
+                    key={event.id}
+                    event={event}
+                    past
+                    {...rowProps}
+                    onPublish={publishing === event.id ? () => {} : rowProps.onPublish}
+                    onUnpublish={publishing === event.id ? () => {} : rowProps.onUnpublish}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </section>
       )}
@@ -557,22 +686,35 @@ export default function EventTable() {
         {draftEvents.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 pl-1">Keine Entwürfe vorhanden.</p>
         ) : (
-          <div className="border rounded-lg border-amber-200">
-            <Table>
-              {tableColumns}
-              <TableBody>
-                {draftEvents.map((event) => (
-                  <EventRow
-                    key={event.id}
-                    event={event}
-                    {...rowProps}
-                    onPublish={publishing === event.id ? () => {} : rowProps.onPublish}
-                    onUnpublish={publishing === event.id ? () => {} : rowProps.onUnpublish}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <>
+            <div className="hidden md:block border rounded-lg border-amber-200">
+              <Table>
+                {tableColumns}
+                <TableBody>
+                  {draftEvents.map((event) => (
+                    <EventRow
+                      key={event.id}
+                      event={event}
+                      {...rowProps}
+                      onPublish={publishing === event.id ? () => {} : rowProps.onPublish}
+                      onUnpublish={publishing === event.id ? () => {} : rowProps.onUnpublish}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="md:hidden space-y-3">
+              {draftEvents.map((event) => (
+                <MobileEventCard
+                  key={event.id}
+                  event={event}
+                  {...rowProps}
+                  onPublish={publishing === event.id ? () => {} : rowProps.onPublish}
+                  onUnpublish={publishing === event.id ? () => {} : rowProps.onUnpublish}
+                />
+              ))}
+            </div>
+          </>
         )}
       </section>
 
