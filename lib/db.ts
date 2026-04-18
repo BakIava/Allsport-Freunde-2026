@@ -689,6 +689,90 @@ export async function touchTemplate(id: number): Promise<void> {
 
 // ─── Check-In ────────────────────────────────────────────
 
+export interface CheckinEventRow {
+  id: number;
+  title: string;
+  category: string;
+  date: string;
+  time: string;
+  location: string;
+  entry_price: number | null;
+  approved_count: number;
+  checked_in_count: number;
+  total_costs: number;
+  total_donations: number;
+  expected_revenue: number;
+  actual_revenue: number;
+}
+
+export async function getCheckinEvents(): Promise<{
+  today: CheckinEventRow[];
+  upcoming: CheckinEventRow[];
+  past: CheckinEventRow[];
+}> {
+  if (!isPostgresConfigured()) {
+    const { getLocalCheckinEvents } = await import("./local-data");
+    return getLocalCheckinEvents();
+  }
+
+  const sql = getSQL();
+
+  const rows = await sql`
+    SELECT
+      e.id,
+      e.title,
+      e.category,
+      TO_CHAR(e.date, 'YYYY-MM-DD') AS date,
+      e.time::text AS time,
+      e.location,
+      e.entry_price::float8 AS entry_price,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS approved_count,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0)::int AS checked_in_count,
+      COALESCE((SELECT SUM(ec.amount)::float8 FROM event_costs ec WHERE ec.event_id = e.id), 0)::float8 AS total_costs,
+      COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::float8 * COALESCE(e.entry_price::float8, 0) AS expected_revenue,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0)::float8 * COALESCE(e.entry_price::float8, 0) AS actual_revenue
+    FROM events e
+    LEFT JOIN registrations r ON e.id = r.event_id
+    WHERE e.status = 'published' AND e.date >= CURRENT_DATE
+    GROUP BY e.id
+    ORDER BY e.date ASC, e.time ASC
+  `;
+
+  const pastRows = await sql`
+    SELECT
+      e.id,
+      e.title,
+      e.category,
+      TO_CHAR(e.date, 'YYYY-MM-DD') AS date,
+      e.time::text AS time,
+      e.location,
+      e.entry_price::float8 AS entry_price,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS approved_count,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0)::int AS checked_in_count,
+      COALESCE((SELECT SUM(ec.amount)::float8 FROM event_costs ec WHERE ec.event_id = e.id), 0)::float8 AS total_costs,
+      COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::float8 * COALESCE(e.entry_price::float8, 0) AS expected_revenue,
+      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0)::float8 * COALESCE(e.entry_price::float8, 0) AS actual_revenue
+    FROM events e
+    LEFT JOIN registrations r ON e.id = r.event_id
+    WHERE e.status = 'published' AND e.date < CURRENT_DATE
+    GROUP BY e.id
+    ORDER BY e.date DESC, e.time DESC
+    LIMIT 10
+  `;
+
+  const todayStr = new Date().toLocaleDateString("en-CA", {
+    timeZone: process.env.TZ || "Europe/Berlin",
+  });
+
+  return {
+    today: (rows as CheckinEventRow[]).filter((r) => r.date === todayStr),
+    upcoming: (rows as CheckinEventRow[]).filter((r) => r.date > todayStr),
+    past: pastRows as CheckinEventRow[],
+  };
+}
+
 export async function saveQRCode(
   registrationId: number,
   qrCode: string,
