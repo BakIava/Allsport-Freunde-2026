@@ -762,9 +762,9 @@ export async function getCheckinEvents(): Promise<{
     LIMIT 10
   `;
 
-  const todayStr = new Date().toLocaleDateString("en-CA", {
-    timeZone: process.env.TZ || "Europe/Berlin",
-  });
+  // process.env.TZ can be ":UTC" (POSIX prefix) which Intl rejects – strip it
+  const tz = (process.env.TZ || "Europe/Berlin").replace(/^:/, "");
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: tz });
 
   return {
     today: (rows as CheckinEventRow[]).filter((r) => r.date === todayStr),
