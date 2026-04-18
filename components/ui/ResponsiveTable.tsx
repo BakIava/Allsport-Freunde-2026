@@ -139,7 +139,7 @@ export function ResponsiveTable<Row extends object>({
         {data.map((row) => (
           <div
             key={String(valueOf(row, keyField))}
-            className={`border rounded-lg p-4 shadow-sm ${rowClassName?.(row) ?? "bg-white border-gray-200"}`}
+            className={`border rounded-lg p-4 shadow-sm overflow-hidden ${rowClassName?.(row) ?? "bg-white border-gray-200"}`}
           >
             <dl className="space-y-2">
               {mobileColumns.map((col) => (
