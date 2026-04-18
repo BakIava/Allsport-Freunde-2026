@@ -95,19 +95,26 @@ export default function AdminContactPage() {
             {
               key: "first_name",
               label: "Name",
-              render: (inq) => (
-                <span className="font-medium text-gray-900 truncate block">
-                  {[inq.first_name, inq.last_name].filter(Boolean).join(" ") ||
-                    "–"}
-                </span>
-              ),
+              render: (inq) => {
+                const name = [inq.first_name, inq.last_name].filter(Boolean).join(" ") || "–";
+                return (
+                  <span className="font-medium text-gray-900 truncate block" title={name}>
+                    {name.length > 40 ? `${name.slice(0, 40)}...` : name}
+                  </span>
+                );
+              },
             },
             {
               key: "email",
               label: "E-Mail",
-              render: (inq) => (
-                <span className="truncate block">{inq.email as string}</span>
-              ),
+              render: (inq) => {
+                const email = inq.email as string;
+                return (
+                  <span className="truncate block" title={email}>
+                    {email.length > 40 ? `${email.slice(0, 40)}...` : email}
+                  </span>
+                );
+              },
             },
             {
               key: "event_title",
