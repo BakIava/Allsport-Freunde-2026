@@ -133,7 +133,7 @@ export default function AdminContactDetailPage() {
   const name = [inquiry.first_name, inquiry.last_name].filter(Boolean).join(" ") || "Unbekannt";
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       {/* Back + header */}
       <div>
         <Link
@@ -144,7 +144,7 @@ export default function AdminContactDetailPage() {
           Zurück zur Übersicht
         </Link>
 
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-3">
             <MessageSquare className="w-6 h-6 text-green-600 shrink-0" />
             <div>
@@ -152,7 +152,7 @@ export default function AdminContactDetailPage() {
               <p className="text-sm text-gray-500">{formatDateTime(inquiry.created_at)}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={sc.variant}>{sc.label}</Badge>
             {sc.next && (
               <Button
@@ -256,6 +256,7 @@ export default function AdminContactDetailPage() {
               <Button
                 onClick={handleSend}
                 disabled={sending || !responseText.trim()}
+                className="w-full sm:w-auto"
               >
                 {sending ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
