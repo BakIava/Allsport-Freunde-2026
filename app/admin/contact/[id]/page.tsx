@@ -54,6 +54,7 @@ export default function AdminContactDetailPage() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [expandedMessages, setExpandedMessages] = useState<Set<number>>(new Set());
 
   const fetchInquiry = async () => {
     setLoading(true);
@@ -96,6 +97,18 @@ export default function AdminContactDetailPage() {
     }
   };
 
+  const toggleMessageExpansion = (messageId: number) => {
+    setExpandedMessages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
+  };
+
   const handleStatusChange = async (newStatus: InquiryStatus) => {
     setStatusUpdating(true);
     try {
@@ -108,6 +121,30 @@ export default function AdminContactDetailPage() {
     } finally {
       setStatusUpdating(false);
     }
+  };
+
+  const renderMessage = (msg: ContactInquiryDetail['messages'][0]) => {
+    const isExpanded = expandedMessages.has(msg.id);
+    const shouldTruncate = msg.message.length > 500;
+    const displayText = shouldTruncate && !isExpanded ? msg.message.slice(0, 500) + "..." : msg.message;
+
+    return (
+      <>
+        <p className="break-all">{displayText}</p>
+        {shouldTruncate && (
+          <Button
+            variant="link"
+            size="sm"
+            className={`mt-1 p-0 h-auto text-xs ${
+              msg.sender === "admin" ? "text-green-200 hover:text-green-100" : "text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => toggleMessageExpansion(msg.id)}
+          >
+            {isExpanded ? "Weniger lesen" : "Mehr lesen"}
+          </Button>
+        )}
+      </>
+    );
   };
 
   if (loading) {
@@ -130,7 +167,8 @@ export default function AdminContactDetailPage() {
   }
 
   const sc = statusConfig[inquiry.status];
-  const name = [inquiry.first_name, inquiry.last_name].filter(Boolean).join(" ") || "Unbekannt";
+  const fullName = [inquiry.first_name, inquiry.last_name].filter(Boolean).join(" ") || "Unbekannt";
+  const name = fullName.length > 40 ? `${fullName.slice(0, 40)}…` : fullName;
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
@@ -148,7 +186,7 @@ export default function AdminContactDetailPage() {
           <div className="flex items-center gap-3">
             <MessageSquare className="w-6 h-6 text-green-600 shrink-0" />
             <div>
-              <h1 className="text-xl font-bold text-gray-900 break-words">Anfrage von {name}</h1>
+              <h1 className="text-xl font-bold text-gray-900 break-all leading-tight">Anfrage von {name}</h1>
               <p className="text-sm text-gray-500">{formatDateTime(inquiry.created_at)}</p>
             </div>
           </div>
@@ -224,7 +262,7 @@ export default function AdminContactDetailPage() {
                     : "bg-gray-100 text-gray-800 rounded-tl-sm"
                 }`}
               >
-                <p className="break-all">{msg.message}</p>
+                {renderMessage(msg)}
                 <p
                   className={`text-xs mt-1.5 ${
                     msg.sender === "admin" ? "text-green-200" : "text-gray-400"
