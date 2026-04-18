@@ -148,7 +148,7 @@ export default function AdminContactDetailPage() {
           <div className="flex items-center gap-3">
             <MessageSquare className="w-6 h-6 text-green-600 shrink-0" />
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Anfrage von {truncateText(name)}</h1>
+              <h1 className="text-xl font-bold text-gray-900 break-words">Anfrage von {name}</h1>
               <p className="text-sm text-gray-500">{formatDateTime(inquiry.created_at)}</p>
             </div>
           </div>
@@ -293,7 +293,7 @@ function InfoRow({
       <span className="mt-0.5 shrink-0">{icon}</span>
       <div className="min-w-0">
         <p className="text-xs text-gray-400 font-medium">{label}</p>
-        <p className="text-gray-800 wrap-break-word">{value}</p>
+        <p className="text-gray-800 break-all">{value}</p>
       </div>
     </div>
   );
