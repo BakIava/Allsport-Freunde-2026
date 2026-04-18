@@ -475,12 +475,12 @@ export default function FinanzenPage() {
                     <tr className="border-b border-gray-100 bg-gray-50/60">
                       <SortTh label="Event" sortKey="title" current={sortKey} dir={sortDir} onSort={handleSort} className="min-w-[180px]" />
                       <SortTh label="Datum" sortKey="date" current={sortKey} dir={sortDir} onSort={handleSort} />
-                      <SortTh label="Kosten" sortKey="total_costs" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
-                      <SortTh label="Erw. Umsatz" sortKey="expected_revenue" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
-                      <SortTh label="Tats. Umsatz" sortKey="actual_revenue" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
-                      <SortTh label="Spenden" sortKey="total_donations" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
+                      <SortTh label="Kosten" sortKey="total_costs" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right hidden md:table-cell" />
+                      <SortTh label="Erw. Umsatz" sortKey="expected_revenue" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right hidden md:table-cell" />
+                      <SortTh label="Tats. Umsatz" sortKey="actual_revenue" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right hidden md:table-cell" />
+                      <SortTh label="Spenden" sortKey="total_donations" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right hidden md:table-cell" />
                       <SortTh label="Bilanz" sortKey="balance" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
-                      <th className="px-3 py-3 w-10" />
+                      <th className="px-3 py-3" />
                     </tr>
                   </thead>
                   <tbody>
@@ -503,24 +503,24 @@ export default function FinanzenPage() {
                             </Link>
                           </td>
                           <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>
-                          <td className="px-3 py-3 text-right text-gray-700 tabular-nums">
+                          <td className="px-3 py-3 text-right text-gray-700 tabular-nums hidden md:table-cell">
                             {formatEuro(e.total_costs ?? 0)}
                           </td>
-                          <td className="px-3 py-3 text-right tabular-nums">
+                          <td className="px-3 py-3 text-right tabular-nums hidden md:table-cell">
                             {hasPrice ? (
                               <span className="text-blue-700">{formatEuro(e.expected_revenue ?? 0)}</span>
                             ) : (
                               <span className="text-gray-300">—</span>
                             )}
                           </td>
-                          <td className="px-3 py-3 text-right tabular-nums">
+                          <td className="px-3 py-3 text-right tabular-nums hidden md:table-cell">
                             {hasPrice ? (
                               <span className="text-green-700">{formatEuro(e.actual_revenue ?? 0)}</span>
                             ) : (
                               <span className="text-gray-300">—</span>
                             )}
                           </td>
-                          <td className="px-3 py-3 text-right tabular-nums">
+                          <td className="px-3 py-3 text-right tabular-nums hidden md:table-cell">
                             {donations > 0 ? (
                               <span className="text-rose-600">{formatEuro(donations)}</span>
                             ) : (
@@ -544,21 +544,23 @@ export default function FinanzenPage() {
                               {formatEuro(bal)}
                             </span>
                           </td>
-                          <td className="px-3 py-3">
+                          <td className="px-3 py-3 whitespace-nowrap">
                             <div className="flex items-center gap-1">
                               <Link
                                 href={`/admin/finanzen/${e.id}`}
                                 title="Finanzdetails"
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors inline-flex"
+                                className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                               >
-                                <FileText className="w-4 h-4" />
+                                <FileText className="w-3.5 h-3.5" />
+                                Details
                               </Link>
                               <Link
                                 href={`/admin/events/${e.id}/dashboard`}
                                 title="Check-In Dashboard"
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors inline-flex"
+                                className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-gray-500 hover:text-green-600 hover:bg-green-50 transition-colors"
                               >
-                                <LayoutDashboard className="w-4 h-4" />
+                                <LayoutDashboard className="w-3.5 h-3.5" />
+                                Dashboard
                               </Link>
                             </div>
                           </td>
@@ -571,16 +573,16 @@ export default function FinanzenPage() {
                       <td className="px-3 py-3 text-gray-700" colSpan={2}>
                         Gesamt ({eventsCount})
                       </td>
-                      <td className="px-3 py-3 text-right text-gray-800 tabular-nums">
+                      <td className="px-3 py-3 text-right text-gray-800 tabular-nums hidden md:table-cell">
                         {formatEuro(totals.totalCosts)}
                       </td>
-                      <td className="px-3 py-3 text-right text-blue-800 tabular-nums">
+                      <td className="px-3 py-3 text-right text-blue-800 tabular-nums hidden md:table-cell">
                         {formatEuro(totals.totalExpected)}
                       </td>
-                      <td className="px-3 py-3 text-right text-green-800 tabular-nums">
+                      <td className="px-3 py-3 text-right text-green-800 tabular-nums hidden md:table-cell">
                         {formatEuro(totals.totalRevenue)}
                       </td>
-                      <td className="px-3 py-3 text-right text-rose-700 tabular-nums">
+                      <td className="px-3 py-3 text-right text-rose-700 tabular-nums hidden md:table-cell">
                         {totals.totalDonations > 0 ? formatEuro(totals.totalDonations) : "—"}
                       </td>
                       <td className="px-3 py-3 text-right tabular-nums">

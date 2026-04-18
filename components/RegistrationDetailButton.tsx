@@ -8,9 +8,16 @@ import type { RegistrationDetail } from "@/lib/types";
 
 interface Props {
   registrationId: number;
+  /** "icon" (default) = square icon-only; "sm" = small button with "Details" label */
+  size?: "icon" | "sm";
+  className?: string;
 }
 
-export default function RegistrationDetailButton({ registrationId }: Props) {
+export default function RegistrationDetailButton({
+  registrationId,
+  size = "icon",
+  className = "",
+}: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<RegistrationDetail | null>(null);
@@ -18,7 +25,7 @@ export default function RegistrationDetailButton({ registrationId }: Props) {
 
   async function handleOpen() {
     setOpen(true);
-    if (data) return; // already fetched
+    if (data) return;
     setLoading(true);
     setError(null);
     try {
@@ -40,12 +47,14 @@ export default function RegistrationDetailButton({ registrationId }: Props) {
     <>
       <Button
         variant="ghost"
-        size="icon"
+        size={size}
         title="Details anzeigen"
         onClick={handleOpen}
         type="button"
+        className={className}
       >
-        <Eye className="w-4 h-4 text-blue-500" />
+        <Eye className="w-4 h-4 text-blue-500 shrink-0" />
+        {size !== "icon" && <span className="ml-1.5">Details</span>}
       </Button>
       <RegistrationDetailModal
         open={open}

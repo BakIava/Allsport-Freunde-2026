@@ -1192,6 +1192,7 @@ function ParticipantRow({
               ) : (
                 <Undo2 className="w-3.5 h-3.5" />
               )}
+              <span>Rückgängig</span>
             </button>
           </>
         ) : (

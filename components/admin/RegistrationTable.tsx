@@ -232,9 +232,9 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
         </Button>
       </div>
 
-      {/* Bulk actions */}
+      {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <div className="flex flex-wrap items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
           <span className="text-sm font-medium text-blue-800">
             {selectedIds.size} ausgewählt
           </span>
@@ -259,121 +259,213 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
         </div>
       )}
 
-      {/* Table */}
       {filtered.length === 0 ? (
         <p className="text-center py-8 text-muted-foreground">Keine Anmeldungen gefunden.</p>
       ) : (
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.size === filtered.length && filtered.length > 0}
-                    onChange={toggleSelectAll}
-                    className="h-4 w-4 rounded border-gray-300 cursor-pointer"
-                  />
-                </TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead className="hidden sm:table-cell">E-Mail</TableHead>
-                <TableHead className="hidden md:table-cell">Gäste</TableHead>
-                <TableHead>Status</TableHead>
-                {!eventId && <TableHead className="hidden lg:table-cell">Event</TableHead>}
-                <TableHead className="hidden sm:table-cell">Datum</TableHead>
-                <TableHead className="text-right">Aktionen</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>
+        <>
+          {/* ── Desktop: Tabelle (sm+) ── */}
+          <div className="hidden sm:block border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">
                     <input
                       type="checkbox"
-                      checked={selectedIds.has(r.id)}
-                      onChange={() => toggleSelect(r.id)}
+                      checked={selectedIds.size === filtered.length && filtered.length > 0}
+                      onChange={toggleSelectAll}
                       className="h-4 w-4 rounded border-gray-300 cursor-pointer"
                     />
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <span className="font-medium">{r.first_name} {r.last_name}{" "}
-                        {r.is_walk_in && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 leading-none">
-                            Walk-in
-                          </span>
-                        )}</span>
-                      <span className="block sm:hidden text-xs text-gray-500">{r.email}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">{r.email}</TableCell>
-                  <TableCell className="hidden md:table-cell">{r.guests}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={r.status || "pending"} />
-                  </TableCell>
-                  {!eventId && <TableCell className="hidden lg:table-cell max-w-[200px] truncate">{r.event_title}</TableCell>}
-                  <TableCell className="hidden sm:table-cell">{formatDateTime(r.created_at)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <RegistrationDetailButton registrationId={r.id} />
-                      {r.status !== "approved" && r.status !== 'cancelled' && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Bestätigen"
-                          onClick={() => setStatusTarget({ reg: r, status: "approved" })}
-                        >
-                          <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        </Button>
-                      )}
-                      {r.status !== "rejected" && r.status !== 'cancelled' && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Ablehnen"
-                          onClick={() => setStatusTarget({ reg: r, status: "rejected" })}
-                        >
-                          <XCircle className="w-4 h-4 text-red-500" />
-                        </Button>
-                      )}
-                      {r.status !== "pending" && r.status !== 'cancelled' && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Auf ausstehend setzen"
-                          onClick={() => setStatusTarget({ reg: r, status: "pending" })}
-                        >
-                          <Clock className="w-4 h-4 text-amber-500" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Löschen"
-                        onClick={() => setDeleteTarget(r)}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  </TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="hidden md:table-cell">E-Mail</TableHead>
+                  <TableHead className="hidden lg:table-cell">Gäste</TableHead>
+                  <TableHead>Status</TableHead>
+                  {!eventId && <TableHead className="hidden xl:table-cell">Event</TableHead>}
+                  <TableHead className="hidden md:table-cell">Datum</TableHead>
+                  <TableHead className="text-right">Aktionen</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(r.id)}
+                        onChange={() => toggleSelect(r.id)}
+                        className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <span className="font-medium">
+                          {r.first_name} {r.last_name}
+                          {r.is_walk_in && (
+                            <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 leading-none">
+                              Walk-in
+                            </span>
+                          )}
+                        </span>
+                        <span className="block md:hidden text-xs text-gray-500">{r.email}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">{r.email}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{r.guests}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={r.status || "pending"} />
+                    </TableCell>
+                    {!eventId && <TableCell className="hidden xl:table-cell max-w-[200px] truncate">{r.event_title}</TableCell>}
+                    <TableCell className="hidden md:table-cell">{formatDateTime(r.created_at)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <RegistrationDetailButton registrationId={r.id} />
+                        {r.status !== "approved" && r.status !== "cancelled" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Bestätigen"
+                            onClick={() => setStatusTarget({ reg: r, status: "approved" })}
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                          </Button>
+                        )}
+                        {r.status !== "rejected" && r.status !== "cancelled" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Ablehnen"
+                            onClick={() => setStatusTarget({ reg: r, status: "rejected" })}
+                          >
+                            <XCircle className="w-4 h-4 text-red-500" />
+                          </Button>
+                        )}
+                        {r.status !== "pending" && r.status !== "cancelled" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Auf ausstehend setzen"
+                            onClick={() => setStatusTarget({ reg: r, status: "pending" })}
+                          >
+                            <Clock className="w-4 h-4 text-amber-500" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Löschen"
+                          onClick={() => setDeleteTarget(r)}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* ── Mobile: Card-Stack (< sm) ── */}
+          <div className="sm:hidden space-y-3">
+            {filtered.map((r) => (
+              <div
+                key={r.id}
+                className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+              >
+                {/* Name + Status */}
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900 text-sm">
+                      {r.first_name} {r.last_name}
+                      {r.is_walk_in && (
+                        <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 leading-none">
+                          Walk-in
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">{r.email}</p>
+                    {!eventId && r.event_title && (
+                      <p className="text-xs text-gray-400 truncate">{r.event_title}</p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-0.5">{formatDate(r.created_at)}</p>
+                  </div>
+                  <StatusBadge status={r.status || "pending"} />
+                </div>
+
+                {/* Actions */}
+                <div className="grid grid-cols-2 gap-2 pt-3 border-t border-gray-100">
+                  <RegistrationDetailButton
+                    registrationId={r.id}
+                    size="sm"
+                    className="w-full justify-start"
+                  />
+                  {r.status !== "approved" && r.status !== "cancelled" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-green-700 border-green-200 w-full"
+                      onClick={() => setStatusTarget({ reg: r, status: "approved" })}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                      Bestätigen
+                    </Button>
+                  )}
+                  {r.status !== "rejected" && r.status !== "cancelled" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-700 border-red-200 w-full"
+                      onClick={() => setStatusTarget({ reg: r, status: "rejected" })}
+                    >
+                      <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                      Ablehnen
+                    </Button>
+                  )}
+                  {r.status !== "pending" && r.status !== "cancelled" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-amber-700 border-amber-200 w-full"
+                      onClick={() => setStatusTarget({ reg: r, status: "pending" })}
+                    >
+                      <Clock className="w-3.5 h-3.5 mr-1.5" />
+                      Ausstehend
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-700 border-red-200 w-full"
+                    onClick={() => setDeleteTarget(r)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    Löschen
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
-      <p className="text-sm text-muted-foreground">{filtered.length} Anmeldung{filtered.length !== 1 ? "en" : ""}</p>
+      <p className="text-sm text-muted-foreground">
+        {filtered.length} Anmeldung{filtered.length !== 1 ? "en" : ""}
+      </p>
 
       {/* Status change dialog */}
       <Dialog open={!!statusTarget} onOpenChange={(o) => { if (!o) { setStatusTarget(null); setStatusNote(""); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {statusTarget?.status === "approved" ? "Anmeldung bestätigen" : statusTarget?.status === "rejected" ? "Anmeldung ablehnen" : "Status ändern"}
+              {statusTarget?.status === "approved"
+                ? "Anmeldung bestätigen"
+                : statusTarget?.status === "rejected"
+                ? "Anmeldung ablehnen"
+                : "Status ändern"}
             </DialogTitle>
             <DialogDescription>
-              {statusTarget?.reg.first_name} {statusTarget?.reg.last_name} – {statusTarget?.reg.event_title}
+              {statusTarget?.reg.first_name} {statusTarget?.reg.last_name} –{" "}
+              {statusTarget?.reg.event_title}
             </DialogDescription>
           </DialogHeader>
           {statusTarget?.status === "rejected" && (
@@ -398,7 +490,11 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
               disabled={statusProcessing}
             >
               {statusProcessing && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              {statusTarget?.status === "approved" ? "Bestätigen" : statusTarget?.status === "rejected" ? "Ablehnen" : "Ändern"}
+              {statusTarget?.status === "approved"
+                ? "Bestätigen"
+                : statusTarget?.status === "rejected"
+                ? "Ablehnen"
+                : "Ändern"}
             </Button>
           </div>
         </DialogContent>
@@ -409,7 +505,9 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {bulkStatus === "approved" ? `${selectedIds.size} Anmeldung(en) bestätigen` : `${selectedIds.size} Anmeldung(en) ablehnen`}
+              {bulkStatus === "approved"
+                ? `${selectedIds.size} Anmeldung(en) bestätigen`
+                : `${selectedIds.size} Anmeldung(en) ablehnen`}
             </DialogTitle>
             <DialogDescription>
               Diese Aktion betrifft alle ausgewählten Anmeldungen. E-Mail-Benachrichtigungen werden versendet.
@@ -449,8 +547,8 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
           <DialogHeader>
             <DialogTitle>Anmeldung löschen</DialogTitle>
             <DialogDescription>
-              Möchtest du die Anmeldung von {deleteTarget?.first_name} {deleteTarget?.last_name} wirklich löschen?
-              Der Platz wird wieder freigegeben.
+              Möchtest du die Anmeldung von {deleteTarget?.first_name}{" "}
+              {deleteTarget?.last_name} wirklich löschen? Der Platz wird wieder freigegeben.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-3 mt-4">
