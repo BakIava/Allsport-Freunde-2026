@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 import StatusBadge from "@/components/status/StatusBadge";
 import type { RegistrationWithEvent } from "@/lib/types";
 
@@ -24,7 +24,13 @@ export default function RecentRegistrations() {
   const formatDateTime = (d: string) => {
     const date = new Date(d);
     if (isNaN(date.getTime())) return d;
-    return date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleDateString("de-DE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   return (
@@ -32,9 +38,7 @@ export default function RecentRegistrations() {
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Letzte Anmeldungen</CardTitle>
         <Link href="/admin/registrations">
-          <Button variant="outline" size="sm">
-            Alle anzeigen
-          </Button>
+          <Button variant="outline" size="sm">Alle anzeigen</Button>
         </Link>
       </CardHeader>
       <CardContent>
@@ -42,40 +46,44 @@ export default function RecentRegistrations() {
           <div className="flex justify-center py-8">
             <Loader2 className="w-5 h-5 animate-spin text-green-600" />
           </div>
-        ) : registrations.length === 0 ? (
-          <p className="text-center py-8 text-muted-foreground">Noch keine Anmeldungen.</p>
         ) : (
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="hidden sm:table-cell">E-Mail</TableHead>
-                  <TableHead className="hidden md:table-cell">Event</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden sm:table-cell">Datum</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {registrations.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.first_name} {r.last_name} {" "}
-                      {r.is_walk_in && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 leading-none">
-                          Walk-in
-                        </span>
-                      )}</TableCell>
-                    <TableCell className="hidden sm:table-cell">{r.email}</TableCell>
-                    <TableCell className="hidden md:table-cell max-w-[200px] truncate">{r.event_title}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={r.status || "pending"} />
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">{formatDateTime(r.created_at)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <ResponsiveTable
+            columns={[
+              {
+                key: "first_name",
+                label: "Name",
+                render: (r) => (
+                  <span className="font-medium">
+                    {r.first_name} {r.last_name}
+                    {r.is_walk_in && (
+                      <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 leading-none">
+                        Walk-in
+                      </span>
+                    )}
+                  </span>
+                ),
+              },
+              { key: "email", label: "E-Mail", hideOnMobile: true },
+              { key: "event_title", label: "Event", hideOnMobile: true },
+              {
+                key: "status",
+                label: "Status",
+                render: (r) => (
+                  <StatusBadge status={r.status || "pending"} />
+                ),
+              },
+              {
+                key: "created_at",
+                label: "Datum",
+                hideOnMobile: true,
+                render: (r) => formatDateTime(r.created_at as string),
+              },
+            ]}
+            data={registrations}
+            keyField="id"
+            tableWrapperClassName="border rounded-lg"
+            emptyMessage="Noch keine Anmeldungen."
+          />
         )}
       </CardContent>
     </Card>

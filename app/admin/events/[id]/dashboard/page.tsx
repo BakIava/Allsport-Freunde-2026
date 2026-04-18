@@ -413,69 +413,70 @@ export default function CheckinDashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">Check-In Dashboard</h1>
           <p className="text-sm text-gray-500 mt-0.5">Event #{eventId} · Live-Übersicht</p>
         </div>
-        <div className="flex items-center gap-3">
-          {/* Primär: Großer Scanner Button */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          {/* Primär: Scanner Button - full width on mobile */}
           <button
             onClick={() => router.push(`/admin/events/${eventId}/scanner`)}
-            className="flex items-center gap-3 px-6 py-3 bg-green-700 hover:bg-green-800 text-white rounded-lg text-base font-semibold transition-colors shadow-md"
+            className="flex items-center justify-center gap-3 px-6 py-3 bg-green-700 hover:bg-green-800 text-white rounded-lg text-base font-semibold transition-colors shadow-md w-full sm:w-auto"
           >
             <QrCode className="w-5 h-5" />
             Scanner öffnen
           </button>
 
-          {/* Sekundär: Walk-in QR und Teilnehmer hinzufügen */}
-          <div className="flex gap-2">
+          {/* Sekundär + Tertiär: 3-col grid on mobile, flex row on desktop */}
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:gap-2">
             <button
               onClick={handleShowQR}
-              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition-colors"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
               <QrCode className="w-4 h-4" />
-              Walk-in QR
+              <span className="hidden sm:inline">Walk-in </span>QR
             </button>
             <button
               onClick={openWalkIn}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
               <UserPlus className="w-4 h-4" />
-              Teilnehmer hinzufügen
+              <span className="hidden sm:inline">Teilnehmer hinzufügen</span>
+              <span className="sm:hidden">+Teilnehmer</span>
             </button>
-          </div>
 
-          {/* Tertiär: Dropdown für Mehr */}
-          <div className="relative">
-            <button
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center gap-2 px-3 py-2 border border-gray-200 hover:bg-gray-50 rounded-lg text-sm text-gray-600 transition-colors"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-              Mehr
-            </button>
-            {dropdownOpen && (
-              <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                <button
-                  onClick={() => { setDropdownOpen(false); openDonation(); }}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 text-sm text-gray-700"
-                >
-                  <Heart className="w-4 h-4" />
-                  Spende eintragen
-                </button>
-                <button
-                  onClick={() => { setDropdownOpen(false); fetchStatus(); }}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 text-sm text-gray-700"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Aktualisieren
-                </button>
-                <button
-                  onClick={() => { setDropdownOpen(false); exportCSV(); }}
-                  disabled={!data}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 disabled:opacity-50 text-sm text-gray-700"
-                >
-                  <Download className="w-4 h-4" />
-                  CSV
-                </button>
-              </div>
-            )}
+            {/* Tertiär: Dropdown für Mehr */}
+            <div className="relative">
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-gray-200 hover:bg-gray-50 rounded-lg text-sm text-gray-600 transition-colors"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+                Mehr
+              </button>
+              {dropdownOpen && (
+                <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                  <button
+                    onClick={() => { setDropdownOpen(false); openDonation(); }}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 text-sm text-gray-700"
+                  >
+                    <Heart className="w-4 h-4" />
+                    Spende eintragen
+                  </button>
+                  <button
+                    onClick={() => { setDropdownOpen(false); fetchStatus(); }}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 text-sm text-gray-700"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Aktualisieren
+                  </button>
+                  <button
+                    onClick={() => { setDropdownOpen(false); exportCSV(); }}
+                    disabled={!data}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 disabled:opacity-50 text-sm text-gray-700"
+                  >
+                    <Download className="w-4 h-4" />
+                    CSV
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1192,6 +1193,7 @@ function ParticipantRow({
               ) : (
                 <Undo2 className="w-3.5 h-3.5" />
               )}
+              <span>Rückgängig</span>
             </button>
           </>
         ) : (

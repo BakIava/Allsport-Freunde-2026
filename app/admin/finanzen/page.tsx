@@ -468,148 +468,224 @@ export default function FinanzenPage() {
               <p className="text-gray-500 text-sm">Noch keine Veranstaltungen mit Finanzdaten.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50/60">
-                      <SortTh label="Event" sortKey="title" current={sortKey} dir={sortDir} onSort={handleSort} className="min-w-[180px]" />
-                      <SortTh label="Datum" sortKey="date" current={sortKey} dir={sortDir} onSort={handleSort} />
-                      <SortTh label="Kosten" sortKey="total_costs" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
-                      <SortTh label="Erw. Umsatz" sortKey="expected_revenue" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
-                      <SortTh label="Tats. Umsatz" sortKey="actual_revenue" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
-                      <SortTh label="Spenden" sortKey="total_donations" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
-                      <SortTh label="Bilanz" sortKey="balance" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
-                      <th className="px-3 py-3 w-10" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedRows.map((e, i) => {
-                      const hasPrice = e.entry_price != null && e.entry_price > 0;
-                      const donations = e.total_donations ?? 0;
-                      const bal = e.balance;
-                      return (
-                        <tr
-                          key={e.id}
-                          className={`border-b border-gray-50 last:border-0 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}
-                        >
-                          <td className="px-3 py-3 font-medium text-gray-900 max-w-[240px]">
-                            <Link
-                              href={`/admin/finanzen/${e.id}`}
-                              className="truncate block hover:text-green-700 hover:underline"
-                              title="Finanzdetails öffnen"
-                            >
-                              {e.title}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>
-                          <td className="px-3 py-3 text-right text-gray-700 tabular-nums">
-                            {formatEuro(e.total_costs ?? 0)}
-                          </td>
-                          <td className="px-3 py-3 text-right tabular-nums">
-                            {hasPrice ? (
-                              <span className="text-blue-700">{formatEuro(e.expected_revenue ?? 0)}</span>
-                            ) : (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 text-right tabular-nums">
-                            {hasPrice ? (
-                              <span className="text-green-700">{formatEuro(e.actual_revenue ?? 0)}</span>
-                            ) : (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 text-right tabular-nums">
-                            {donations > 0 ? (
-                              <span className="text-rose-600">{formatEuro(donations)}</span>
-                            ) : (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 text-right tabular-nums">
-                            <span
-                              className={`inline-flex items-center gap-1 font-semibold ${
-                                bal > 0 ? "text-green-700" : bal < 0 ? "text-red-600" : "text-gray-500"
-                              }`}
-                            >
-                              {bal > 0 ? (
-                                <TrendingUp className="w-3.5 h-3.5" />
-                              ) : bal < 0 ? (
-                                <TrendingDown className="w-3.5 h-3.5" />
-                              ) : (
-                                <Minus className="w-3.5 h-3.5" />
-                              )}
-                              {bal > 0 ? "+" : ""}
-                              {formatEuro(bal)}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="flex items-center gap-1">
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 bg-gray-50/60">
+                        <SortTh label="Event" sortKey="title" current={sortKey} dir={sortDir} onSort={handleSort} className="min-w-[180px]" />
+                        <SortTh label="Datum" sortKey="date" current={sortKey} dir={sortDir} onSort={handleSort} />
+                        <SortTh label="Kosten" sortKey="total_costs" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
+                        <SortTh label="Erw. Umsatz" sortKey="expected_revenue" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
+                        <SortTh label="Tats. Umsatz" sortKey="actual_revenue" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
+                        <SortTh label="Spenden" sortKey="total_donations" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
+                        <SortTh label="Bilanz" sortKey="balance" current={sortKey} dir={sortDir} onSort={handleSort} className="text-right" />
+                        <th className="px-3 py-3" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedRows.map((e, i) => {
+                        const hasPrice = e.entry_price != null && e.entry_price > 0;
+                        const donations = e.total_donations ?? 0;
+                        const bal = e.balance;
+                        return (
+                          <tr
+                            key={e.id}
+                            className={`border-b border-gray-50 last:border-0 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}
+                          >
+                            <td className="px-3 py-3 font-medium text-gray-900 max-w-[240px]">
                               <Link
                                 href={`/admin/finanzen/${e.id}`}
-                                title="Finanzdetails"
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors inline-flex"
+                                className="truncate block hover:text-green-700 hover:underline"
+                                title="Finanzdetails öffnen"
                               >
-                                <FileText className="w-4 h-4" />
+                                {e.title}
                               </Link>
-                              <Link
-                                href={`/admin/events/${e.id}/dashboard`}
-                                title="Check-In Dashboard"
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors inline-flex"
+                            </td>
+                            <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>
+                            <td className="px-3 py-3 text-right text-gray-700 tabular-nums">
+                              {formatEuro(e.total_costs ?? 0)}
+                            </td>
+                            <td className="px-3 py-3 text-right tabular-nums">
+                              {hasPrice ? (
+                                <span className="text-blue-700">{formatEuro(e.expected_revenue ?? 0)}</span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-right tabular-nums">
+                              {hasPrice ? (
+                                <span className="text-green-700">{formatEuro(e.actual_revenue ?? 0)}</span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-right tabular-nums">
+                              {donations > 0 ? (
+                                <span className="text-rose-600">{formatEuro(donations)}</span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-right tabular-nums">
+                              <span
+                                className={`inline-flex items-center gap-1 font-semibold ${
+                                  bal > 0 ? "text-green-700" : bal < 0 ? "text-red-600" : "text-gray-500"
+                                }`}
                               >
-                                <LayoutDashboard className="w-4 h-4" />
-                              </Link>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                                {bal > 0 ? (
+                                  <TrendingUp className="w-3.5 h-3.5" />
+                                ) : bal < 0 ? (
+                                  <TrendingDown className="w-3.5 h-3.5" />
+                                ) : (
+                                  <Minus className="w-3.5 h-3.5" />
+                                )}
+                                {bal > 0 ? "+" : ""}
+                                {formatEuro(bal)}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3 whitespace-nowrap">
+                              <div className="flex items-center gap-1">
+                                <Link
+                                  href={`/admin/finanzen/${e.id}`}
+                                  title="Finanzdetails"
+                                  className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  Details
+                                </Link>
+                                <Link
+                                  href={`/admin/events/${e.id}/dashboard`}
+                                  title="Check-In Dashboard"
+                                  className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-gray-500 hover:text-green-600 hover:bg-green-50 transition-colors"
+                                >
+                                  <LayoutDashboard className="w-3.5 h-3.5" />
+                                  Dashboard
+                                </Link>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
 
-                    {/* Sum row */}
-                    <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold">
-                      <td className="px-3 py-3 text-gray-700" colSpan={2}>
-                        Gesamt ({eventsCount})
-                      </td>
-                      <td className="px-3 py-3 text-right text-gray-800 tabular-nums">
-                        {formatEuro(totals.totalCosts)}
-                      </td>
-                      <td className="px-3 py-3 text-right text-blue-800 tabular-nums">
-                        {formatEuro(totals.totalExpected)}
-                      </td>
-                      <td className="px-3 py-3 text-right text-green-800 tabular-nums">
-                        {formatEuro(totals.totalRevenue)}
-                      </td>
-                      <td className="px-3 py-3 text-right text-rose-700 tabular-nums">
-                        {totals.totalDonations > 0 ? formatEuro(totals.totalDonations) : "—"}
-                      </td>
-                      <td className="px-3 py-3 text-right tabular-nums">
+                      {/* Sum row */}
+                      <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold">
+                        <td className="px-3 py-3 text-gray-700" colSpan={2}>
+                          Gesamt ({eventsCount})
+                        </td>
+                        <td className="px-3 py-3 text-right text-gray-800 tabular-nums">
+                          {formatEuro(totals.totalCosts)}
+                        </td>
+                        <td className="px-3 py-3 text-right text-blue-800 tabular-nums">
+                          {formatEuro(totals.totalExpected)}
+                        </td>
+                        <td className="px-3 py-3 text-right text-green-800 tabular-nums">
+                          {formatEuro(totals.totalRevenue)}
+                        </td>
+                        <td className="px-3 py-3 text-right text-rose-700 tabular-nums">
+                          {totals.totalDonations > 0 ? formatEuro(totals.totalDonations) : "—"}
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums">
+                          <span
+                            className={`inline-flex items-center gap-1 font-bold ${
+                              totals.balance > 0
+                                ? "text-green-700"
+                                : totals.balance < 0
+                                ? "text-red-600"
+                                : "text-gray-500"
+                            }`}
+                          >
+                            {totals.balance > 0 ? (
+                              <TrendingUp className="w-3.5 h-3.5" />
+                            ) : totals.balance < 0 ? (
+                              <TrendingDown className="w-3.5 h-3.5" />
+                            ) : (
+                              <Minus className="w-3.5 h-3.5" />
+                            )}
+                            {totals.balance > 0 ? "+" : ""}
+                            {formatEuro(totals.balance)}
+                          </span>
+                        </td>
+                        <td />
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="md:hidden space-y-3">
+                {sortedRows.map((e) => {
+                  const bal = e.balance;
+                  return (
+                    <div key={e.id} className="border rounded-lg p-4 bg-white shadow-sm overflow-hidden">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <Link
+                            href={`/admin/finanzen/${e.id}`}
+                            className="font-medium text-gray-900 truncate block hover:text-green-700"
+                          >
+                            {e.title}
+                          </Link>
+                          <p className="text-xs text-gray-500 mt-0.5">{formatDate(e.date)}</p>
+                        </div>
                         <span
-                          className={`inline-flex items-center gap-1 font-bold ${
-                            totals.balance > 0
-                              ? "text-green-700"
-                              : totals.balance < 0
-                              ? "text-red-600"
-                              : "text-gray-500"
+                          className={`inline-flex items-center gap-1 font-semibold text-sm shrink-0 ${
+                            bal > 0 ? "text-green-700" : bal < 0 ? "text-red-600" : "text-gray-500"
                           }`}
                         >
-                          {totals.balance > 0 ? (
+                          {bal > 0 ? (
                             <TrendingUp className="w-3.5 h-3.5" />
-                          ) : totals.balance < 0 ? (
+                          ) : bal < 0 ? (
                             <TrendingDown className="w-3.5 h-3.5" />
                           ) : (
                             <Minus className="w-3.5 h-3.5" />
                           )}
-                          {totals.balance > 0 ? "+" : ""}
-                          {formatEuro(totals.balance)}
+                          {bal > 0 ? "+" : ""}
+                          {formatEuro(bal)}
                         </span>
-                      </td>
-                      <td />
-                    </tr>
-                  </tbody>
-                </table>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2">
+                        <Link
+                          href={`/admin/finanzen/${e.id}`}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-blue-50 hover:text-blue-600 bg-white transition-colors"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          Details
+                        </Link>
+                        <Link
+                          href={`/admin/events/${e.id}/dashboard`}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-green-50 hover:text-green-600 bg-white transition-colors"
+                        >
+                          <LayoutDashboard className="w-3.5 h-3.5" />
+                          Dashboard
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="border rounded-lg p-4 bg-gray-50 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-700">Gesamt ({eventsCount})</span>
+                  <span
+                    className={`inline-flex items-center gap-1 font-bold text-sm ${
+                      totals.balance > 0 ? "text-green-700" : totals.balance < 0 ? "text-red-600" : "text-gray-500"
+                    }`}
+                  >
+                    {totals.balance > 0 ? (
+                      <TrendingUp className="w-3.5 h-3.5" />
+                    ) : totals.balance < 0 ? (
+                      <TrendingDown className="w-3.5 h-3.5" />
+                    ) : (
+                      <Minus className="w-3.5 h-3.5" />
+                    )}
+                    {totals.balance > 0 ? "+" : ""}
+                    {formatEuro(totals.balance)}
+                  </span>
+                </div>
               </div>
-            </div>
+            </>
           )}
         </>
       )}

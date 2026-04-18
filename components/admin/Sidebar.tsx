@@ -22,14 +22,27 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const navItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/events", label: "Events", icon: CalendarDays },
-  { href: "/admin/registrations", label: "Anmeldungen", icon: Users },
-  { href: "/admin/templates", label: "Vorlagen", icon: FileText },
-  { href: "/admin/checkin", label: "Check-In", icon: ClipboardCheck },
-  { href: "/admin/finanzen", label: "Finanzen", icon: BarChart3 },
-  { href: "/admin/contact", label: "Anfragen", icon: MessageSquare },
+const navSections = [
+  {
+    title: "ALLGEMEIN",
+    items: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }],
+  },
+  {
+    title: "EVENTS",
+    items: [
+      { href: "/admin/events", label: "Events", icon: CalendarDays },
+      { href: "/admin/templates", label: "Vorlagen", icon: FileText },
+      { href: "/admin/registrations", label: "Anmeldungen", icon: Users },
+      { href: "/admin/checkin", label: "Check-In", icon: ClipboardCheck },
+    ],
+  },
+  {
+    title: "VERWALTUNG",
+    items: [
+      { href: "/admin/finanzen", label: "Finanzen", icon: BarChart3 },
+      { href: "/admin/contact", label: "Anfragen", icon: MessageSquare },
+    ],
+  },
 ];
 
 export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: (collapsed: boolean) => void }) {
@@ -57,29 +70,40 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
           variant="ghost"
           size="icon"
           onClick={() => onToggle(!collapsed)}
-          className="text-white hover:bg-gray-800"
+          className="text-white hover:bg-gray-800 hidden lg:flex"
         >
           {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
         </Button>
       </div>
 
-      <nav className={cn("flex-1 p-4 space-y-1", collapsed && "p-2")}>
-        {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setOpen(false)}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-              collapsed && "justify-center px-2",
-              isActive(item.href)
-                ? "bg-green-600 text-white"
-                : "text-gray-300 hover:bg-gray-800 hover:text-white"
+      <nav className={cn("flex-1 p-4", collapsed && "p-2")}>        
+        {navSections.map((section, index) => (
+          <div key={section.title} className={cn(index > 0 && "mt-6 pt-4 border-t border-gray-800")}>            
+            {!collapsed && (
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500 mb-2">
+                {section.title}
+              </p>
             )}
-          >
-            <item.icon className="w-5 h-5" />
-            {!collapsed && item.label}
-          </Link>
+            <div className="space-y-1">
+              {section.items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    collapsed && "justify-center px-2",
+                    isActive(item.href)
+                      ? "bg-green-600 text-white"
+                      : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  )}
+                >
+                  <item.icon className="w-5 h-5" />
+                  {!collapsed && item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
         ))}
 
         <div className="border-t border-gray-800 my-4" />
@@ -137,7 +161,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
       {/* Mobile sidebar */}
       <aside
         className={cn(
-          "lg:hidden fixed top-0 left-0 bottom-0 z-40 w-64 bg-gray-900 flex flex-col transition-transform duration-200",
+          "lg:hidden fixed top-16 left-0 bottom-0 z-40 w-64 bg-gray-900 flex flex-col transition-transform duration-200",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
