@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Calendar, Clock, MapPin, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +26,7 @@ function formatDate(d: string) {
   });
 }
 
-export default function CancelRegistrationPage() {
+function CancelRegistrationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -230,4 +230,12 @@ export default function CancelRegistrationPage() {
       </div>
     </div>
   );
+}
+
+export default function CancelRegistrationPage() {
+  return (
+    <Suspense fallback={<div>Lädt...</div>}>
+      <CancelRegistrationContent />
+    </Suspense>
+  )
 }
