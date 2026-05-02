@@ -70,6 +70,7 @@ function initSeedRegistrations() {
         qr_token: null,
         checked_in_at: null,
         checked_in_by: null,
+        reminder_sent_at: null,
         is_walk_in: false,
         notes: null,
       });
@@ -239,6 +240,7 @@ export function createLocalRegistration(data: {
     qr_token: null,
     checked_in_at: null,
     checked_in_by: null,
+    reminder_sent_at: null,
     is_walk_in: false,
     notes: null,
   };
@@ -282,6 +284,7 @@ export function createLocalWalkInRegistration(data: {
     qr_token: null,
     checked_in_at: data.checked_in_by ? now : null,
     checked_in_by: data.checked_in_by ?? null,
+    reminder_sent_at: null,
     is_walk_in: true,
     notes: data.notes,
   };
