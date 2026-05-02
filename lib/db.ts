@@ -1298,9 +1298,9 @@ export async function generateCancellationToken(
   registrationId: number,
   eventEndsAt: Date
 ): Promise<string> {
-  const { randomBytes, randomUUID } = await import("crypto");
-  const token = randomBytes(32).toString("hex");
-  const id = randomUUID();
+  const crypto = globalThis.crypto;
+  const token = crypto.getRandomValues(new Uint8Array(32)).reduce((acc, byte) => acc + byte.toString(16).padStart(2, '0'), '');
+  const id = crypto.randomUUID();
   const sql = getSQL();
   await sql`
     INSERT INTO cancellation_tokens (id, token, registration_id, expires_at)
@@ -1487,6 +1487,7 @@ export async function sendReminderEmail(registrationId: number): Promise<void> {
   await sendEventReminderEmail({
     to: reg.email,
     firstName: reg.first_name,
+    lastName: reg.last_name,
     eventTitle: reg.event_title,
     eventDate: reg.event_date,
     eventTime: reg.event_time,

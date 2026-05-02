@@ -141,17 +141,17 @@ const primaryButton: React.CSSProperties = {
 };
 
 const secondaryButton: React.CSSProperties = {
-  backgroundColor: "#ffffff",
+  backgroundColor: "#dc2626",
   borderRadius: "6px",
-  color: "#6b7280",
+  color: "#ffffff",
   display: "inline-block",
-  fontSize: "14px",
-  fontWeight: "normal",
-  padding: "10px 20px",
+  fontSize: "16px",
+  fontWeight: "bold",
+  padding: "12px 24px",
   textDecoration: "none",
   textAlign: "center" as const,
-  margin: "4px 0",
-  border: "1px solid #d1d5db",
+  margin: "8px 0",
+  border: "1px solid #dc2626",
 };
 
 const hr: React.CSSProperties = {
