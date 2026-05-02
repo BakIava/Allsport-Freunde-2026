@@ -14,7 +14,8 @@
     "db:migrate-contact": "npx tsx scripts/migrate-contact.ts",
     "db:migrate-finance": "npx tsx scripts/migrate-finance.ts",
     "db:migrate-donations": "npx tsx scripts/migrate-donations.ts",
-    "db:migrate-template-finance": "npx tsx scripts/migrate-template-finance.ts"
+    "db:migrate-template-finance": "npx tsx scripts/migrate-template-finance.ts",
+    "db:migrate-reminder": "npx tsx scripts/migrate-reminder.ts"
   },
   "keywords": [],
   "author": "",

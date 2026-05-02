@@ -70,6 +70,16 @@ export interface Registration {
   checked_in_by: string | null;
   is_walk_in: boolean;
   notes: string | null;
+  reminder_sent_at: string | null;
+}
+
+export interface CancellationToken {
+  id: string;
+  token: string;
+  registration_id: number;
+  expires_at: string;
+  used_at: string | null;
+  created_at: string;
 }
 
 export interface WalkInInput {
