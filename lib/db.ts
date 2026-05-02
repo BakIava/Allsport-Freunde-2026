@@ -1487,7 +1487,6 @@ export async function sendReminderEmail(registrationId: number): Promise<void> {
   await sendEventReminderEmail({
     to: reg.email,
     firstName: reg.first_name,
-    lastName: reg.last_name,
     eventTitle: reg.event_title,
     eventDate: reg.event_date,
     eventTime: reg.event_time,
