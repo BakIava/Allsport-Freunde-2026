@@ -1292,6 +1292,112 @@ export async function deleteHelper(
   return { success: true };
 }
 
+// ─── Cancellation Tokens ─────────────────────────────────
+
+export async function generateCancellationToken(
+  registrationId: number,
+  eventEndsAt: Date
+): Promise<string> {
+  const { randomBytes, randomUUID } = await import("crypto");
+  const token = randomBytes(32).toString("hex");
+  const id = randomUUID();
+  const sql = getSQL();
+  await sql`
+    INSERT INTO cancellation_tokens (id, token, registration_id, expires_at)
+    VALUES (${id}, ${token}, ${registrationId}, ${eventEndsAt.toISOString()})
+  `;
+  return token;
+}
+
+export interface CancellationTokenInfo {
+  registrationId: number;
+  expiresAt: string;
+  usedAt: string | null;
+  registrationStatus: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  statusToken: string;
+  eventTitle: string;
+  eventDate: string;
+  eventTime: string;
+  eventLocation: string;
+}
+
+export async function getCancellationTokenInfo(
+  token: string
+): Promise<CancellationTokenInfo | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT
+      ct.registration_id,
+      ct.expires_at,
+      ct.used_at,
+      r.status        AS registration_status,
+      r.first_name,
+      r.last_name,
+      r.email,
+      r.status_token,
+      e.title         AS event_title,
+      TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
+      e.time::text    AS event_time,
+      e.location      AS event_location
+    FROM cancellation_tokens ct
+    JOIN registrations r ON ct.registration_id = r.id
+    JOIN events e ON r.event_id = e.id
+    WHERE ct.token = ${token}
+  `;
+  const row = rows[0] as {
+    registration_id: number;
+    expires_at: string;
+    used_at: string | null;
+    registration_status: string;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    status_token: string;
+    event_title: string;
+    event_date: string;
+    event_time: string;
+    event_location: string;
+  } | undefined;
+  if (!row) return null;
+  return {
+    registrationId: row.registration_id,
+    expiresAt: row.expires_at,
+    usedAt: row.used_at,
+    registrationStatus: row.registration_status,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    email: row.email,
+    statusToken: row.status_token,
+    eventTitle: row.event_title,
+    eventDate: row.event_date,
+    eventTime: row.event_time,
+    eventLocation: row.event_location,
+  };
+}
+
+export async function markCancellationTokenUsed(token: string): Promise<boolean> {
+  const sql = getSQL();
+  const rows = await sql`
+    UPDATE cancellation_tokens
+    SET used_at = NOW()
+    WHERE token = ${token} AND used_at IS NULL AND expires_at > NOW()
+    RETURNING registration_id
+  `;
+  return rows.length > 0;
+}
+
+export async function cancelRegistrationById(registrationId: number): Promise<void> {
+  const sql = getSQL();
+  await sql`
+    UPDATE registrations
+    SET status = 'cancelled', status_changed_at = NOW()
+    WHERE id = ${registrationId} AND status IN ('pending', 'approved')
+  `;
+}
+
 // ─── Audit Logging ───────────────────────────────────────
 
 export async function logAudit(
