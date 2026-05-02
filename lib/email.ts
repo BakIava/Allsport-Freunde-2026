@@ -7,6 +7,7 @@ import { EventCancelledEmail } from "@/emails/event-cancelled";
 import { ContactReceivedEmail } from "@/emails/contact-received";
 import { ContactAdminEmail } from "@/emails/contact-admin";
 import { ContactResponseEmail } from "@/emails/contact-response";
+import { ReminderEmail } from "@/emails/reminder";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -209,6 +210,37 @@ export async function sendContactResponseEmail(data: {
       firstName: data.firstName,
       responseText: data.responseText,
       conversationUrl,
+    })
+  );
+}
+
+// ─── Reminder Email ──────────────────────────────────────
+
+export async function sendEventReminderEmail(data: {
+  to: string;
+  firstName: string;
+  eventTitle: string;
+  eventDate: string;
+  eventTime: string;
+  eventLocation: string;
+  statusToken: string;
+  cancellationToken: string;
+}) {
+  const statusUrl = `${appUrl}/status/${data.statusToken}`;
+  const cancelUrl = `${appUrl}/cancel-registration?token=${data.cancellationToken}`;
+  const subject = `Erinnerung: ${data.eventTitle} findet morgen statt`;
+
+  sendEmail(
+    subject,
+    data.to,
+    ReminderEmail({
+      firstName: data.firstName,
+      eventTitle: data.eventTitle,
+      eventDate: formatDateDE(data.eventDate),
+      eventTime: data.eventTime,
+      eventLocation: data.eventLocation,
+      statusUrl,
+      cancelUrl,
     })
   );
 }

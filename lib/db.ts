@@ -1398,6 +1398,110 @@ export async function cancelRegistrationById(registrationId: number): Promise<vo
   `;
 }
 
+// ─── Reminder ─────────────────────────────────────────────
+
+export interface RegistrationDueForReminder {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  status_token: string;
+  event_title: string;
+  event_date: string;
+  event_time: string;
+  event_location: string;
+}
+
+export async function getRegistrationsDueForReminder(): Promise<RegistrationDueForReminder[]> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT
+      r.id,
+      r.first_name,
+      r.last_name,
+      r.email,
+      r.status_token,
+      e.title       AS event_title,
+      TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
+      e.time::text  AS event_time,
+      e.location    AS event_location
+    FROM registrations r
+    JOIN events e ON r.event_id = e.id
+    WHERE r.status = 'approved'
+      AND r.reminder_sent_at IS NULL
+      AND r.email IS NOT NULL
+      AND e.date = CURRENT_DATE + INTERVAL '1 day'
+      AND e.status != 'cancelled'
+  `;
+  return rows as RegistrationDueForReminder[];
+}
+
+export async function sendReminderEmail(registrationId: number): Promise<void> {
+  const sql = getSQL();
+
+  const rows = await sql`
+    SELECT
+      r.id,
+      r.first_name,
+      r.last_name,
+      r.email,
+      r.status,
+      r.reminder_sent_at,
+      r.status_token,
+      e.title       AS event_title,
+      TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
+      e.time::text  AS event_time,
+      e.location    AS event_location,
+      e.status      AS event_status
+    FROM registrations r
+    JOIN events e ON r.event_id = e.id
+    WHERE r.id = ${registrationId}
+  `;
+
+  const reg = rows[0] as {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    status: string;
+    reminder_sent_at: string | null;
+    status_token: string;
+    event_title: string;
+    event_date: string;
+    event_time: string;
+    event_location: string;
+    event_status: string;
+  } | undefined;
+
+  if (!reg) throw new Error(`Registration ${registrationId} nicht gefunden`);
+  if (!reg.email) throw new Error(`Registration ${registrationId} hat keine E-Mail-Adresse`);
+  if (reg.status !== "approved") throw new Error(`Registration ${registrationId} ist nicht approved`);
+  if (reg.reminder_sent_at) throw new Error(`Reminder für Registration ${registrationId} wurde bereits gesendet`);
+  if (reg.event_status === "cancelled") throw new Error(`Event für Registration ${registrationId} wurde abgesagt`);
+
+  // expires_at = end of event day (link invalid after the event)
+  const eventEndsAt = new Date(`${reg.event_date}T23:59:59`);
+  const cancellationToken = await generateCancellationToken(registrationId, eventEndsAt);
+
+  const { sendEventReminderEmail } = await import("./email");
+  await sendEventReminderEmail({
+    to: reg.email,
+    firstName: reg.first_name,
+    eventTitle: reg.event_title,
+    eventDate: reg.event_date,
+    eventTime: reg.event_time,
+    eventLocation: reg.event_location,
+    statusToken: reg.status_token,
+    cancellationToken,
+  });
+
+  await sql`
+    UPDATE registrations
+    SET reminder_sent_at = NOW()
+    WHERE id = ${registrationId}
+  `;
+}
+
 // ─── Audit Logging ───────────────────────────────────────
 
 export async function logAudit(
