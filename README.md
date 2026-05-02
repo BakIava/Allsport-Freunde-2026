@@ -54,6 +54,12 @@ Die App läuft dann unter [http://localhost:3000](http://localhost:3000).
 
 7. **Deployen:** `git push` – Vercel baut automatisch
 
+8. **Cron-Job aktivieren (Erinnerungsmails):**
+   - Erzeuge ein sicheres Secret: `openssl rand -base64 32`
+   - Vercel-Dashboard → Project Settings → Environment Variables → `CRON_SECRET` setzen
+   - Der Job läuft täglich um 08:00 UTC (09:00 MEZ / 10:00 MESZ) und sendet Erinnerungsmails an alle bestätigten Teilnehmer, deren Event am nächsten Tag stattfindet
+   - Logs: Vercel-Dashboard → Logs → Cron
+
 ## Admin-Bereich
 
 Der Admin-Bereich ist unter `/admin` erreichbar und durch Login geschützt.
@@ -84,6 +90,9 @@ Die Admin-Credentials können über Environment Variables überschrieben werden 
 ### Öffentlich
 - `GET /api/events` – Alle kommenden Events mit Teilnehmerzahlen
 - `POST /api/registrations` – Neue Anmeldung erstellen
+
+### Cron (Bearer CRON_SECRET)
+- `GET /api/cron/send-reminders` – Erinnerungsmails versenden (täglich 08:00 UTC via Vercel Cron)
 
 ### Admin (geschützt)
 - `GET /api/admin/stats` – Dashboard-Statistiken
