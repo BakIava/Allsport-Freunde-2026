@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import StatusPage from "@/components/status/StatusPage";
 import { Loader2 } from "lucide-react";
 import type { RegistrationStatusInfo } from "@/lib/types";
 
 export default function StatusPageRoute() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const token = params.token as string;
+  const justCancelled = searchParams.get("cancelled") === "true";
   const [info, setInfo] = useState<RegistrationStatusInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -43,5 +45,5 @@ export default function StatusPageRoute() {
     );
   }
 
-  return <StatusPage info={info} />;
+  return <StatusPage info={info} justCancelled={justCancelled} />;
 }

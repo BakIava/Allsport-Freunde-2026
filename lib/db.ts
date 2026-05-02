@@ -1292,6 +1292,216 @@ export async function deleteHelper(
   return { success: true };
 }
 
+// ─── Cancellation Tokens ─────────────────────────────────
+
+export async function generateCancellationToken(
+  registrationId: number,
+  eventEndsAt: Date
+): Promise<string> {
+  const crypto = globalThis.crypto;
+  const token = crypto.getRandomValues(new Uint8Array(32)).reduce((acc, byte) => acc + byte.toString(16).padStart(2, '0'), '');
+  const id = crypto.randomUUID();
+  const sql = getSQL();
+  await sql`
+    INSERT INTO cancellation_tokens (id, token, registration_id, expires_at)
+    VALUES (${id}, ${token}, ${registrationId}, ${eventEndsAt.toISOString()})
+  `;
+  return token;
+}
+
+export interface CancellationTokenInfo {
+  registrationId: number;
+  expiresAt: string;
+  usedAt: string | null;
+  registrationStatus: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  statusToken: string;
+  eventTitle: string;
+  eventDate: string;
+  eventTime: string;
+  eventLocation: string;
+}
+
+export async function getCancellationTokenInfo(
+  token: string
+): Promise<CancellationTokenInfo | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT
+      ct.registration_id,
+      ct.expires_at,
+      ct.used_at,
+      r.status        AS registration_status,
+      r.first_name,
+      r.last_name,
+      r.email,
+      r.status_token,
+      e.title         AS event_title,
+      TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
+      e.time::text    AS event_time,
+      e.location      AS event_location
+    FROM cancellation_tokens ct
+    JOIN registrations r ON ct.registration_id = r.id
+    JOIN events e ON r.event_id = e.id
+    WHERE ct.token = ${token}
+  `;
+  const row = rows[0] as {
+    registration_id: number;
+    expires_at: string;
+    used_at: string | null;
+    registration_status: string;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    status_token: string;
+    event_title: string;
+    event_date: string;
+    event_time: string;
+    event_location: string;
+  } | undefined;
+  if (!row) return null;
+  return {
+    registrationId: row.registration_id,
+    expiresAt: row.expires_at,
+    usedAt: row.used_at,
+    registrationStatus: row.registration_status,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    email: row.email,
+    statusToken: row.status_token,
+    eventTitle: row.event_title,
+    eventDate: row.event_date,
+    eventTime: row.event_time,
+    eventLocation: row.event_location,
+  };
+}
+
+export async function markCancellationTokenUsed(token: string): Promise<boolean> {
+  const sql = getSQL();
+  const rows = await sql`
+    UPDATE cancellation_tokens
+    SET used_at = NOW()
+    WHERE token = ${token} AND used_at IS NULL AND expires_at > NOW()
+    RETURNING registration_id
+  `;
+  return rows.length > 0;
+}
+
+export async function cancelRegistrationById(registrationId: number): Promise<void> {
+  const sql = getSQL();
+  await sql`
+    UPDATE registrations
+    SET status = 'cancelled', status_changed_at = NOW()
+    WHERE id = ${registrationId} AND status IN ('pending', 'approved')
+  `;
+}
+
+// ─── Reminder ─────────────────────────────────────────────
+
+export interface RegistrationDueForReminder {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  status_token: string;
+  event_title: string;
+  event_date: string;
+  event_time: string;
+  event_location: string;
+}
+
+export async function getRegistrationsDueForReminder(): Promise<RegistrationDueForReminder[]> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT
+      r.id,
+      r.first_name,
+      r.last_name,
+      r.email,
+      r.status_token,
+      e.title       AS event_title,
+      TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
+      e.time::text  AS event_time,
+      e.location    AS event_location
+    FROM registrations r
+    JOIN events e ON r.event_id = e.id
+    WHERE r.status = 'approved'
+      AND r.reminder_sent_at IS NULL
+      AND r.email IS NOT NULL
+      AND e.date = CURRENT_DATE + INTERVAL '1 day'
+      AND e.status != 'cancelled'
+  `;
+  return rows as RegistrationDueForReminder[];
+}
+
+export async function sendReminderEmail(registrationId: number): Promise<void> {
+  const sql = getSQL();
+
+  const rows = await sql`
+    SELECT
+      r.id,
+      r.first_name,
+      r.last_name,
+      r.email,
+      r.status,
+      r.reminder_sent_at,
+      r.status_token,
+      e.title       AS event_title,
+      TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
+      e.time::text  AS event_time,
+      e.location    AS event_location,
+      e.status      AS event_status
+    FROM registrations r
+    JOIN events e ON r.event_id = e.id
+    WHERE r.id = ${registrationId}
+  `;
+
+  const reg = rows[0] as {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    status: string;
+    reminder_sent_at: string | null;
+    status_token: string;
+    event_title: string;
+    event_date: string;
+    event_time: string;
+    event_location: string;
+    event_status: string;
+  } | undefined;
+
+  if (!reg) throw new Error(`Registration ${registrationId} nicht gefunden`);
+  if (!reg.email) throw new Error(`Registration ${registrationId} hat keine E-Mail-Adresse`);
+  if (reg.status !== "approved") throw new Error(`Registration ${registrationId} ist nicht approved`);
+  if (reg.reminder_sent_at) throw new Error(`Reminder für Registration ${registrationId} wurde bereits gesendet`);
+  if (reg.event_status === "cancelled") throw new Error(`Event für Registration ${registrationId} wurde abgesagt`);
+
+  // expires_at = end of event day (link invalid after the event)
+  const eventEndsAt = new Date(`${reg.event_date}T23:59:59`);
+  const cancellationToken = await generateCancellationToken(registrationId, eventEndsAt);
+
+  const { sendEventReminderEmail } = await import("./email");
+  await sendEventReminderEmail({
+    to: reg.email,
+    firstName: reg.first_name,
+    eventTitle: reg.event_title,
+    eventDate: reg.event_date,
+    eventTime: reg.event_time,
+    eventLocation: reg.event_location,
+    statusToken: reg.status_token,
+    cancellationToken,
+  });
+
+  await sql`
+    UPDATE registrations
+    SET reminder_sent_at = NOW()
+    WHERE id = ${registrationId}
+  `;
+}
+
 // ─── Audit Logging ───────────────────────────────────────
 
 export async function logAudit(

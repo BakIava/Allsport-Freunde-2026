@@ -33,7 +33,13 @@ function formatDateTime(d: string) {
   });
 }
 
-export default function StatusPage({ info }: { info: RegistrationStatusInfo }) {
+export default function StatusPage({
+  info,
+  justCancelled = false,
+}: {
+  info: RegistrationStatusInfo;
+  justCancelled?: boolean;
+}) {
   const [status, setStatus] = useState(info.status);
   const [statusChangedAt, setStatusChangedAt] = useState(info.status_changed_at);
   const [cancelling, setCancelling] = useState(false);
@@ -70,6 +76,12 @@ export default function StatusPage({ info }: { info: RegistrationStatusInfo }) {
           <h1 className="text-2xl font-bold text-gray-900">Anmeldestatus</h1>
           <p className="text-gray-500 mt-1">Allsport Freunde 2026 e.V.</p>
         </div>
+
+        {justCancelled && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
+            ✓ Deine Anmeldung wurde erfolgreich storniert.
+          </div>
+        )}
 
         <Card>
           <CardHeader>
