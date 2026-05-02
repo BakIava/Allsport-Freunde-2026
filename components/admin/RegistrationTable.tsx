@@ -217,6 +217,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
           <option value="pending">Ausstehend</option>
           <option value="approved">Bestätigt</option>
           <option value="rejected">Abgelehnt</option>
+          <option value="cancelled">Storniert</option>
         </Select>
         {!eventId && (
           <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-full sm:w-40">
