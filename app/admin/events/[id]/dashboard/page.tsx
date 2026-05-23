@@ -777,32 +777,48 @@ export default function CheckinDashboardPage() {
               {/* Current status */}
               {financials.cash_counted != null ? (
                 (() => {
-                  const expected = (financials.actual_revenue ?? 0) + (financials.total_donations ?? 0);
-                  const diff = Math.round((financials.cash_counted - expected) * 100) / 100;
+                  const einlass = financials.actual_revenue ?? 0;
+                  const spenden = financials.total_donations ?? 0;
+                  const diff = Math.round((financials.cash_counted - einlass) * 100) / 100;
                   const isMatch = diff === 0;
                   return (
-                    <div className={`rounded-xl border px-4 py-3 flex items-start gap-3 ${isMatch ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
-                      {isMatch ? (
-                        <BadgeCheck className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
-                      ) : (
-                        <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-semibold ${isMatch ? "text-green-800" : "text-amber-800"}`}>
-                          {isMatch ? "Kassenzählung bestätigt" : "Abweichung festgestellt"}
-                        </p>
-                        <p className={`text-xs mt-0.5 ${isMatch ? "text-green-700" : "text-amber-700"}`}>
-                          Gezählt: <strong>{formatEuro(financials.cash_counted)}</strong>
-                          {!isMatch && (
-                            <> · Erwartet: <strong>{formatEuro(expected)}</strong> · Differenz: <strong>{diff > 0 ? "+" : ""}{formatEuro(diff)}</strong></>
-                          )}
-                        </p>
-                        {financials.cash_counted_at && (
-                          <p className="text-xs text-gray-400 mt-1">
-                            Eingetragen: {new Date(financials.cash_counted_at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                          </p>
+                    <div className="space-y-2">
+                      {/* Einlass comparison */}
+                      <div className={`rounded-xl border px-4 py-3 flex items-start gap-3 ${isMatch ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+                        {isMatch ? (
+                          <BadgeCheck className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                        ) : (
+                          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                         )}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-semibold ${isMatch ? "text-green-800" : "text-amber-800"}`}>
+                            {isMatch ? "Einlasskasse bestätigt" : "Abweichung Einlasskasse"}
+                          </p>
+                          <p className={`text-xs mt-0.5 ${isMatch ? "text-green-700" : "text-amber-700"}`}>
+                            Gezählt: <strong>{formatEuro(financials.cash_counted)}</strong>
+                            {" · "}Erwartet: <strong>{formatEuro(einlass)}</strong>
+                            {!isMatch && <> · Differenz: <strong>{diff > 0 ? "+" : ""}{formatEuro(diff)}</strong></>}
+                          </p>
+                          {financials.cash_counted_at && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              Eingetragen: {new Date(financials.cash_counted_at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          )}
+                        </div>
                       </div>
+                      {/* Donations addendum */}
+                      {spenden > 0 && (
+                        <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-2 text-xs text-gray-500 flex justify-between items-center">
+                          <span>+ Spenden</span>
+                          <span className="font-medium text-rose-600">{formatEuro(spenden)}</span>
+                        </div>
+                      )}
+                      {spenden > 0 && (
+                        <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-2 text-xs text-gray-600 flex justify-between items-center font-medium">
+                          <span>= Gesamt</span>
+                          <span>{formatEuro(financials.cash_counted + spenden)}</span>
+                        </div>
+                      )}
                     </div>
                   );
                 })()
