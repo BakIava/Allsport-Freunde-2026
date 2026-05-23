@@ -24,6 +24,7 @@ import {
   List,
 } from "lucide-react";
 import RegistrationDetailButton from "@/components/RegistrationDetailButton";
+import { LastNameInput } from "@/components/ui/LastNameInput";
 import type { CheckinParticipant, CheckinStatusResponse, EventFinancials, EventDonation } from "@/lib/types";
 import { formatEuro } from "@/lib/finance";
 
@@ -886,17 +887,16 @@ export default function CheckinDashboardPage() {
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Vorname"
                       />
-                      <input
-                        type="text"
+                      <LastNameInput
                         required
                         value={person.lastName}
                         maxLength={50}
-                        onChange={(e) => setWalkInForm((f) => ({
+                        onChange={(v) => setWalkInForm((f) => ({
                           ...f,
-                          persons: f.persons.map((p, i) => i === idx ? { ...p, lastName: e.target.value } : p),
+                          persons: f.persons.map((p, i) => i === idx ? { ...p, lastName: v } : p),
                         }))}
+                        siblings={walkInForm.persons.filter((_, i) => i !== idx).map((p) => p.lastName)}
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Nachname"
                       />
                     </div>
                   </div>

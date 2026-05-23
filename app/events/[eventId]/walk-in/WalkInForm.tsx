@@ -10,6 +10,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
+import { LastNameInput } from "@/components/ui/LastNameInput";
 
 interface WalkInFormProps {
   eventId: number;
@@ -244,15 +245,14 @@ export function WalkInForm({
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
                     placeholder="Vorname"
                   />
-                  <input
-                    type="text"
+                  <LastNameInput
                     required
                     autoComplete={idx === 0 ? "family-name" : "off"}
                     value={person.lastName}
                     maxLength={50}
-                    onChange={(e) => updatePerson(idx, "lastName", e.target.value)}
+                    onChange={(v) => updatePerson(idx, "lastName", v)}
+                    siblings={form.persons.filter((_, i) => i !== idx).map((p) => p.lastName)}
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                    placeholder="Nachname"
                   />
                 </div>
               </div>

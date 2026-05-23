@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EventWithRegistrations } from "@/lib/types";
 import { CheckCircle2, Loader2, Plus, X, Users } from "lucide-react";
+import { LastNameInput } from "@/components/ui/LastNameInput";
 
 interface Person {
   firstName: string;
@@ -266,13 +267,13 @@ export default function RegistrationModal({
                           />
                         </div>
                         <div>
-                          <Input
+                          <LastNameInput
                             required
                             value={person.lastName}
                             maxLength={50}
-                            onChange={(e) => updatePerson(idx, "lastName", e.target.value)}
-                            placeholder="Nachname"
-                            className="text-sm"
+                            onChange={(v) => updatePerson(idx, "lastName", v)}
+                            siblings={persons.filter((_, i) => i !== idx).map((p) => p.lastName)}
+                            className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           />
                         </div>
                       </div>
