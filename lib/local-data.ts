@@ -309,6 +309,28 @@ export function getLocalRegistrationByToken(token: string): RegistrationStatusIn
   if (!reg) return null;
   const event = localEvents.find((e) => e.id === reg.event_id);
   if (!event) return null;
+
+  const persons: RegistrationStatusInfo["persons"] = [
+    {
+      id: `local-${reg.id}-0`,
+      registration_id: reg.id,
+      first_name: reg.first_name,
+      last_name: reg.last_name,
+      checked_in_at: reg.checked_in_at,
+      cancelled_at: null,
+      created_at: reg.created_at,
+    },
+    ...Array.from({ length: reg.guests }, (_, i) => ({
+      id: `local-${reg.id}-${i + 1}`,
+      registration_id: reg.id,
+      first_name: "Begleitperson",
+      last_name: `${i + 1}`,
+      checked_in_at: null,
+      cancelled_at: null,
+      created_at: reg.created_at,
+    })),
+  ];
+
   return {
     id: reg.id,
     first_name: reg.first_name,
@@ -328,6 +350,7 @@ export function getLocalRegistrationByToken(token: string): RegistrationStatusIn
     event_dress_code: event.dress_code,
     qr_code: reg.qr_code,
     checked_in_at: reg.checked_in_at,
+    persons,
   };
 }
 

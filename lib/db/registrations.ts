@@ -108,7 +108,17 @@ export async function getRegistrationByToken(token: string): Promise<Registratio
     JOIN events e ON r.event_id = e.id
     WHERE r.status_token = ${token}
   `;
-  return (rows[0] as RegistrationStatusInfo) ?? null;
+  if (!rows[0]) return null;
+
+  const reg = rows[0] as RegistrationStatusInfo;
+  const persons = await sql`
+    SELECT id, registration_id, first_name, last_name, checked_in_at, cancelled_at, created_at
+    FROM registration_persons
+    WHERE registration_id = ${reg.id}
+    ORDER BY created_at ASC
+  `;
+  reg.persons = persons as import("../types").RegistrationPerson[];
+  return reg;
 }
 
 export async function cancelRegistrationByToken(token: string): Promise<RegistrationStatusInfo | null> {
@@ -125,7 +135,57 @@ export async function cancelRegistrationByToken(token: string): Promise<Registra
       status_note = NULL
     WHERE status_token = ${token} AND status IN ('pending', 'approved')
   `;
+  await sql`
+    UPDATE registration_persons SET cancelled_at = NOW()
+    WHERE registration_id = (SELECT id FROM registrations WHERE status_token = ${token})
+      AND cancelled_at IS NULL
+  `;
   return getRegistrationByToken(token);
+}
+
+export async function cancelPersonByToken(
+  token: string,
+  personId: string
+): Promise<{ ok: boolean; allCancelled: boolean } | null> {
+  if (!isPostgresConfigured()) {
+    return { ok: true, allCancelled: false };
+  }
+
+  const sql = getSQL();
+  // Verify token belongs to this person's registration
+  const check = await sql`
+    SELECT r.id, r.status
+    FROM registrations r
+    JOIN registration_persons rp ON rp.registration_id = r.id
+    WHERE r.status_token = ${token}
+      AND rp.id = ${personId}
+      AND r.status IN ('pending', 'approved')
+      AND rp.cancelled_at IS NULL
+  `;
+  if (!check[0]) return null;
+
+  const registrationId = (check[0] as { id: number }).id;
+
+  await sql`
+    UPDATE registration_persons SET cancelled_at = NOW()
+    WHERE id = ${personId}
+  `;
+
+  // Check if all persons are now cancelled
+  const remaining = await sql`
+    SELECT COUNT(*)::int AS count FROM registration_persons
+    WHERE registration_id = ${registrationId} AND cancelled_at IS NULL
+  `;
+  const allCancelled = (remaining[0] as { count: number }).count === 0;
+
+  if (allCancelled) {
+    await sql`
+      UPDATE registrations SET status = 'cancelled', status_changed_at = NOW()
+      WHERE id = ${registrationId}
+    `;
+  }
+
+  return { ok: true, allCancelled };
 }
 
 // Helper: correlated subqueries for person name + count

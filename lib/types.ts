@@ -159,6 +159,7 @@ export interface RegistrationStatusInfo {
   event_dress_code: string;
   qr_code: string | null;
   checked_in_at: string | null;
+  persons: RegistrationPerson[];
 }
 
 export interface CheckinParticipant {
