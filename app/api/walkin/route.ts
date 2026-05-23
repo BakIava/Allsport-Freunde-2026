@@ -119,15 +119,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const persons = [
+      { firstName: first_name.trim(), lastName: last_name.trim() },
+      ...Array.from({ length: guests }, (_, i) => ({
+        firstName: "Begleitperson",
+        lastName: `${i + 1}`,
+      })),
+    ];
+
     // Create walk-in registration (already checked-in)
     const result = await createWalkInRegistration({
       event_id: eventId,
-      first_name: first_name.trim(),
-      last_name: last_name.trim(),
+      persons,
       email: emailTrimmed,
       phone: phone?.trim() || null,
       notes: notes?.trim() || null,
-      guests,
       checked_in_by: null, // No admin, it's a self-check-in
     });
 

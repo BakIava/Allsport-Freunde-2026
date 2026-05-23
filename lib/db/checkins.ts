@@ -246,13 +246,11 @@ export async function getCheckinStatus(eventId: number): Promise<CheckinStatusRe
 
 export async function createWalkInRegistration(data: {
   event_id: number;
-  first_name: string;
-  last_name: string;
+  persons: Array<{ firstName: string; lastName: string }>;
   email: string | null;
   phone: string | null;
   notes: string | null;
   checked_in_by: string | null;
-  guests?: number;
 }): Promise<{ id: number; alreadyExists: boolean }> {
   if (!isPostgresConfigured()) {
     const { createLocalWalkInRegistration } = await import("../local-data");
@@ -266,7 +264,6 @@ export async function createWalkInRegistration(data: {
 
   const sql = getSQL();
   const statusToken = crypto.randomUUID();
-  const guestCount = data.guests ?? 0;
 
   const rows = await sql`
     INSERT INTO registrations
@@ -278,17 +275,10 @@ export async function createWalkInRegistration(data: {
   `;
   const registrationId = (rows[0] as { id: number }).id;
 
-  // Main person
-  await sql`
-    INSERT INTO registration_persons (registration_id, first_name, last_name)
-    VALUES (${registrationId}, ${data.first_name}, ${data.last_name})
-  `;
-
-  // Companion placeholders
-  for (let i = 0; i < guestCount; i++) {
+  for (const person of data.persons) {
     await sql`
       INSERT INTO registration_persons (registration_id, first_name, last_name)
-      VALUES (${registrationId}, 'Begleitperson', 'Begleitperson')
+      VALUES (${registrationId}, ${person.firstName}, ${person.lastName})
     `;
   }
 

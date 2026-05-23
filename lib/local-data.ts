@@ -260,30 +260,29 @@ export function createLocalRegistration(data: {
 
 export function createLocalWalkInRegistration(data: {
   event_id: number;
-  first_name: string;
-  last_name: string;
+  persons: Array<{ firstName: string; lastName: string }>;
   email: string | null;
   phone: string | null;
   notes: string | null;
   checked_in_by: string | null;
-  guests?: number;
 }): { id: number; alreadyExists: boolean } {
   if (data.email) {
     const existing = localRegistrations.find(
-      (r) => r.event_id === data.event_id && r.email === data.email
+      (r) => r.event_id === data.event_id && r.email?.toLowerCase() === data.email!.toLowerCase()
     );
     if (existing) return { id: existing.id, alreadyExists: true };
   }
 
+  const first = data.persons[0] ?? { firstName: "", lastName: "" };
   const now = new Date().toISOString();
   const registration: LocalReg = {
     id: nextRegistrationId++,
     event_id: data.event_id,
-    first_name: data.first_name,
-    last_name: data.last_name,
+    first_name: first.firstName,
+    last_name: first.lastName,
     email: data.email,
     phone: data.phone,
-    guests: data.guests ?? 0,
+    guests: Math.max(0, data.persons.length - 1),
     status: "approved",
     status_token: crypto.randomUUID(),
     status_changed_at: now,

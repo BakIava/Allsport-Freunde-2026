@@ -20,6 +20,7 @@ import {
   Heart,
   Trash2,
   MoreHorizontal,
+  Plus,
 } from "lucide-react";
 import RegistrationDetailButton from "@/components/RegistrationDetailButton";
 import type { CheckinParticipant, CheckinStatusResponse, EventFinancials, EventDonation } from "@/lib/types";
@@ -30,13 +31,16 @@ function formatTime(iso: string | null) {
   return new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 }
 
+interface WalkInPerson {
+  firstName: string;
+  lastName: string;
+}
+
 interface WalkInForm {
-  first_name: string;
-  last_name: string;
+  persons: WalkInPerson[];
   email: string;
   phone: string;
   notes: string;
-  guests: number;
 }
 
 interface DonationForm {
@@ -54,12 +58,10 @@ const EMPTY_DONATION: DonationForm = {
 };
 
 const EMPTY_FORM: WalkInForm = {
-  first_name: "",
-  last_name: "",
+  persons: [{ firstName: "", lastName: "" }],
   email: "",
   phone: "",
   notes: "",
-  guests: 0,
 };
 
 export default function CheckinDashboardPage() {
@@ -304,12 +306,10 @@ export default function CheckinDashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           event_id: Number(eventId),
-          first_name: walkInForm.first_name,
-          last_name: walkInForm.last_name,
-          email: walkInForm.email || undefined,
+          persons: walkInForm.persons,
+          email: walkInForm.email,
           phone: walkInForm.phone || undefined,
           notes: walkInForm.notes || undefined,
-          guests: walkInForm.guests,
         }),
       });
       const body = await res.json();
@@ -803,42 +803,15 @@ export default function CheckinDashboardPage() {
 
             {/* Modal form */}
             <form onSubmit={handleWalkInSubmit} className="px-6 py-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Vorname <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    ref={firstNameRef}
-                    type="text"
-                    required
-                    value={walkInForm.first_name}
-                    onChange={(e) => setWalkInForm((f) => ({ ...f, first_name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Max"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Nachname <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={walkInForm.last_name}
-                    onChange={(e) => setWalkInForm((f) => ({ ...f, last_name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Mustermann"
-                  />
-                </div>
-              </div>
-
+              {/* E-Mail (required) */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  E-Mail <span className="text-gray-400 font-normal">(optional)</span>
+                  E-Mail <span className="text-red-500">*</span>
                 </label>
                 <input
+                  ref={firstNameRef}
                   type="email"
+                  required
                   value={walkInForm.email}
                   onChange={(e) => setWalkInForm((f) => ({ ...f, email: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -846,6 +819,7 @@ export default function CheckinDashboardPage() {
                 />
               </div>
 
+              {/* Telefon */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Telefonnummer <span className="text-gray-400 font-normal">(optional)</span>
@@ -859,6 +833,69 @@ export default function CheckinDashboardPage() {
                 />
               </div>
 
+              {/* Persons list */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-gray-700">
+                    Personen <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-xs text-gray-400">{walkInForm.persons.length} Person{walkInForm.persons.length !== 1 ? "en" : ""}</span>
+                </div>
+                {walkInForm.persons.map((person, idx) => (
+                  <div key={idx} className="border border-gray-100 rounded-lg p-3 bg-gray-50 space-y-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-gray-500">
+                        Person {idx + 1}{idx === 0 && <span className="ml-1 text-gray-400">(Walk-in)</span>}
+                      </span>
+                      {walkInForm.persons.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setWalkInForm((f) => ({ ...f, persons: f.persons.filter((_, i) => i !== idx) }))}
+                          className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        required
+                        value={person.firstName}
+                        maxLength={50}
+                        onChange={(e) => setWalkInForm((f) => ({
+                          ...f,
+                          persons: f.persons.map((p, i) => i === idx ? { ...p, firstName: e.target.value } : p),
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Vorname"
+                      />
+                      <input
+                        type="text"
+                        required
+                        value={person.lastName}
+                        maxLength={50}
+                        onChange={(e) => setWalkInForm((f) => ({
+                          ...f,
+                          persons: f.persons.map((p, i) => i === idx ? { ...p, lastName: e.target.value } : p),
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Nachname"
+                      />
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setWalkInForm((f) => ({ ...f, persons: [...f.persons, { firstName: "", lastName: "" }] }))}
+                  className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Person hinzufügen
+                </button>
+              </div>
+
+              {/* Bemerkung */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Bemerkung <span className="text-gray-400 font-normal">(optional)</span>
@@ -870,31 +907,6 @@ export default function CheckinDashboardPage() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                   placeholder="z.B. Kam mit Mitglied XY, Schnuppertraining…"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Begleitpersonen
-                </label>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setWalkInForm((f) => ({ ...f, guests: Math.max(0, f.guests - 1) }))}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-lg font-medium transition-colors"
-                  >
-                    −
-                  </button>
-                  <span className="text-sm font-semibold text-gray-900 w-6 text-center tabular-nums">
-                    {walkInForm.guests}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setWalkInForm((f) => ({ ...f, guests: Math.min(10, f.guests + 1) }))}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-lg font-medium transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
               </div>
 
               {walkInError && (
@@ -920,7 +932,7 @@ export default function CheckinDashboardPage() {
                   ) : (
                     <UserCheck className="w-4 h-4" />
                   )}
-                  Einchecken
+                  {walkInForm.persons.length} {walkInForm.persons.length === 1 ? "Person" : "Personen"} einchecken
                 </button>
               </div>
             </form>
