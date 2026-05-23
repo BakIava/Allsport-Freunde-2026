@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
+import { logout } from "@/app/admin/actions/auth";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -48,11 +48,8 @@ const navSections = [
 ];
 
 export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: (collapsed: boolean) => void }) {
-  const { status } = useSession();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-
-  if (status !== "authenticated") return null;
 
   const isActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";
@@ -123,16 +120,18 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
           {!collapsed && "Zur Webseite"}
         </a>
 
-        <button
-          onClick={() => signOut({ callbackUrl: "/admin/login" })}
-          className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors w-full cursor-pointer",
-            collapsed && "justify-center px-2"
-          )}
-        >
-          <LogOut className="w-5 h-5" />
-          {!collapsed && "Abmelden"}
-        </button>
+        <form action={logout}>
+          <button
+            type="submit"
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors w-full cursor-pointer",
+              collapsed && "justify-center px-2"
+            )}
+          >
+            <LogOut className="w-5 h-5" />
+            {!collapsed && "Abmelden"}
+          </button>
+        </form>
       </nav>
     </>
   );

@@ -1,26 +1,20 @@
-"use client";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import AdminShell from "@/components/admin/AdminShell";
 
-import { useState } from "react";
-import { SessionProvider } from "next-auth/react";
-import Sidebar from "@/components/admin/Sidebar";
-import AdminMain from "@/components/admin/AdminMain";
-import { ToastProvider } from "@/components/ui/toast";
-
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  return (
-    <SessionProvider>
-      <ToastProvider>
-        <div className="min-h-screen bg-gray-50 flex">
-          <Sidebar collapsed={sidebarCollapsed} onToggle={setSidebarCollapsed} />
-          <AdminMain collapsed={sidebarCollapsed}>{children}</AdminMain>
-        </div>
-      </ToastProvider>
-    </SessionProvider>
-  );
+  if (!user) {
+    redirect("/login");
+  }
+
+  return <AdminShell>{children}</AdminShell>;
 }
