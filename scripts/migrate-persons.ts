@@ -26,7 +26,12 @@ async function migrate() {
   await sql`CREATE INDEX IF NOT EXISTS idx_reg_persons_registration_id ON registration_persons(registration_id)`;
   console.log("  ✓ Tabelle 'registration_persons' erstellt");
 
-  // 2. max_per_email auf events
+  // 2. first_name / last_name in registrations nullable machen (Daten liegen nun in registration_persons)
+  await sql`ALTER TABLE registrations ALTER COLUMN first_name DROP NOT NULL`;
+  await sql`ALTER TABLE registrations ALTER COLUMN last_name DROP NOT NULL`;
+  console.log("  ✓ first_name / last_name in 'registrations' nullable");
+
+  // 3. max_per_email auf events
   await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS max_per_email INT NOT NULL DEFAULT 5`;
   console.log("  ✓ Spalte 'max_per_email' zu 'events' hinzugefügt");
 

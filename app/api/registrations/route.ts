@@ -107,6 +107,11 @@ export async function POST(request: NextRequest) {
     const statusToken = randomUUID();
     const sql = getSQL();
 
+    // Erste Person als Fallback für NOT NULL Spalten (Rückwärtskompatibilität)
+    const firstPerson = persons[0];
+    const firstName = firstPerson.firstName.trim();
+    const lastName = firstPerson.lastName.trim();
+
     // Anmeldung erstellen
     let registrationId: number;
 
@@ -114,6 +119,8 @@ export async function POST(request: NextRequest) {
       // Stornierte Anmeldung reaktivieren
       const rows = await sql`
         UPDATE registrations SET
+          first_name = ${firstName},
+          last_name = ${lastName},
           phone = ${phone.trim()},
           status = 'pending',
           status_token = ${statusToken},
@@ -128,8 +135,8 @@ export async function POST(request: NextRequest) {
       await sql`DELETE FROM registration_persons WHERE registration_id = ${registrationId}`;
     } else {
       const rows = await sql`
-        INSERT INTO registrations (event_id, email, phone, status, status_token)
-        VALUES (${event_id}, ${normalizedEmail}, ${phone.trim()}, 'pending', ${statusToken})
+        INSERT INTO registrations (event_id, first_name, last_name, email, phone, status, status_token)
+        VALUES (${event_id}, ${firstName}, ${lastName}, ${normalizedEmail}, ${phone.trim()}, 'pending', ${statusToken})
         RETURNING id
       `;
       registrationId = (rows[0] as { id: number }).id;
