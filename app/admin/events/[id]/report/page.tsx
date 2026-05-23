@@ -211,8 +211,8 @@ function ParticipantInfoModal({
               <InfoRow
                 label="Begleitpersonen"
                 value={
-                  reg.guests > 0
-                    ? `${reg.guests} Person${reg.guests !== 1 ? "en" : ""}`
+                  (reg.person_count - 1) > 0
+                    ? `${reg.person_count - 1} Person${(reg.person_count - 1) !== 1 ? "en" : ""}`
                     : "Keine"
                 }
               />
@@ -339,11 +339,11 @@ export default function EventReportPage() {
 
   // KPI values
   const totalPresent = useMemo(
-    () => [...checkins, ...walkIns].reduce((s, r) => s + 1 + r.guests, 0),
+    () => [...checkins, ...walkIns].reduce((s, r) => s + r.person_count, 0),
     [checkins, walkIns]
   );
   const totalGuests = useMemo(
-    () => [...checkins, ...walkIns].reduce((s, r) => s + r.guests, 0),
+    () => [...checkins, ...walkIns].reduce((s, r) => s + (r.person_count - 1), 0),
     [checkins, walkIns]
   );
   const noShowRate = registered.length > 0
@@ -614,10 +614,10 @@ export default function EventReportPage() {
                           <ParticipantBadge cat={cat} />
                         </td>
                         <td className="px-4 py-3 text-center text-gray-600 hidden sm:table-cell">
-                          {reg.guests > 0 ? (
+                          {(reg.person_count - 1) > 0 ? (
                             <span className="inline-flex items-center gap-1">
                               <UsersRound className="w-3.5 h-3.5 text-gray-400" />
-                              {reg.guests}
+                              {reg.person_count - 1}
                             </span>
                           ) : (
                             <span className="text-gray-300">—</span>

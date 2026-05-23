@@ -58,10 +58,14 @@ async function migrate() {
     console.log(`  ℹ ${existing} Einträge bereits vorhanden, Datenmigration übersprungen`);
   }
 
-  // 3. NOT NULL Constraints entfernen
-  await sql`ALTER TABLE registrations ALTER COLUMN first_name DROP NOT NULL`;
-  await sql`ALTER TABLE registrations ALTER COLUMN last_name DROP NOT NULL`;
-  console.log("  ✓ NOT NULL auf first_name/last_name entfernt");
+  // 3. Spalten entfernen
+  await sql`
+    ALTER TABLE registrations
+      DROP COLUMN IF EXISTS first_name,
+      DROP COLUMN IF EXISTS last_name,
+      DROP COLUMN IF EXISTS guests
+  `;
+  console.log("  ✓ Spalten first_name, last_name, guests aus registrations entfernt");
 
   // 4. Verifizieren: keine Anmeldung ohne Person
   const orphans = await sql`

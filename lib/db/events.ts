@@ -7,7 +7,6 @@ import type {
   PublishEventResult,
   EventImage,
   EventImageInput,
-  Registration,
 } from "../types";
 
 export async function getEvents(): Promise<EventWithRegistrations[]> {
@@ -20,11 +19,12 @@ export async function getEvents(): Promise<EventWithRegistrations[]> {
   const rows = await sql`
     SELECT
       e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.parking_location, e.price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.published_at, e.created_at,
-      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
-      COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants,
+      COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END)::int AS current_participants,
+      COUNT(CASE WHEN r.status = 'pending' THEN rp.id ELSE NULL END)::int AS pending_participants,
       COALESCE((SELECT JSON_AGG(jsonb_build_object('id', i.id, 'event_id', i.event_id, 'url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM event_images i WHERE i.event_id = e.id), '[]') AS images
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
+    LEFT JOIN registration_persons rp ON rp.registration_id = r.id AND rp.cancelled_at IS NULL
     WHERE e.status = 'published' AND e.date >= CURRENT_DATE
     GROUP BY e.id
     ORDER BY e.date ASC, e.time ASC
@@ -56,18 +56,19 @@ export async function getAllEvents(): Promise<EventWithRegistrations[]> {
   const rows = await sql`
     SELECT
       e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.parking_location, e.price, e.entry_price::float8 AS entry_price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.published_at, e.created_at,
-      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
-      COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants,
+      COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END)::int AS current_participants,
+      COUNT(CASE WHEN r.status = 'pending' THEN rp.id ELSE NULL END)::int AS pending_participants,
       COALESCE((SELECT JSON_AGG(jsonb_build_object('id', i.id, 'event_id', i.event_id, 'url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM event_images i WHERE i.event_id = e.id), '[]') AS images,
       COALESCE((SELECT SUM(ec.amount)::float8 FROM event_costs ec WHERE ec.event_id = e.id), 0)::float8 AS total_costs,
-      (COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0) * COALESCE(e.entry_price, 0))::float8 AS expected_revenue,
-      (COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0) * COALESCE(e.entry_price, 0))::float8 AS actual_revenue,
+      (COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END) * COALESCE(e.entry_price, 0))::float8 AS expected_revenue,
+      (COUNT(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN rp.id ELSE NULL END) * COALESCE(e.entry_price, 0))::float8 AS actual_revenue,
       COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations,
       COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.is_walk_in = FALSE THEN 1 ELSE 0 END), 0)::int AS total_registrations,
       COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.is_walk_in = FALSE AND r.checked_in_at IS NOT NULL THEN 1 ELSE 0 END), 0)::int AS checkin_count,
       COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.is_walk_in = TRUE THEN 1 ELSE 0 END), 0)::int AS walk_in_count
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
+    LEFT JOIN registration_persons rp ON rp.registration_id = r.id AND rp.cancelled_at IS NULL
     GROUP BY e.id
     ORDER BY e.date DESC, e.time DESC
   `;
@@ -84,11 +85,12 @@ export async function getEventFull(id: number): Promise<EventWithRegistrations |
   const rows = await sql`
     SELECT
       e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.parking_location, e.price, e.entry_price::float8 AS entry_price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.published_at, e.created_at,
-      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS current_participants,
-      COALESCE(SUM(CASE WHEN r.status = 'pending' THEN r.guests + 1 ELSE 0 END), 0)::int AS pending_participants,
+      COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END)::int AS current_participants,
+      COUNT(CASE WHEN r.status = 'pending' THEN rp.id ELSE NULL END)::int AS pending_participants,
       COALESCE((SELECT JSON_AGG(jsonb_build_object('id', i.id, 'event_id', i.event_id, 'url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM event_images i WHERE i.event_id = e.id), '[]') AS images
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
+    LEFT JOIN registration_persons rp ON rp.registration_id = r.id AND rp.cancelled_at IS NULL
     WHERE e.id = ${id}
     GROUP BY e.id
   `;
@@ -223,13 +225,18 @@ export async function cancelEvent(id: number, reason?: string): Promise<CancelEv
   `;
 
   const regRows = await sql`
-    SELECT email, first_name, last_name, status_token FROM registrations WHERE event_id = ${id}
+    SELECT
+      r.email, r.status_token,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name
+    FROM registrations r
+    WHERE r.event_id = ${id}
   `;
 
   return {
     alreadyCancelled: false,
     event: { title: event.title, date: event.date, time: event.time, location: event.location },
-    registrations: regRows as Pick<Registration, "email" | "first_name" | "last_name" | "status_token">[],
+    registrations: regRows as Array<{ email: string | null; first_name: string; last_name: string; status_token: string }>,
   };
 }
 
@@ -255,8 +262,8 @@ export async function getAdminStats(): Promise<AdminStats> {
   const sql = getSQL();
   const totalEventsRows = await sql`SELECT COUNT(*)::int AS count FROM events`;
   const upcomingRows = await sql`SELECT COUNT(*)::int AS count FROM events WHERE date >= CURRENT_DATE`;
-  const totalRegsRows = await sql`SELECT COALESCE(SUM(guests + 1), 0)::int AS count FROM registrations`;
-  const pendingRows = await sql`SELECT COALESCE(SUM(guests + 1), 0)::int AS count FROM registrations WHERE status = 'pending'`;
+  const totalRegsRows = await sql`SELECT COUNT(rp.id)::int AS count FROM registrations r JOIN registration_persons rp ON rp.registration_id = r.id`;
+  const pendingRows = await sql`SELECT COUNT(rp.id)::int AS count FROM registrations r JOIN registration_persons rp ON rp.registration_id = r.id WHERE r.status = 'pending'`;
   const utilRows = await sql`
     SELECT
       CASE WHEN SUM(e.max_participants) = 0 THEN 0
@@ -264,7 +271,7 @@ export async function getAdminStats(): Promise<AdminStats> {
       END AS avg
     FROM events e
     LEFT JOIN (
-      SELECT event_id, SUM(guests + 1) AS total FROM registrations WHERE status = 'approved' GROUP BY event_id
+      SELECT r2.event_id, COUNT(rp2.id) AS total FROM registrations r2 JOIN registration_persons rp2 ON rp2.registration_id = r2.id WHERE r2.status = 'approved' GROUP BY r2.event_id
     ) r ON e.id = r.event_id
     WHERE e.date >= CURRENT_DATE
   `;

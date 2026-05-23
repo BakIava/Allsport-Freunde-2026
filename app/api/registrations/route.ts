@@ -89,7 +89,6 @@ export async function POST(request: NextRequest) {
       const rows = await sql`
         UPDATE registrations SET
           phone = ${phone.trim()},
-          guests = ${guestCount},
           status = 'pending',
           status_token = ${statusToken},
           status_changed_at = NOW(),
@@ -100,10 +99,10 @@ export async function POST(request: NextRequest) {
       registrationId = (rows[0] as { id: number }).id;
       await sql`DELETE FROM registration_persons WHERE registration_id = ${registrationId}`;
     } else {
-      // New registration — no first_name/last_name written to registrations
+      // New registration
       const rows = await sql`
-        INSERT INTO registrations (event_id, email, phone, guests, status, status_token)
-        VALUES (${event_id}, ${normalizedEmail}, ${phone.trim()}, ${guestCount}, 'pending', ${statusToken})
+        INSERT INTO registrations (event_id, email, phone, status, status_token)
+        VALUES (${event_id}, ${normalizedEmail}, ${phone.trim()}, 'pending', ${statusToken})
         RETURNING id
       `;
       registrationId = (rows[0] as { id: number }).id;

@@ -311,7 +311,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
                       </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">{r.email}</TableCell>
-                    <TableCell className="hidden lg:table-cell">{r.guests}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{r.person_count - 1}</TableCell>
                     <TableCell>
                       <StatusBadge status={r.status || "pending"} />
                     </TableCell>

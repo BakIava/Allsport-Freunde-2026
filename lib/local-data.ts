@@ -28,8 +28,11 @@ const seedEvents: EventWithRegistrations[] = [
   { id: 8, title: "Kraulschwimmen Technik-Workshop", category: "schwimmen", description: "Verbessere deine Kraultechnik mit unserem erfahrenen Trainer. Grundkenntnisse erforderlich.", date: "2026-04-29", time: "19:00", location: "Stadionbad, Frankfurt", parking_location: "Parkplatz Stadionbad, Mörfelder Landstr. 362, Frankfurt", price: "10 €", dress_code: "Badebekleidung, Schwimmbrille & Handtuch", max_participants: 10, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 10, pending_participants: 0 },
 ];
 
+// Internal type keeps legacy fields for local dev/test data
+type LocalReg = Registration & { first_name: string; last_name: string; guests: number };
+
 let localEvents = [...seedEvents];
-let localRegistrations: Registration[] = [];
+let localRegistrations: LocalReg[] = [];
 let nextRegistrationId = 1;
 let nextEventId = 9;
 
@@ -99,13 +102,16 @@ function recomputeParticipants(eventId: number) {
     .reduce((sum, r) => sum + 1 + r.guests, 0);
 }
 
-function toRegistrationWithEvent(r: Registration): RegistrationWithEvent {
+function toRegistrationWithEvent(r: LocalReg): RegistrationWithEvent {
   const event = localEvents.find((e) => e.id === r.event_id);
   return {
     ...r,
     event_title: event?.title ?? "Unbekannt",
     event_date: event?.date ?? "",
     event_category: event?.category ?? "",
+    first_name: r.first_name,
+    last_name: r.last_name,
+    person_count: r.guests + 1,
   };
 }
 
@@ -222,17 +228,20 @@ export function findLocalRegistration(eventId: number, email: string) {
 
 export function createLocalRegistration(data: {
   event_id: number;
-  first_name: string;
-  last_name: string;
   email: string;
   phone: string;
-  guests: number;
   status_token: string;
-}): Registration {
-  const registration: Registration = {
+}): void {
+  const registration: LocalReg = {
     id: nextRegistrationId++,
-    ...data,
+    event_id: data.event_id,
+    first_name: "",
+    last_name: "",
+    email: data.email,
+    phone: data.phone,
+    guests: 0,
     status: "pending",
+    status_token: data.status_token,
     status_changed_at: null,
     status_note: null,
     created_at: new Date().toISOString(),
@@ -246,7 +255,6 @@ export function createLocalRegistration(data: {
   };
   localRegistrations.push(registration);
   recomputeParticipants(data.event_id);
-  return registration;
 }
 
 export function createLocalWalkInRegistration(data: {
@@ -267,7 +275,7 @@ export function createLocalWalkInRegistration(data: {
   }
 
   const now = new Date().toISOString();
-  const registration: Registration = {
+  const registration: LocalReg = {
     id: nextRegistrationId++,
     event_id: data.event_id,
     first_name: data.first_name,
@@ -421,7 +429,15 @@ export function resetLocalData(
   images: EventImage[] = []
 ): void {
   localEvents = [...events];
-  localRegistrations = [...registrations];
+  localRegistrations = registrations.map((r) => {
+    const lr = r as LocalReg;
+    return {
+      ...(r as Registration),
+      first_name: lr.first_name ?? "",
+      last_name: lr.last_name ?? "",
+      guests: lr.guests ?? 0,
+    };
+  });
   localTemplates = [...templates];
   localImages = [...images];
   localTemplateImages = [];

@@ -39,14 +39,15 @@ export async function getCheckinEvents(): Promise<{
       e.time::text AS time,
       e.location,
       e.entry_price::float8 AS entry_price,
-      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS approved_count,
-      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0)::int AS checked_in_count,
+      COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END)::int AS approved_count,
+      COUNT(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN rp.id ELSE NULL END)::int AS checked_in_count,
       COALESCE((SELECT SUM(ec.amount)::float8 FROM event_costs ec WHERE ec.event_id = e.id), 0)::float8 AS total_costs,
       COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations,
-      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::float8 * COALESCE(e.entry_price::float8, 0) AS expected_revenue,
-      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0)::float8 * COALESCE(e.entry_price::float8, 0) AS actual_revenue
+      COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END)::float8 * COALESCE(e.entry_price::float8, 0) AS expected_revenue,
+      COUNT(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN rp.id ELSE NULL END)::float8 * COALESCE(e.entry_price::float8, 0) AS actual_revenue
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
+    LEFT JOIN registration_persons rp ON rp.registration_id = r.id AND rp.cancelled_at IS NULL
     WHERE e.status = 'published' AND e.date >= CURRENT_DATE
     GROUP BY e.id
     ORDER BY e.date ASC, e.time ASC
@@ -61,14 +62,15 @@ export async function getCheckinEvents(): Promise<{
       e.time::text AS time,
       e.location,
       e.entry_price::float8 AS entry_price,
-      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::int AS approved_count,
-      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0)::int AS checked_in_count,
+      COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END)::int AS approved_count,
+      COUNT(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN rp.id ELSE NULL END)::int AS checked_in_count,
       COALESCE((SELECT SUM(ec.amount)::float8 FROM event_costs ec WHERE ec.event_id = e.id), 0)::float8 AS total_costs,
       COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations,
-      COALESCE(SUM(CASE WHEN r.status = 'approved' THEN r.guests + 1 ELSE 0 END), 0)::float8 * COALESCE(e.entry_price::float8, 0) AS expected_revenue,
-      COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN r.guests + 1 ELSE 0 END), 0)::float8 * COALESCE(e.entry_price::float8, 0) AS actual_revenue
+      COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END)::float8 * COALESCE(e.entry_price::float8, 0) AS expected_revenue,
+      COUNT(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN rp.id ELSE NULL END)::float8 * COALESCE(e.entry_price::float8, 0) AS actual_revenue
     FROM events e
     LEFT JOIN registrations r ON e.id = r.event_id
+    LEFT JOIN registration_persons rp ON rp.registration_id = r.id AND rp.cancelled_at IS NULL
     WHERE e.status = 'published' AND e.date < CURRENT_DATE
     GROUP BY e.id
     ORDER BY e.date DESC, e.time DESC
@@ -103,7 +105,15 @@ export async function getRegistrationByQRToken(
 ): Promise<import("../types").RegistrationWithEvent | null> {
   const sql = getSQL();
   const rows = await sql`
-    SELECT r.*, e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.category AS event_category
+    SELECT
+      r.id, r.event_id, r.email, r.phone, r.status, r.status_token,
+      r.status_changed_at, r.status_note, r.created_at,
+      r.qr_code, r.qr_token, r.checked_in_at, r.checked_in_by,
+      r.is_walk_in, r.notes, r.reminder_sent_at,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) AS person_count,
+      e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.category AS event_category
     FROM registrations r
     JOIN events e ON r.event_id = e.id
     WHERE r.qr_token = ${qrToken}
@@ -126,14 +136,19 @@ export async function markCheckedIn(
 export async function getCheckinStatus(eventId: number): Promise<CheckinStatusResponse> {
   const sql = getSQL();
   const rows = await sql`
-    SELECT id, first_name, last_name, email, phone, guests, checked_in_at, checked_in_by, is_walk_in, notes
-    FROM registrations
-    WHERE event_id = ${eventId} AND status = 'approved'
-    ORDER BY last_name ASC, first_name ASC
+    SELECT
+      r.id, r.email, r.phone, r.checked_in_at, r.checked_in_by, r.is_walk_in, r.notes,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      GREATEST(0, (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) - 1) AS guests
+    FROM registrations r
+    WHERE r.event_id = ${eventId} AND r.status = 'approved'
+    ORDER BY
+      (SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1) ASC,
+      (SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1) ASC
   `;
 
   const participants = rows as CheckinParticipant[];
-  // Each registration = 1 Hauptperson + guests Begleiter
   const totalRegistrations = participants.length;
   const totalGuests = participants.reduce((sum, p) => sum + p.guests, 0);
   const total = totalRegistrations + totalGuests;
@@ -171,7 +186,6 @@ export async function createWalkInRegistration(data: {
     return createLocalWalkInRegistration(data);
   }
 
-  // Duplicate-email check (only when email is provided)
   if (data.email) {
     const existing = await findRegistration(data.event_id, data.email);
     if (existing) return { id: existing.id, alreadyExists: true };
@@ -180,17 +194,32 @@ export async function createWalkInRegistration(data: {
   const sql = getSQL();
   const statusToken = crypto.randomUUID();
   const guestCount = data.guests ?? 0;
+
   const rows = await sql`
     INSERT INTO registrations
-      (event_id, first_name, last_name, email, phone, guests, status, status_token,
-       is_walk_in, notes, checked_in_at, checked_in_by, status_changed_at)
+      (event_id, email, phone, status, status_token, is_walk_in, notes, checked_in_at, checked_in_by, status_changed_at)
     VALUES
-      (${data.event_id}, ${data.first_name}, ${data.last_name}, ${data.email},
-       ${data.phone}, ${guestCount}, 'approved', ${statusToken},
+      (${data.event_id}, ${data.email}, ${data.phone}, 'approved', ${statusToken},
        TRUE, ${data.notes}, ${data.checked_in_by ? sql`NOW()` : sql`NULL`}, ${data.checked_in_by ?? null}, NOW())
     RETURNING id
   `;
-  return { id: (rows[0] as { id: number }).id, alreadyExists: false };
+  const registrationId = (rows[0] as { id: number }).id;
+
+  // Main person
+  await sql`
+    INSERT INTO registration_persons (registration_id, first_name, last_name)
+    VALUES (${registrationId}, ${data.first_name}, ${data.last_name})
+  `;
+
+  // Companion placeholders
+  for (let i = 0; i < guestCount; i++) {
+    await sql`
+      INSERT INTO registration_persons (registration_id, first_name, last_name)
+      VALUES (${registrationId}, 'Begleitperson', 'Begleitperson')
+    `;
+  }
+
+  return { id: registrationId, alreadyExists: false };
 }
 
 export async function undoCheckin(registrationId: number): Promise<void> {

@@ -14,9 +14,10 @@ export async function getRegistrationCount(eventId: number): Promise<number> {
 
   const sql = getSQL();
   const rows = await sql`
-    SELECT COALESCE(SUM(guests + 1), 0)::int AS count
-    FROM registrations
-    WHERE event_id = ${eventId} AND status = 'approved'
+    SELECT COUNT(rp.id)::int AS count
+    FROM registrations r
+    JOIN registration_persons rp ON rp.registration_id = r.id AND rp.cancelled_at IS NULL
+    WHERE r.event_id = ${eventId} AND r.status = 'approved'
   `;
   return (rows[0] as { count: number }).count;
 }
@@ -42,11 +43,8 @@ export async function findRegistration(
 
 export async function createRegistration(data: {
   event_id: number;
-  first_name: string;
-  last_name: string;
   email: string;
   phone: string;
-  guests: number;
   status_token: string;
 }): Promise<void> {
   if (!isPostgresConfigured()) {
@@ -57,14 +55,11 @@ export async function createRegistration(data: {
 
   const sql = getSQL();
   await sql`
-    INSERT INTO registrations (event_id, first_name, last_name, email, phone, guests, status, status_token)
-    VALUES (${data.event_id}, ${data.first_name}, ${data.last_name}, ${data.email}, ${data.phone}, ${data.guests}, 'pending', ${data.status_token})
+    INSERT INTO registrations (event_id, email, phone, status, status_token)
+    VALUES (${data.event_id}, ${data.email}, ${data.phone}, 'pending', ${data.status_token})
     ON CONFLICT (email, event_id)
     DO UPDATE SET
-      first_name = EXCLUDED.first_name,
-      last_name = EXCLUDED.last_name,
       phone = EXCLUDED.phone,
-      guests = EXCLUDED.guests,
       status = 'pending',
       status_token = EXCLUDED.status_token
   `;
@@ -79,10 +74,13 @@ export async function getRegistrationByToken(token: string): Promise<Registratio
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      r.id, r.first_name, r.last_name, r.email, r.guests,
+      r.id, r.email,
       r.status, r.status_note, r.status_changed_at, r.created_at,
       r.qr_code, r.checked_in_at,
-      e.title AS event_title, e.date AS event_date, e.time AS event_time,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      GREATEST(0, (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) - 1) AS guests,
+      e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.time::text AS event_time,
       e.location AS event_location, e.category AS event_category,
       e.price AS event_price, e.dress_code AS event_dress_code
     FROM registrations r
@@ -109,6 +107,15 @@ export async function cancelRegistrationByToken(token: string): Promise<Registra
   return getRegistrationByToken(token);
 }
 
+// Helper: correlated subqueries for person name + count
+// Used inline in SELECT lists throughout this file.
+const personNameCols = `
+  COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+  COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+  (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) AS person_count
+`;
+void personNameCols; // Used as documentation; actual SQL is inlined below
+
 export async function getAllRegistrations(): Promise<RegistrationWithEvent[]> {
   if (!isPostgresConfigured()) {
     const { getLocalAllRegistrations } = await import("../local-data");
@@ -118,9 +125,15 @@ export async function getAllRegistrations(): Promise<RegistrationWithEvent[]> {
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      r.*,
+      r.id, r.event_id, r.email, r.phone, r.status, r.status_token,
+      r.status_changed_at, r.status_note, r.created_at,
+      r.qr_code, r.qr_token, r.checked_in_at, r.checked_in_by,
+      r.is_walk_in, r.notes, r.reminder_sent_at,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) AS person_count,
       e.title AS event_title,
-      e.date AS event_date,
+      TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
       e.category AS event_category
     FROM registrations r
     JOIN events e ON r.event_id = e.id
@@ -138,7 +151,13 @@ export async function getEventRegistrations(eventId: number): Promise<Registrati
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      r.*,
+      r.id, r.event_id, r.email, r.phone, r.status, r.status_token,
+      r.status_changed_at, r.status_note, r.created_at,
+      r.qr_code, r.qr_token, r.checked_in_at, r.checked_in_by,
+      r.is_walk_in, r.notes, r.reminder_sent_at,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) AS person_count,
       e.title AS event_title,
       TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
       e.category AS event_category
@@ -181,7 +200,15 @@ export async function updateRegistrationStatus(
   `;
 
   const rows = await sql`
-    SELECT r.*, e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.category AS event_category
+    SELECT
+      r.id, r.event_id, r.email, r.phone, r.status, r.status_token,
+      r.status_changed_at, r.status_note, r.created_at,
+      r.qr_code, r.qr_token, r.checked_in_at, r.checked_in_by,
+      r.is_walk_in, r.notes, r.reminder_sent_at,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) AS person_count,
+      e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.category AS event_category
     FROM registrations r
     JOIN events e ON r.event_id = e.id
     WHERE r.id = ${id}
@@ -197,7 +224,15 @@ export async function getRegistrationWithEvent(id: number): Promise<Registration
 
   const sql = getSQL();
   const rows = await sql`
-    SELECT r.*, e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.category AS event_category
+    SELECT
+      r.id, r.event_id, r.email, r.phone, r.status, r.status_token,
+      r.status_changed_at, r.status_note, r.created_at,
+      r.qr_code, r.qr_token, r.checked_in_at, r.checked_in_by,
+      r.is_walk_in, r.notes, r.reminder_sent_at,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) AS person_count,
+      e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.category AS event_category
     FROM registrations r
     JOIN events e ON r.event_id = e.id
     WHERE r.id = ${id}
@@ -214,7 +249,14 @@ export async function getRegistrationDetail(id: number): Promise<RegistrationDet
 
   const sql = getSQL();
   const rows = await sql`
-    SELECT r.*,
+    SELECT
+      r.id, r.event_id, r.email, r.phone, r.status, r.status_token,
+      r.status_changed_at, r.status_note, r.created_at,
+      r.qr_code, r.qr_token, r.checked_in_at, r.checked_in_by,
+      r.is_walk_in, r.notes, r.reminder_sent_at,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) AS person_count,
       e.title AS event_title,
       TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
       e.time::text AS event_time,
@@ -294,10 +336,10 @@ export async function getCancellationTokenInfo(
       ct.expires_at,
       ct.used_at,
       r.status        AS registration_status,
-      r.first_name,
-      r.last_name,
       r.email,
       r.status_token,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
       e.title         AS event_title,
       TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
       e.time::text    AS event_time,
@@ -366,10 +408,10 @@ export async function getRegistrationsDueForReminder(): Promise<RegistrationDueF
   const rows = await sql`
     SELECT
       r.id,
-      r.first_name,
-      r.last_name,
       r.email,
       r.status_token,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
       e.title       AS event_title,
       TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
       e.time::text  AS event_time,
@@ -391,12 +433,12 @@ export async function sendReminderEmail(registrationId: number): Promise<void> {
   const rows = await sql`
     SELECT
       r.id,
-      r.first_name,
-      r.last_name,
       r.email,
       r.status,
       r.reminder_sent_at,
       r.status_token,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
       e.title       AS event_title,
       TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
       e.time::text  AS event_time,
@@ -428,7 +470,6 @@ export async function sendReminderEmail(registrationId: number): Promise<void> {
   if (reg.reminder_sent_at) throw new Error(`Reminder für Registration ${registrationId} wurde bereits gesendet`);
   if (reg.event_status === "cancelled") throw new Error(`Event für Registration ${registrationId} wurde abgesagt`);
 
-  // expires_at = end of event day (link invalid after the event)
   const eventEndsAt = new Date(`${reg.event_date}T23:59:59`);
   const cancellationToken = await generateCancellationToken(registrationId, eventEndsAt);
 
