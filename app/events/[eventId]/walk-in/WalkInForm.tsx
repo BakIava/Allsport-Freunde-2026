@@ -56,14 +56,17 @@ export function WalkInForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const firstNameRef = useRef<HTMLInputElement>(null);
+  const firstNameRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    firstNameRef.current?.focus();
+    firstNameRefs.current[0]?.focus();
   }, []);
 
-  const addPerson = () =>
+  const addPerson = () => {
+    const newIdx = form.persons.length;
     setForm((f) => ({ ...f, persons: [...f.persons, { firstName: "", lastName: "" }] }));
+    setTimeout(() => firstNameRefs.current[newIdx]?.focus(), 0);
+  };
 
   const removePerson = (idx: number) =>
     setForm((f) => ({ ...f, persons: f.persons.filter((_, i) => i !== idx) }));
@@ -235,7 +238,7 @@ export function WalkInForm({
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <input
-                    ref={idx === 0 ? firstNameRef : undefined}
+                    ref={(el) => { firstNameRefs.current[idx] = el; }}
                     type="text"
                     required
                     autoComplete={idx === 0 ? "given-name" : "off"}

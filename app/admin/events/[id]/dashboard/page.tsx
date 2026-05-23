@@ -85,6 +85,7 @@ export default function CheckinDashboardPage() {
   const [walkInLoading, setWalkInLoading] = useState(false);
   const [walkInError, setWalkInError] = useState<string | null>(null);
   const firstNameRef = useRef<HTMLInputElement>(null);
+  const walkInFirstNameRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Walk-in QR modal state
   interface QRData { qrCodeDataUrl: string; walkInUrl: string; eventTitle: string }
@@ -876,6 +877,7 @@ export default function CheckinDashboardPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <input
+                        ref={(el) => { walkInFirstNameRefs.current[idx] = el; }}
                         type="text"
                         required
                         value={person.firstName}
@@ -903,7 +905,11 @@ export default function CheckinDashboardPage() {
                 ))}
                 <button
                   type="button"
-                  onClick={() => setWalkInForm((f) => ({ ...f, persons: [...f.persons, { firstName: "", lastName: "" }] }))}
+                  onClick={() => {
+                    const newIdx = walkInForm.persons.length;
+                    setWalkInForm((f) => ({ ...f, persons: [...f.persons, { firstName: "", lastName: "" }] }));
+                    setTimeout(() => walkInFirstNameRefs.current[newIdx]?.focus(), 0);
+                  }}
                   className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                 >
                   <Plus className="w-4 h-4" />

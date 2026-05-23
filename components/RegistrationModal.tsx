@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +36,7 @@ export default function RegistrationModal({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [persons, setPersons] = useState<Person[]>([{ firstName: "", lastName: "" }]);
+  const firstNameRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +62,9 @@ export default function RegistrationModal({
 
   const addPerson = () => {
     if (persons.length >= maxPerEmail) return;
+    const newIdx = persons.length;
     setPersons((prev) => [...prev, { firstName: "", lastName: "" }]);
+    setTimeout(() => firstNameRefs.current[newIdx]?.focus(), 0);
   };
 
   const removePerson = (idx: number) => {
@@ -258,6 +261,7 @@ export default function RegistrationModal({
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <Input
+                            ref={(el) => { firstNameRefs.current[idx] = el; }}
                             required
                             value={person.firstName}
                             maxLength={50}
