@@ -121,6 +121,36 @@ export async function getRegistrationByQRToken(
   return (rows[0] as import("../types").RegistrationWithEvent) ?? null;
 }
 
+export async function getRegistrationWithPersonsByQRToken(token: string): Promise<{
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  status: string;
+  checked_in_at: string | null;
+  is_walk_in: boolean;
+  persons: import("../types").RegistrationPerson[];
+} | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT
+      r.id, r.email, r.status, r.checked_in_at, r.is_walk_in,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name
+    FROM registrations r
+    WHERE r.qr_token = ${token}
+  `;
+  if (!rows[0]) return null;
+  const reg = rows[0] as { id: number; first_name: string; last_name: string; email: string | null; status: string; checked_in_at: string | null; is_walk_in: boolean };
+  const persons = await sql`
+    SELECT id::text AS id, registration_id, first_name, last_name, checked_in_at, cancelled_at, created_at
+    FROM registration_persons
+    WHERE registration_id = ${reg.id} AND cancelled_at IS NULL
+    ORDER BY created_at ASC
+  `;
+  return { ...reg, persons: persons as import("../types").RegistrationPerson[] };
+}
+
 export async function markCheckedIn(
   registrationId: number,
   checkedInBy: string
