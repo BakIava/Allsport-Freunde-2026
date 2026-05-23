@@ -302,6 +302,11 @@ export async function undoCheckin(registrationId: number): Promise<void> {
     SET checked_in_at = NULL, checked_in_by = NULL
     WHERE id = ${registrationId} AND status = 'approved'
   `;
+  await sql`
+    UPDATE registration_persons
+    SET checked_in_at = NULL
+    WHERE registration_id = ${registrationId} AND cancelled_at IS NULL
+  `;
 }
 
 export async function manualCheckin(
