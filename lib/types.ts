@@ -14,35 +14,10 @@ export interface Event {
   entry_price?: number | null;
   dress_code: string;
   max_participants: number;
-  /** Max persons (across all registrations) per e-mail address */
-  max_per_email?: number;
   status: EventStatus;
   cancellation_reason: string | null;
   published_at: string | null;
   created_at: string;
-}
-
-// ─── Registration Persons ────────────────────────────────
-
-export interface RegistrationPerson {
-  id: string;
-  registration_id: number;
-  first_name: string;
-  last_name: string;
-  checked_in_at: string | null;
-  cancelled_at: string | null;
-  created_at: string;
-}
-
-export interface PersonInput {
-  firstName: string;
-  lastName: string;
-}
-
-export interface PersonWithRegistration extends RegistrationPerson {
-  email: string | null;
-  is_walk_in: boolean;
-  notes: string | null;
 }
 
 export interface EventImage {
@@ -118,9 +93,11 @@ export interface WalkInInput {
 
 export interface RegistrationRequest {
   event_id: number;
+  first_name: string;
+  last_name: string;
   email: string;
   phone: string;
-  persons: PersonInput[];
+  guests: number;
 }
 
 export interface RegistrationWithEvent extends Registration {
@@ -166,16 +143,6 @@ export interface CheckinParticipant {
   checked_in_by: string | null;
   is_walk_in: boolean;
   notes: string | null;
-  /** Per-person check-in list (from registration_persons) */
-  persons?: CheckinPerson[];
-}
-
-export interface CheckinPerson {
-  person_id: string;
-  first_name: string;
-  last_name: string;
-  checked_in_at: string | null;
-  cancelled_at: string | null;
 }
 
 export interface CheckinStatusResponse {
@@ -241,7 +208,6 @@ export interface EventTemplate {
   entry_price?: number | null;
   dress_code: string;
   max_participants: number;
-  max_per_email?: number;
   last_used_at: string | null;
   created_at: string;
   images?: EventImageInput[];
@@ -258,7 +224,6 @@ export interface EventTemplateInput {
   entry_price?: number | null;
   dress_code: string;
   max_participants: number;
-  max_per_email?: number;
   images?: EventImageInput[];
   template_costs?: TemplateCostInput[];
 }
@@ -276,7 +241,6 @@ export interface EventCreateInput {
   entry_price?: number | null;
   dress_code: string;
   max_participants: number;
-  max_per_email?: number;
   images?: EventImageInput[];
 }
 

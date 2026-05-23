@@ -73,7 +73,6 @@ export default function CheckinDashboardPage() {
   const [undoId, setUndoId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [financials, setFinancials] = useState<EventFinancials | null>(null);
-  const [personLoadingId, setPersonLoadingId] = useState<string | null>(null);
 
   // Walk-in modal state
   const [showWalkIn, setShowWalkIn] = useState(false);
@@ -345,44 +344,6 @@ export default function CheckinDashboardPage() {
     }
   }
 
-  async function handlePersonCheckin(personId: string) {
-    setPersonLoadingId(personId);
-    setError(null);
-    try {
-      const res = await fetch(`/api/checkin/persons/${personId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "checkin" }),
-      });
-      const body = await res.json();
-      if (!res.ok) setError(body.error ?? "Fehler beim Check-In.");
-      else await fetchStatus();
-    } catch {
-      setError("Netzwerkfehler.");
-    } finally {
-      setPersonLoadingId(null);
-    }
-  }
-
-  async function handlePersonUndo(personId: string) {
-    setPersonLoadingId(personId);
-    setError(null);
-    try {
-      const res = await fetch(`/api/checkin/persons/${personId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "undo" }),
-      });
-      const body = await res.json();
-      if (!res.ok) setError(body.error ?? "Fehler beim Auschecken.");
-      else await fetchStatus();
-    } catch {
-      setError("Netzwerkfehler.");
-    } finally {
-      setPersonLoadingId(null);
-    }
-  }
-
   async function handleManualCheckin(participantId: number) {
     setManualCheckinId(participantId);
     setError(null);
@@ -432,29 +393,15 @@ export default function CheckinDashboardPage() {
 
   const filtered = (data?.participants ?? []).filter((p: CheckinParticipant) => {
     const q = search.toLowerCase();
-    const nameMatch = p.first_name.toLowerCase().includes(q) ||
+    return (
+      p.first_name.toLowerCase().includes(q) ||
       p.last_name.toLowerCase().includes(q) ||
-      (p.email?.toLowerCase().includes(q) ?? false);
-    if (nameMatch) return true;
-    // Auch in Personen suchen
-    return (p.persons ?? []).some(
-      (pr) =>
-        pr.first_name.toLowerCase().includes(q) ||
-        pr.last_name.toLowerCase().includes(q)
+      (p.email?.toLowerCase().includes(q) ?? false)
     );
   });
 
-  const isFullyCheckedIn = (p: CheckinParticipant) => {
-    const persons = p.persons ?? [];
-    if (persons.length > 0) {
-      const active = persons.filter((pr) => !pr.cancelled_at);
-      return active.length > 0 && active.every((pr) => pr.checked_in_at !== null);
-    }
-    return p.checked_in_at !== null;
-  };
-
-  const checkedInFiltered = filtered.filter(isFullyCheckedIn);
-  const missingFiltered = filtered.filter((p) => !isFullyCheckedIn(p));
+  const checkedInFiltered = filtered.filter((p) => p.checked_in_at !== null);
+  const missingFiltered = filtered.filter((p) => p.checked_in_at === null);
 
   const progressPct = data && data.total > 0 ? Math.round((data.checked_in / data.total) * 100) : 0;
 
@@ -591,7 +538,7 @@ export default function CheckinDashboardPage() {
               {data.checked_in} von {data.total} Personen eingecheckt
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
-              {data.total_registrations} Anmeldung{data.total_registrations !== 1 ? "en" : ""}
+              {data.total_registrations} Anmeldungen · {data.total_guests} Begleitpersonen
             </p>
             <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-100">
               🚶 {data.walk_in_registrations} Walk-ins{data.walk_in_guests > 0 ? ` (+ ${data.walk_in_guests} Begleitpersonen)` : ""}
@@ -761,11 +708,8 @@ export default function CheckinDashboardPage() {
                     participant={p}
                     onManualCheckin={handleManualCheckin}
                     onUndo={handleUndo}
-                    onPersonCheckin={handlePersonCheckin}
-                    onPersonUndo={handlePersonUndo}
                     loadingId={manualCheckinId}
                     undoId={undoId}
-                    personLoadingId={personLoadingId}
                   />
                 ))}
               </>
@@ -781,11 +725,8 @@ export default function CheckinDashboardPage() {
                     participant={p}
                     onManualCheckin={handleManualCheckin}
                     onUndo={handleUndo}
-                    onPersonCheckin={handlePersonCheckin}
-                    onPersonUndo={handlePersonUndo}
                     loadingId={manualCheckinId}
                     undoId={undoId}
-                    personLoadingId={personLoadingId}
                   />
                 ))}
               </>
@@ -1183,150 +1124,94 @@ function ParticipantRow({
   participant,
   onManualCheckin,
   onUndo,
-  onPersonCheckin,
-  onPersonUndo,
   loadingId,
   undoId,
-  personLoadingId,
 }: {
   participant: CheckinParticipant;
   onManualCheckin: (id: number) => void;
   onUndo: (id: number) => void;
-  onPersonCheckin: (personId: string) => void;
-  onPersonUndo: (personId: string) => void;
   loadingId: number | null;
   undoId: number | null;
-  personLoadingId: string | null;
 }) {
-  const persons = participant.persons ?? [];
-  const activePersons = persons.filter((pr) => !pr.cancelled_at);
-  const hasPersons = activePersons.length > 0;
-
-  const checkedInCount = hasPersons
-    ? activePersons.filter((pr) => pr.checked_in_at !== null).length
-    : participant.checked_in_at !== null ? 1 : 0;
-  const totalCount = hasPersons ? activePersons.length : participant.guests + 1;
-  const fullyChecked = checkedInCount === totalCount && totalCount > 0;
-
+  const checked = participant.checked_in_at !== null;
   const loadingCheckin = loadingId === participant.id;
   const loadingUndo = undoId === participant.id;
-  const registrationBusy = loadingCheckin || loadingUndo;
+  const busy = loadingCheckin || loadingUndo;
 
   const subtitle = participant.email ?? participant.phone ?? "–";
 
   return (
-    <div className={`rounded-xl border transition-colors ${
-      fullyChecked ? "bg-green-50 border-green-100" : "bg-white border-gray-100 hover:border-gray-200"
-    }`}>
-      {/* Anmeldungs-Header */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold ${
-            fullyChecked ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
-          }`}>
-            {participant.first_name[0]}{participant.last_name[0]}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
-              {participant.first_name} {participant.last_name}
-              {participant.is_walk_in && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 leading-none">
-                  Walk-in
-                </span>
-              )}
-              {hasPersons && (
-                <span className={`text-xs font-normal ${fullyChecked ? "text-green-600" : "text-gray-400"}`}>
-                  {checkedInCount} / {totalCount} eingecheckt
-                </span>
-              )}
-            </p>
-            <p className="text-xs text-gray-400 truncate">{subtitle}</p>
-            {participant.notes && (
-              <p className="text-xs text-gray-400 truncate italic">{participant.notes}</p>
-            )}
-          </div>
+    <div
+      className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-colors ${
+        checked
+          ? "bg-green-50 border-green-100"
+          : "bg-white border-gray-100 hover:border-gray-200"
+      }`}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div
+          className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold ${
+            checked ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+          }`}
+        >
+          {participant.first_name[0]}{participant.last_name[0]}
         </div>
-        <div className="flex items-center gap-2 shrink-0 ml-3">
-          <RegistrationDetailButton registrationId={participant.id} />
-          {!hasPersons && (
-            participant.checked_in_at !== null ? (
-              <>
-                <span className="flex items-center gap-1 text-xs font-medium text-green-700">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  {formatTime(participant.checked_in_at)}
-                </span>
-                <button
-                  onClick={() => onUndo(participant.id)}
-                  disabled={registrationBusy}
-                  title="Check-In rückgängig machen"
-                  className="flex items-center gap-1 px-2 py-1.5 text-xs border border-gray-200 hover:border-red-300 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {loadingUndo ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Undo2 className="w-3.5 h-3.5" />}
-                  <span>Rückgängig</span>
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => onManualCheckin(participant.id)}
-                disabled={registrationBusy}
-                title="Manuell einchecken"
-                className="flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 hover:border-green-300 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {loadingCheckin ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <UserCheck className="w-3.5 h-3.5" />}
-                Einchecken
-              </button>
-            )
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
+            {participant.first_name} {participant.last_name}
+            {participant.guests > 0 && (
+              <span className="text-xs text-gray-400">+{participant.guests}</span>
+            )}
+            {participant.is_walk_in && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 leading-none">
+                Walk-in
+              </span>
+            )}
+          </p>
+          <p className="text-xs text-gray-400 truncate">{subtitle}</p>
+          {participant.notes && (
+            <p className="text-xs text-gray-400 truncate italic">{participant.notes}</p>
           )}
         </div>
       </div>
-
-      {/* Personen-Liste */}
-      {hasPersons && (
-        <div className="border-t border-gray-100 divide-y divide-gray-50">
-          {activePersons.map((pr) => {
-            const personBusy = personLoadingId === pr.person_id;
-            return (
-              <div key={pr.person_id} className={`flex items-center justify-between px-4 py-2 ${pr.checked_in_at ? "bg-green-50/60" : ""}`}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-semibold ${
-                    pr.checked_in_at ? "bg-green-200 text-green-800" : "bg-gray-100 text-gray-400"
-                  }`}>
-                    {pr.first_name[0]}{pr.last_name[0]}
-                  </div>
-                  <span className="text-sm text-gray-800 truncate">{pr.first_name} {pr.last_name}</span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  {pr.checked_in_at ? (
-                    <>
-                      <span className="flex items-center gap-1 text-xs text-green-700 font-medium">
-                        <CheckCircle2 className="w-3 h-3" />
-                        {formatTime(pr.checked_in_at)}
-                      </span>
-                      <button
-                        onClick={() => onPersonUndo(pr.person_id)}
-                        disabled={personBusy}
-                        className="flex items-center gap-0.5 px-1.5 py-1 text-xs border border-gray-200 hover:border-red-300 hover:bg-red-50 hover:text-red-600 rounded-md transition-colors disabled:opacity-50"
-                        title="Check-In rückgängig"
-                      >
-                        {personBusy ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Undo2 className="w-3 h-3" />}
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => onPersonCheckin(pr.person_id)}
-                      disabled={personBusy}
-                      className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 hover:border-green-300 hover:bg-green-50 hover:text-green-700 rounded-md transition-colors disabled:opacity-50"
-                    >
-                      {personBusy ? <RefreshCw className="w-3 h-3 animate-spin" /> : <UserCheck className="w-3 h-3" />}
-                      Einchecken
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <div className="flex items-center gap-2 shrink-0 ml-3">
+        <RegistrationDetailButton registrationId={participant.id} />
+        {checked ? (
+          <>
+            <span className="flex items-center gap-1 text-xs font-medium text-green-700">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              {formatTime(participant.checked_in_at)}
+            </span>
+            <button
+              onClick={() => onUndo(participant.id)}
+              disabled={busy}
+              title="Check-In rückgängig machen"
+              className="flex items-center gap-1 px-2 py-1.5 text-xs border border-gray-200 hover:border-red-300 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {loadingUndo ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Undo2 className="w-3.5 h-3.5" />
+              )}
+              <span>Rückgängig</span>
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={() => onManualCheckin(participant.id)}
+            disabled={busy}
+            title="Manuell einchecken"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 hover:border-green-300 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {loadingCheckin ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <UserCheck className="w-3.5 h-3.5" />
+            )}
+            Einchecken
+          </button>
+        )}
+      </div>
     </div>
   );
 }

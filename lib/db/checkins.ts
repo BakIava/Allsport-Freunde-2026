@@ -121,80 +121,28 @@ export async function markCheckedIn(
     SET checked_in_at = NOW(), checked_in_by = ${checkedInBy}
     WHERE id = ${registrationId}
   `;
-  // Alle nicht-stornierten Personen dieser Anmeldung einchecken
-  await sql`
-    UPDATE registration_persons
-    SET checked_in_at = NOW()
-    WHERE registration_id = ${registrationId}
-      AND cancelled_at IS NULL
-      AND checked_in_at IS NULL
-  `;
 }
 
 export async function getCheckinStatus(eventId: number): Promise<CheckinStatusResponse> {
   const sql = getSQL();
   const rows = await sql`
-    SELECT r.id, r.first_name, r.last_name, r.email, r.phone, r.guests,
-           r.checked_in_at, r.checked_in_by, r.is_walk_in, r.notes
-    FROM registrations r
-    WHERE r.event_id = ${eventId} AND r.status = 'approved'
-    ORDER BY r.last_name ASC, r.first_name ASC
+    SELECT id, first_name, last_name, email, phone, guests, checked_in_at, checked_in_by, is_walk_in, notes
+    FROM registrations
+    WHERE event_id = ${eventId} AND status = 'approved'
+    ORDER BY last_name ASC, first_name ASC
   `;
 
   const participants = rows as CheckinParticipant[];
-
-  // Personen aus registration_persons laden
-  const personRows = await sql`
-    SELECT rp.id AS person_id, rp.registration_id, rp.first_name, rp.last_name,
-           rp.checked_in_at, rp.cancelled_at
-    FROM registration_persons rp
-    JOIN registrations r ON rp.registration_id = r.id
-    WHERE r.event_id = ${eventId} AND r.status = 'approved'
-    ORDER BY rp.created_at ASC
-  `;
-
-  type PersonRow = { person_id: string; registration_id: number; first_name: string; last_name: string; checked_in_at: string | null; cancelled_at: string | null };
-  const personsByReg = new Map<number, PersonRow[]>();
-  for (const pr of personRows as PersonRow[]) {
-    const list = personsByReg.get(pr.registration_id) ?? [];
-    list.push(pr);
-    personsByReg.set(pr.registration_id, list);
-  }
-
-  const enriched = participants.map((p) => ({
-    ...p,
-    persons: (personsByReg.get(p.id) ?? []).map((pr) => ({
-      person_id: pr.person_id,
-      first_name: pr.first_name,
-      last_name: pr.last_name,
-      checked_in_at: pr.checked_in_at,
-      cancelled_at: pr.cancelled_at,
-    })),
-  }));
-
-  const totalRegistrations = enriched.length;
-  const walkIns = enriched.filter((p) => p.is_walk_in);
+  // Each registration = 1 Hauptperson + guests Begleiter
+  const totalRegistrations = participants.length;
+  const totalGuests = participants.reduce((sum, p) => sum + p.guests, 0);
+  const total = totalRegistrations + totalGuests;
+  const checkedIn = participants
+    .filter((p) => p.checked_in_at !== null)
+    .reduce((sum, p) => sum + p.guests + 1, 0);
+  const walkIns = participants.filter((p) => p.is_walk_in);
   const walkInRegistrations = walkIns.length;
   const walkInGuests = walkIns.reduce((sum, p) => sum + p.guests, 0);
-
-  // Personenzählung: wenn registration_persons vorhanden, diese zählen; sonst guests+1
-  let total = 0;
-  let checkedIn = 0;
-  let totalGuests = 0;
-
-  for (const p of enriched) {
-    const persons = p.persons ?? [];
-    if (persons.length > 0) {
-      const active = persons.filter((pr) => !pr.cancelled_at);
-      total += active.length;
-      checkedIn += active.filter((pr) => pr.checked_in_at !== null).length;
-      totalGuests += Math.max(0, active.length - 1);
-    } else {
-      total += p.guests + 1;
-      if (p.checked_in_at !== null) checkedIn += p.guests + 1;
-      totalGuests += p.guests;
-    }
-  }
 
   return {
     total,
@@ -204,7 +152,7 @@ export async function getCheckinStatus(eventId: number): Promise<CheckinStatusRe
     total_guests: totalGuests,
     walk_in_registrations: walkInRegistrations,
     walk_in_guests: walkInGuests,
-    participants: enriched,
+    participants,
   };
 }
 
