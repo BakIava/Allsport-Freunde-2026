@@ -25,6 +25,8 @@ interface RegistrationTableProps {
   upcomingOnly?: boolean;
 }
 
+const PAGE_SIZE = 25;
+
 export default function RegistrationTable({ eventId, upcomingOnly = false }: RegistrationTableProps) {
   const today = new Date().toISOString().split("T")[0];
   const { toast } = useToast();
@@ -33,6 +35,7 @@ export default function RegistrationTable({ eventId, upcomingOnly = false }: Reg
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("alle");
   const [statusFilter, setStatusFilter] = useState<string>("alle");
+  const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<RegistrationWithEvent | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -61,6 +64,9 @@ export default function RegistrationTable({ eventId, upcomingOnly = false }: Reg
 
   useEffect(() => { fetchRegistrations(); }, [eventId]);
 
+  // Reset to first page whenever filters change
+  useEffect(() => { setPage(1); }, [search, categoryFilter, statusFilter, upcomingOnly]);
+
   const filtered = useMemo(() => {
     return registrations.filter((r) => {
       if (upcomingOnly && !eventId && r.event_date < today) return false;
@@ -78,6 +84,9 @@ export default function RegistrationTable({ eventId, upcomingOnly = false }: Reg
       return true;
     });
   }, [registrations, search, categoryFilter, statusFilter, upcomingOnly, eventId, today]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -290,7 +299,7 @@ export default function RegistrationTable({ eventId, upcomingOnly = false }: Reg
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((r) => (
+                {paginated.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell>
                       <input
@@ -371,7 +380,7 @@ export default function RegistrationTable({ eventId, upcomingOnly = false }: Reg
 
           {/* ── Mobile: Card-Stack (< sm) ── */}
           <div className="sm:hidden space-y-3">
-            {filtered.map((r) => (
+            {paginated.map((r) => (
               <div
                 key={r.id}
                 className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
@@ -452,9 +461,32 @@ export default function RegistrationTable({ eventId, upcomingOnly = false }: Reg
         </>
       )}
 
-      <p className="text-sm text-muted-foreground">
-        {filtered.length} Anmeldung{filtered.length !== 1 ? "en" : ""}
-      </p>
+      <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
+        <span>
+          {filtered.length} Anmeldung{filtered.length !== 1 ? "en" : ""}
+          {totalPages > 1 && ` · Seite ${page} von ${totalPages}`}
+        </span>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p - 1)}
+              disabled={page === 1}
+            >
+              ←
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page === totalPages}
+            >
+              →
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* Status change dialog */}
       <Dialog open={!!statusTarget} onOpenChange={(o) => { if (!o) { setStatusTarget(null); setStatusNote(""); } }}>
