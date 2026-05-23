@@ -22,9 +22,11 @@ import type { RegistrationWithEvent, RegistrationStatus } from "@/lib/types";
 
 interface RegistrationTableProps {
   eventId?: number;
+  upcomingOnly?: boolean;
 }
 
-export default function RegistrationTable({ eventId }: RegistrationTableProps) {
+export default function RegistrationTable({ eventId, upcomingOnly = false }: RegistrationTableProps) {
+  const today = new Date().toISOString().split("T")[0];
   const { toast } = useToast();
   const [registrations, setRegistrations] = useState<RegistrationWithEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +63,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
 
   const filtered = useMemo(() => {
     return registrations.filter((r) => {
+      if (upcomingOnly && !eventId && r.event_date < today) return false;
       if (categoryFilter !== "alle" && r.event_category !== categoryFilter) return false;
       if (statusFilter !== "alle" && r.status !== statusFilter) return false;
       if (search) {
@@ -74,7 +77,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
       }
       return true;
     });
-  }, [registrations, search, categoryFilter, statusFilter]);
+  }, [registrations, search, categoryFilter, statusFilter, upcomingOnly, eventId, today]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
