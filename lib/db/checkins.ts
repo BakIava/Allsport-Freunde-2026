@@ -30,7 +30,8 @@ export async function getCheckinEvents(): Promise<{
 
   const sql = getSQL();
 
-  const rows = await sql`
+  // Core query — no financial subqueries so it never fails due to missing tables
+  const coreQuery = sql`
     SELECT
       e.id,
       e.title,
@@ -41,8 +42,6 @@ export async function getCheckinEvents(): Promise<{
       e.entry_price::float8 AS entry_price,
       COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END)::int AS approved_count,
       COUNT(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN rp.id ELSE NULL END)::int AS checked_in_count,
-      COALESCE((SELECT SUM(ec.amount)::float8 FROM event_costs ec WHERE ec.event_id = e.id), 0)::float8 AS total_costs,
-      COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations,
       COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END)::float8 * COALESCE(e.entry_price::float8, 0) AS expected_revenue,
       COUNT(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN rp.id ELSE NULL END)::float8 * COALESCE(e.entry_price::float8, 0) AS actual_revenue
     FROM events e
@@ -53,7 +52,7 @@ export async function getCheckinEvents(): Promise<{
     ORDER BY e.date ASC, e.time ASC
   `;
 
-  const pastRows = await sql`
+  const corePastQuery = sql`
     SELECT
       e.id,
       e.title,
@@ -64,8 +63,6 @@ export async function getCheckinEvents(): Promise<{
       e.entry_price::float8 AS entry_price,
       COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END)::int AS approved_count,
       COUNT(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN rp.id ELSE NULL END)::int AS checked_in_count,
-      COALESCE((SELECT SUM(ec.amount)::float8 FROM event_costs ec WHERE ec.event_id = e.id), 0)::float8 AS total_costs,
-      COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations,
       COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END)::float8 * COALESCE(e.entry_price::float8, 0) AS expected_revenue,
       COUNT(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN rp.id ELSE NULL END)::float8 * COALESCE(e.entry_price::float8, 0) AS actual_revenue
     FROM events e
@@ -77,14 +74,36 @@ export async function getCheckinEvents(): Promise<{
     LIMIT 10
   `;
 
+  const [rows, pastRows] = await Promise.all([coreQuery, corePastQuery]);
+
+  // Financial data — wrapped in try/catch in case tables are not yet migrated
+  type FinRow = { event_id: number; total: number };
+  let costsMap = new Map<number, number>();
+  let donationsMap = new Map<number, number>();
+  try {
+    const costRows = await sql`SELECT event_id, SUM(amount)::float8 AS total FROM event_costs GROUP BY event_id` as FinRow[];
+    for (const r of costRows) costsMap.set(r.event_id, r.total);
+  } catch { /* event_costs table not yet migrated */ }
+  try {
+    const donationRows = await sql`SELECT event_id, SUM(amount)::float8 AS total FROM event_donations GROUP BY event_id` as FinRow[];
+    for (const r of donationRows) donationsMap.set(r.event_id, r.total);
+  } catch { /* event_donations table not yet migrated */ }
+
+  type CoreRow = Omit<CheckinEventRow, "total_costs" | "total_donations">;
+  const enrich = (r: CoreRow): CheckinEventRow => ({
+    ...r,
+    total_costs: costsMap.get(r.id) ?? 0,
+    total_donations: donationsMap.get(r.id) ?? 0,
+  });
+
   // process.env.TZ can be ":UTC" (POSIX prefix) which Intl rejects – strip it
   const tz = (process.env.TZ || "Europe/Berlin").replace(/^:/, "");
   const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: tz });
 
   return {
-    today: (rows as CheckinEventRow[]).filter((r) => r.date === todayStr),
-    upcoming: (rows as CheckinEventRow[]).filter((r) => r.date > todayStr),
-    past: pastRows as CheckinEventRow[],
+    today: (rows as CoreRow[]).filter((r) => r.date === todayStr).map(enrich),
+    upcoming: (rows as CoreRow[]).filter((r) => r.date > todayStr).map(enrich),
+    past: (pastRows as CoreRow[]).map(enrich),
   };
 }
 
