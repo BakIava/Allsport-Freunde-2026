@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { flushSync } from "react-dom";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EventWithRegistrations } from "@/lib/types";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, Plus, X, Users } from "lucide-react";
+import { LastNameInput } from "@/components/ui/LastNameInput";
+
+interface Person {
+  firstName: string;
+  lastName: string;
+}
 
 interface RegistrationModalProps {
   event: EventWithRegistrations | null;
@@ -27,45 +34,58 @@ export default function RegistrationModal({
   onOpenChange,
   onSuccess,
 }: RegistrationModalProps) {
-  const [formData, setFormData] = useState({
-    first_name: "",
-    last_name: "",
-    email: "",
-    phone: "",
-    guests: 0,
-    accepted: false,
-  });
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [persons, setPersons] = useState<Person[]>([{ firstName: "", lastName: "" }]);
+  const firstNameRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [statusToken, setStatusToken] = useState<string | null>(null);
 
+  const maxPerEmail = event?.max_per_email ?? 5;
+
   const resetForm = () => {
-    setFormData({
-      first_name: "",
-      last_name: "",
-      email: "",
-      phone: "",
-      guests: 0,
-      accepted: false,
-    });
+    setEmail("");
+    setPhone("");
+    setPersons([{ firstName: "", lastName: "" }]);
+    setAccepted(false);
     setError(null);
     setSuccess(false);
     setStatusToken(null);
   };
 
   const handleClose = (open: boolean) => {
-    if (!open) {
-      resetForm();
-    }
+    if (!open) resetForm();
     onOpenChange(open);
+  };
+
+  const addPerson = () => {
+    if (persons.length >= maxPerEmail) return;
+    const newIdx = persons.length;
+    flushSync(() => {
+      setPersons((prev) => [...prev, { firstName: "", lastName: "" }]);
+    });
+    firstNameRefs.current[newIdx]?.focus();
+  };
+
+  const removePerson = (idx: number) => {
+    if (persons.length <= 1) return;
+    setPersons((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const updatePerson = (idx: number, field: keyof Person, value: string) => {
+    setPersons((prev) =>
+      prev.map((p, i) => (i === idx ? { ...p, [field]: value } : p))
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!event) return;
 
-    if (!formData.accepted) {
+    if (!accepted) {
       setError("Bitte akzeptiere die Teilnahmebedingungen.");
       return;
     }
@@ -79,11 +99,12 @@ export default function RegistrationModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           event_id: event.id,
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          email: formData.email,
-          phone: formData.phone,
-          guests: formData.guests,
+          email: email.trim(),
+          phone: phone.trim(),
+          persons: persons.map((p) => ({
+            firstName: p.firstName.trim(),
+            lastName: p.lastName.trim(),
+          })),
         }),
       });
 
@@ -108,7 +129,7 @@ export default function RegistrationModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="mx-4">
+      <DialogContent className="mx-4 max-h-[90vh] overflow-y-auto">
         {success ? (
           <div className="text-center py-6">
             <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
@@ -118,8 +139,8 @@ export default function RegistrationModal({
             <p className="text-gray-600 mb-1">
               Deine Anmeldung wird nun geprüft:
             </p>
-            <p className="font-semibold text-gray-900 mb-4">{event.title}</p>
-            <div className="text-sm text-gray-500 space-y-1 mb-4">
+            <p className="font-semibold text-gray-900 mb-2">{event.title}</p>
+            <div className="text-sm text-gray-500 space-y-1 mb-2">
               <p>
                 {new Date(event.date + "T00:00:00").toLocaleDateString("de-DE", {
                   weekday: "long",
@@ -130,10 +151,19 @@ export default function RegistrationModal({
                 um {event.time} Uhr
               </p>
               <p>{event.location}</p>
-              {formData.guests > 0 && (
-                <p>+ {formData.guests} Begleitperson{formData.guests > 1 ? "en" : ""}</p>
-              )}
             </div>
+            {persons.length > 0 && (
+              <div className="bg-green-50 rounded-lg p-3 mb-3 text-left">
+                <p className="text-xs font-semibold text-green-700 mb-1">
+                  {persons.length} {persons.length === 1 ? "Person" : "Personen"} angemeldet:
+                </p>
+                {persons.map((p, i) => (
+                  <p key={i} className="text-sm text-green-900">
+                    {p.firstName} {p.lastName}
+                  </p>
+                ))}
+              </div>
+            )}
             <p className="text-sm text-amber-600 bg-amber-50 rounded-lg p-3 mb-4">
               Du erhältst eine E-Mail, sobald deine Anmeldung bestätigt wurde.
             </p>
@@ -160,91 +190,123 @@ export default function RegistrationModal({
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Contact */}
+              <div className="space-y-3">
                 <div className="space-y-2">
-                  <Label htmlFor="first_name">Vorname *</Label>
+                  <Label htmlFor="email">E-Mail *</Label>
                   <Input
-                    id="first_name"
+                    id="email"
+                    type="email"
                     required
-                    value={formData.first_name}
-                    maxLength={50}
-                    onChange={(e) =>
-                      setFormData({ ...formData, first_name: e.target.value })
-                    }
-                    placeholder="Max"
+                    value={email}
+                    maxLength={255}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="max@beispiel.de"
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="last_name">Nachname *</Label>
+                  <Label htmlFor="phone">Telefonnummer (WhatsApp) *</Label>
                   <Input
-                    id="last_name"
+                    id="phone"
+                    type="tel"
                     required
-                    value={formData.last_name}
-                    maxLength={50}
-                    onChange={(e) =>
-                      setFormData({ ...formData, last_name: e.target.value })
-                    }
-                    placeholder="Mustermann"
+                    value={phone}
+                    maxLength={20}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="0151 12345678"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">E-Mail *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  required
-                  value={formData.email}
-                  maxLength={255}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  placeholder="max@beispiel.de"
-                />
+              {/* Persons */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-gray-500" />
+                    <Label className="text-sm font-semibold">
+                      Personen
+                    </Label>
+                    <span className="text-xs text-gray-400">
+                      (max. {maxPerEmail} pro E-Mail)
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    {persons.length} / {maxPerEmail}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {persons.map((person, idx) => (
+                    <div
+                      key={idx}
+                      className="border border-gray-100 rounded-lg p-3 bg-gray-50 space-y-2"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-gray-600">
+                          Person {idx + 1}
+                          {idx === 0 && (
+                            <span className="ml-1 text-gray-400">(du)</span>
+                          )}
+                        </span>
+                        {persons.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removePerson(idx)}
+                            className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Person entfernen"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Input
+                            ref={(el) => { firstNameRefs.current[idx] = el; }}
+                            required
+                            value={person.firstName}
+                            maxLength={50}
+                            onChange={(e) => updatePerson(idx, "firstName", e.target.value)}
+                            placeholder="Vorname"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <LastNameInput
+                            required
+                            value={person.lastName}
+                            maxLength={50}
+                            onChange={(v) => updatePerson(idx, "lastName", v)}
+                            siblings={persons.filter((_, i) => i !== idx).map((p) => p.lastName)}
+                            className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {persons.length < maxPerEmail && (
+                  <button
+                    type="button"
+                    onClick={addPerson}
+                    className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-green-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Person hinzufügen
+                  </button>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="phone">Telefonnummer (WhatsApp) *</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  required
-                  value={formData.phone}
-                  maxLength={20}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
-                  placeholder="0151 12345678"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="guests">Wie viele Leute nimmst du mit?</Label>
-                <Input
-                  id="guests"
-                  type="number"
-                  min={0}
-                  max={10}
-                  value={formData.guests}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      guests: parseInt(e.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
-
+              {/* Consent */}
               <div className="flex items-start gap-2">
                 <input
                   type="checkbox"
                   id="accepted"
-                  checked={formData.accepted}
-                  onChange={(e) =>
-                    setFormData({ ...formData, accepted: e.target.checked })
-                  }
+                  checked={accepted}
+                  onChange={(e) => setAccepted(e.target.checked)}
                   className="mt-1 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer"
                 />
                 <Label htmlFor="accepted" className="text-sm text-gray-600 cursor-pointer">
@@ -271,7 +333,7 @@ export default function RegistrationModal({
                     Wird gesendet...
                   </>
                 ) : (
-                  "Anmeldung absenden"
+                  `${persons.length} ${persons.length === 1 ? "Person" : "Personen"} anmelden`
                 )}
               </Button>
             </form>

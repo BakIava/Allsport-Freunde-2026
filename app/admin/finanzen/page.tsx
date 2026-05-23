@@ -17,6 +17,8 @@ import {
   Wallet,
   LayoutDashboard,
   FileText,
+  BadgeCheck,
+  AlertTriangle,
 } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
 import { formatEuro } from "@/lib/finance";
@@ -101,7 +103,7 @@ function applyFilters(
       return true;
     })
     .map((e) => {
-      const actual = e.actual_revenue ?? 0;
+      const actual = e.cash_counted != null ? e.cash_counted : (e.actual_revenue ?? 0);
       const donations = e.total_donations ?? 0;
       const costs = e.total_costs ?? 0;
       return { ...e, balance: actual + donations - costs };
@@ -267,7 +269,7 @@ export default function FinanzenPage() {
   const totals = useMemo(() => {
     const totalCosts = filteredRows.reduce((s: number, e: FinanceRow) => s + (e.total_costs ?? 0), 0);
     const totalExpected = filteredRows.reduce((s: number, e: FinanceRow) => s + (e.expected_revenue ?? 0), 0);
-    const totalRevenue = filteredRows.reduce((s: number, e: FinanceRow) => s + (e.actual_revenue ?? 0), 0);
+    const totalRevenue = filteredRows.reduce((s: number, e: FinanceRow) => s + (e.cash_counted != null ? e.cash_counted : (e.actual_revenue ?? 0)), 0);
     const totalDonations = filteredRows.reduce((s: number, e: FinanceRow) => s + (e.total_donations ?? 0), 0);
     const balance = totalRevenue + totalDonations - totalCosts;
     return { totalCosts, totalExpected, totalRevenue, totalDonations, balance };
@@ -282,7 +284,7 @@ export default function FinanzenPage() {
         formatDate(e.date),
         toCsvDecimal(e.total_costs ?? 0),
         hasPrice ? toCsvDecimal(e.expected_revenue ?? 0) : "",
-        hasPrice ? toCsvDecimal(e.actual_revenue ?? 0) : "",
+        hasPrice ? toCsvDecimal(e.cash_counted != null ? e.cash_counted : (e.actual_revenue ?? 0)) : "",
         (e.total_donations ?? 0) > 0 ? toCsvDecimal(e.total_donations ?? 0) : "",
         toCsvDecimal(e.balance),
       ].join(";");
@@ -517,7 +519,28 @@ export default function FinanzenPage() {
                             </td>
                             <td className="px-3 py-3 text-right tabular-nums">
                               {hasPrice ? (
-                                <span className="text-green-700">{formatEuro(e.actual_revenue ?? 0)}</span>
+                                e.cash_counted != null ? (() => {
+                                  const diff = e.cash_counted - (e.actual_revenue ?? 0);
+                                  const exact = Math.abs(diff) < 0.005;
+                                  return (
+                                    <span className="inline-flex flex-col items-end gap-0.5">
+                                      <span className={`inline-flex items-center gap-1 font-medium ${exact ? "text-green-700" : "text-amber-600"}`}>
+                                        {exact
+                                          ? <BadgeCheck className="w-3.5 h-3.5" />
+                                          : <AlertTriangle className="w-3.5 h-3.5" />
+                                        }
+                                        {formatEuro(e.cash_counted)}
+                                      </span>
+                                      {!exact && (
+                                        <span className="text-xs text-amber-500">
+                                          {diff > 0 ? "+" : ""}{formatEuro(diff)} Abw.
+                                        </span>
+                                      )}
+                                    </span>
+                                  );
+                                })() : (
+                                  <span className="text-green-700">{formatEuro(e.actual_revenue ?? 0)}</span>
+                                )
                               ) : (
                                 <span className="text-gray-300">—</span>
                               )}

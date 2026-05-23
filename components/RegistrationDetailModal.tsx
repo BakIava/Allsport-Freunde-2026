@@ -191,8 +191,8 @@ export default function RegistrationDetailModal({
                 <Row
                   label="Begleitpersonen"
                   value={
-                    data.guests > 0
-                      ? `${data.guests} Person${data.guests !== 1 ? "en" : ""}`
+                    (data.person_count - 1) > 0
+                      ? `${data.person_count - 1} Person${(data.person_count - 1) !== 1 ? "en" : ""}`
                       : "Keine"
                   }
                 />

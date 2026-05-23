@@ -66,6 +66,8 @@ export default function EventForm({ event }: EventFormProps) {
     entry_price: event?.entry_price ?? null,
     dress_code: event?.dress_code ?? "",
     max_participants: event?.max_participants ?? 20,
+    max_per_email: event?.max_per_email ?? 5,
+    survey_url: event?.survey_url ?? null,
   });
   const [submitting, setSubmitting] = useState(false);
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
@@ -220,6 +222,7 @@ export default function EventForm({ event }: EventFormProps) {
       entry_price: tpl.entry_price ?? null,
       dress_code: tpl.dress_code,
       max_participants: tpl.max_participants,
+      max_per_email: tpl.max_per_email ?? 5,
     }));
     // Pre-fill images from template
     setImages(
@@ -523,6 +526,33 @@ export default function EventForm({ event }: EventFormProps) {
                   onChange={(e) => update("max_participants", parseInt(e.target.value) || 1)}
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="max_per_email">Max. Personen pro E-Mail</Label>
+                <Input
+                  id="max_per_email"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={formData.max_per_email ?? 5}
+                  onChange={(e) => update("max_per_email", parseInt(e.target.value) || 5)}
+                />
+                <p className="text-xs text-muted-foreground">Wie viele Personen darf eine E-Mail-Adresse anmelden? (Standard: 5)</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="survey_url">Feedback-Umfrage URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                id="survey_url"
+                type="url"
+                value={formData.survey_url ?? ""}
+                onChange={(e) => update("survey_url", e.target.value.trim() || null)}
+                placeholder="https://umfrage.example.com/feedback"
+              />
+              <p className="text-xs text-muted-foreground">
+                Wenn hinterlegt, wird 1 Tag nach dem Event automatisch eine Feedback-E-Mail an alle bestätigten Teilnehmer gesendet.
+              </p>
             </div>
 
             <div className="space-y-2">

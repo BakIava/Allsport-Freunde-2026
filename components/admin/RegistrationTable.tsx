@@ -22,15 +22,20 @@ import type { RegistrationWithEvent, RegistrationStatus } from "@/lib/types";
 
 interface RegistrationTableProps {
   eventId?: number;
+  upcomingOnly?: boolean;
 }
 
-export default function RegistrationTable({ eventId }: RegistrationTableProps) {
+const PAGE_SIZE = 25;
+
+export default function RegistrationTable({ eventId, upcomingOnly = false }: RegistrationTableProps) {
+  const today = new Date().toISOString().split("T")[0];
   const { toast } = useToast();
   const [registrations, setRegistrations] = useState<RegistrationWithEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("alle");
   const [statusFilter, setStatusFilter] = useState<string>("alle");
+  const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<RegistrationWithEvent | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -59,8 +64,12 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
 
   useEffect(() => { fetchRegistrations(); }, [eventId]);
 
+  // Reset to first page whenever filters change
+  useEffect(() => { setPage(1); }, [search, categoryFilter, statusFilter, upcomingOnly]);
+
   const filtered = useMemo(() => {
     return registrations.filter((r) => {
+      if (upcomingOnly && !eventId && r.event_date < today) return false;
       if (categoryFilter !== "alle" && r.event_category !== categoryFilter) return false;
       if (statusFilter !== "alle" && r.status !== statusFilter) return false;
       if (search) {
@@ -74,7 +83,10 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
       }
       return true;
     });
-  }, [registrations, search, categoryFilter, statusFilter]);
+  }, [registrations, search, categoryFilter, statusFilter, upcomingOnly, eventId, today]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -287,7 +299,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((r) => (
+                {paginated.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell>
                       <input
@@ -311,7 +323,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
                       </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">{r.email}</TableCell>
-                    <TableCell className="hidden lg:table-cell">{r.guests}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{r.person_count - 1}</TableCell>
                     <TableCell>
                       <StatusBadge status={r.status || "pending"} />
                     </TableCell>
@@ -368,7 +380,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
 
           {/* ── Mobile: Card-Stack (< sm) ── */}
           <div className="sm:hidden space-y-3">
-            {filtered.map((r) => (
+            {paginated.map((r) => (
               <div
                 key={r.id}
                 className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
@@ -449,9 +461,32 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
         </>
       )}
 
-      <p className="text-sm text-muted-foreground">
-        {filtered.length} Anmeldung{filtered.length !== 1 ? "en" : ""}
-      </p>
+      <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
+        <span>
+          {filtered.length} Anmeldung{filtered.length !== 1 ? "en" : ""}
+          {totalPages > 1 && ` · Seite ${page} von ${totalPages}`}
+        </span>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p - 1)}
+              disabled={page === 1}
+            >
+              ←
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page === totalPages}
+            >
+              →
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* Status change dialog */}
       <Dialog open={!!statusTarget} onOpenChange={(o) => { if (!o) { setStatusTarget(null); setStatusNote(""); } }}>

@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         participant: {
           name: `${registration.first_name} ${registration.last_name}`,
           email: registration.email,
-          guests: registration.guests,
+          guests: registration.person_count - 1,
         },
       });
     }
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       participant: {
         name: `${registration.first_name} ${registration.last_name}`,
         email: registration.email,
-        guests: registration.guests,
+        guests: registration.person_count - 1,
       },
     });
   } catch (error) {

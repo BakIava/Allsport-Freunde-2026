@@ -11,42 +11,44 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {
       event_id: number;
-      first_name: string;
-      last_name: string;
-      email?: string;
+      persons: Array<{ firstName: string; lastName: string }>;
+      email: string;
       phone?: string;
       notes?: string;
-      guests?: number;
     };
 
-    const { event_id, first_name, last_name, email, phone, notes, guests } = body;
+    const { event_id, persons, email, phone, notes } = body;
 
     if (!event_id || typeof event_id !== "number") {
       return NextResponse.json({ error: "event_id fehlt oder ungültig." }, { status: 400 });
     }
-    if (!first_name?.trim()) {
-      return NextResponse.json({ error: "Vorname ist erforderlich." }, { status: 400 });
-    }
-    if (!last_name?.trim()) {
-      return NextResponse.json({ error: "Nachname ist erforderlich." }, { status: 400 });
+
+    if (!email?.trim()) {
+      return NextResponse.json({ error: "E-Mail-Adresse ist erforderlich." }, { status: 400 });
     }
 
-    // Basic email format validation if provided
-    const emailTrimmed = email?.trim() || null;
-    if (emailTrimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
+    const emailTrimmed = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
       return NextResponse.json({ error: "Ungültige E-Mail-Adresse." }, { status: 400 });
     }
 
-    const guestCount = typeof guests === "number" && guests >= 0 && guests <= 10 ? Math.floor(guests) : 0;
+    if (!Array.isArray(persons) || persons.length === 0) {
+      return NextResponse.json({ error: "Mindestens eine Person ist erforderlich." }, { status: 400 });
+    }
+
+    for (const p of persons) {
+      if (!p.firstName?.trim() || !p.lastName?.trim()) {
+        return NextResponse.json({ error: "Alle Personen benötigen Vor- und Nachname." }, { status: 400 });
+      }
+    }
+
     const adminName = session.user?.name ?? "admin";
     const result = await createWalkInRegistration({
       event_id,
-      first_name: first_name.trim(),
-      last_name: last_name.trim(),
+      persons: persons.map((p) => ({ firstName: p.firstName.trim(), lastName: p.lastName.trim() })),
       email: emailTrimmed,
       phone: phone?.trim() || null,
       notes: notes?.trim() || null,
-      guests: guestCount,
       checked_in_by: adminName,
     });
 

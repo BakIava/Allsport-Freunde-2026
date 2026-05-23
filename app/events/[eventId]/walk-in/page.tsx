@@ -114,6 +114,7 @@ export default async function WalkInPage({
       eventTitle={event.title}
       eventDate={formattedDate}
       eventLocation={event.location}
+      maxPersons={event.max_per_email ?? 5}
     />
   );
 }

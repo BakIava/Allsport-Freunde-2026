@@ -14,22 +14,26 @@ import type {
   EventTemplateInput,
   EventImage,
   EventImageInput,
+  EventPerson,
 } from "./types";
 
 const NOW = new Date().toISOString();
 const seedEvents: EventWithRegistrations[] = [
-  { id: 1, title: "Freundschaftskick im Park", category: "fussball", description: "Lockeres Fußballspiel für alle Altersgruppen. Kommt vorbei und kickt mit!", date: "2026-04-12", time: "15:00", location: "Sportpark am Main, Frankfurt", parking_location: "Parkplatz Sportpark, Maastrichter Str., Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Fußballschuhe (Rasen)", max_participants: 20, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 5, pending_participants: 0 },
-  { id: 2, title: "HIIT Outdoor Training", category: "fitness", description: "Hochintensives Intervalltraining an der frischen Luft. Für Anfänger und Fortgeschrittene.", date: "2026-04-05", time: "10:00", location: "Grüneburgpark, Frankfurt", parking_location: "Parkplatz Grüneburgpark, Miquelallee, Frankfurt", price: "5 €", dress_code: "Sportkleidung & Laufschuhe", max_participants: 15, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 8, pending_participants: 0 },
-  { id: 3, title: "Schwimmtraining für Anfänger", category: "schwimmen", description: "Grundlagen des Schwimmens lernen in entspannter Atmosphäre. Trainer vor Ort.", date: "2026-04-08", time: "18:00", location: "Hallenbad Höchst, Frankfurt", parking_location: null, price: "Spende willkommen", dress_code: "Badebekleidung & Handtuch", max_participants: 12, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 10, pending_participants: 0 },
-  { id: 4, title: "Fußball-Turnier: Rhein-Main Cup", category: "fussball", description: "Kleines Turnier mit gemischten Teams. Spaß und Fairplay stehen im Vordergrund!", date: "2026-04-19", time: "11:00", location: "Sportanlage Niederrad, Frankfurt", parking_location: "P+R Niederrad, Schwarzwaldstraße, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Hallenschuhe", max_participants: 24, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 22, pending_participants: 0 },
-  { id: 5, title: "Yoga & Stretching am Morgen", category: "fitness", description: "Sanfter Start in den Tag mit Yoga und Dehnübungen für Körper und Geist.", date: "2026-04-15", time: "08:00", location: "Vereinsraum, Offenbach", parking_location: null, price: "Kostenlos", dress_code: "Bequeme Kleidung & Yogamatte (falls vorhanden)", max_participants: 20, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 0, pending_participants: 2 },
-  { id: 6, title: "Aqua-Fitness Kurs", category: "schwimmen", description: "Gelenkschonendes Training im Wasser. Ideal für Einsteiger und Senioren.", date: "2026-04-22", time: "17:00", location: "Rebstockbad, Frankfurt", parking_location: "Parkplatz Rebstockbad, August-Euler-Str. 5, Frankfurt", price: "8 €", dress_code: "Badebekleidung & Handtuch", max_participants: 16, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 0, pending_participants: 0 },
-  { id: 7, title: "Familien-Fußballfest", category: "fussball", description: "Ein Nachmittag für die ganze Familie! Kleine Spiele, Torwandschießen und mehr.", date: "2026-05-03", time: "14:00", location: "Sportpark Preungesheim, Frankfurt", parking_location: null, price: "Kostenlos", dress_code: "Sportkleidung & Turnschuhe", max_participants: 30, status: "draft", cancellation_reason: null, published_at: null, created_at: NOW, current_participants: 0, pending_participants: 0 },
-  { id: 8, title: "Kraulschwimmen Technik-Workshop", category: "schwimmen", description: "Verbessere deine Kraultechnik mit unserem erfahrenen Trainer. Grundkenntnisse erforderlich.", date: "2026-04-29", time: "19:00", location: "Stadionbad, Frankfurt", parking_location: "Parkplatz Stadionbad, Mörfelder Landstr. 362, Frankfurt", price: "10 €", dress_code: "Badebekleidung, Schwimmbrille & Handtuch", max_participants: 10, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 10, pending_participants: 0 },
+  { id: 1, title: "Freundschaftskick im Park", category: "fussball", description: "Lockeres Fußballspiel für alle Altersgruppen. Kommt vorbei und kickt mit!", date: "2026-04-12", time: "15:00", location: "Sportpark am Main, Frankfurt", parking_location: "Parkplatz Sportpark, Maastrichter Str., Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Fußballschuhe (Rasen)", max_participants: 20, max_per_email: 5, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 5, pending_participants: 0 },
+  { id: 2, title: "HIIT Outdoor Training", category: "fitness", description: "Hochintensives Intervalltraining an der frischen Luft. Für Anfänger und Fortgeschrittene.", date: "2026-04-05", time: "10:00", location: "Grüneburgpark, Frankfurt", parking_location: "Parkplatz Grüneburgpark, Miquelallee, Frankfurt", price: "5 €", dress_code: "Sportkleidung & Laufschuhe", max_participants: 15, max_per_email: 5, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 8, pending_participants: 0 },
+  { id: 3, title: "Schwimmtraining für Anfänger", category: "schwimmen", description: "Grundlagen des Schwimmens lernen in entspannter Atmosphäre. Trainer vor Ort.", date: "2026-04-08", time: "18:00", location: "Hallenbad Höchst, Frankfurt", parking_location: null, price: "Spende willkommen", dress_code: "Badebekleidung & Handtuch", max_participants: 12, max_per_email: 5, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 10, pending_participants: 0 },
+  { id: 4, title: "Fußball-Turnier: Rhein-Main Cup", category: "fussball", description: "Kleines Turnier mit gemischten Teams. Spaß und Fairplay stehen im Vordergrund!", date: "2026-04-19", time: "11:00", location: "Sportanlage Niederrad, Frankfurt", parking_location: "P+R Niederrad, Schwarzwaldstraße, Frankfurt", price: "Kostenlos", dress_code: "Sportkleidung & Hallenschuhe", max_participants: 24, max_per_email: 5, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 22, pending_participants: 0 },
+  { id: 5, title: "Yoga & Stretching am Morgen", category: "fitness", description: "Sanfter Start in den Tag mit Yoga und Dehnübungen für Körper und Geist.", date: "2026-04-15", time: "08:00", location: "Vereinsraum, Offenbach", parking_location: null, price: "Kostenlos", dress_code: "Bequeme Kleidung & Yogamatte (falls vorhanden)", max_participants: 20, max_per_email: 5, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 0, pending_participants: 2 },
+  { id: 6, title: "Aqua-Fitness Kurs", category: "schwimmen", description: "Gelenkschonendes Training im Wasser. Ideal für Einsteiger und Senioren.", date: "2026-04-22", time: "17:00", location: "Rebstockbad, Frankfurt", parking_location: "Parkplatz Rebstockbad, August-Euler-Str. 5, Frankfurt", price: "8 €", dress_code: "Badebekleidung & Handtuch", max_participants: 16, max_per_email: 5, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 0, pending_participants: 0 },
+  { id: 7, title: "Familien-Fußballfest", category: "fussball", description: "Ein Nachmittag für die ganze Familie! Kleine Spiele, Torwandschießen und mehr.", date: "2026-05-03", time: "14:00", location: "Sportpark Preungesheim, Frankfurt", parking_location: null, price: "Kostenlos", dress_code: "Sportkleidung & Turnschuhe", max_participants: 30, max_per_email: 5, status: "draft", cancellation_reason: null, published_at: null, created_at: NOW, current_participants: 0, pending_participants: 0 },
+  { id: 8, title: "Kraulschwimmen Technik-Workshop", category: "schwimmen", description: "Verbessere deine Kraultechnik mit unserem erfahrenen Trainer. Grundkenntnisse erforderlich.", date: "2026-04-29", time: "19:00", location: "Stadionbad, Frankfurt", parking_location: "Parkplatz Stadionbad, Mörfelder Landstr. 362, Frankfurt", price: "10 €", dress_code: "Badebekleidung, Schwimmbrille & Handtuch", max_participants: 10, max_per_email: 5, status: "published", cancellation_reason: null, published_at: NOW, created_at: NOW, current_participants: 10, pending_participants: 0 },
 ];
 
+// Internal type keeps legacy fields for local dev/test data
+type LocalReg = Registration & { first_name: string; last_name: string; guests: number };
+
 let localEvents = [...seedEvents];
-let localRegistrations: Registration[] = [];
+let localRegistrations: LocalReg[] = [];
 let nextRegistrationId = 1;
 let nextEventId = 9;
 
@@ -99,13 +103,16 @@ function recomputeParticipants(eventId: number) {
     .reduce((sum, r) => sum + 1 + r.guests, 0);
 }
 
-function toRegistrationWithEvent(r: Registration): RegistrationWithEvent {
+function toRegistrationWithEvent(r: LocalReg): RegistrationWithEvent {
   const event = localEvents.find((e) => e.id === r.event_id);
   return {
     ...r,
     event_title: event?.title ?? "Unbekannt",
     event_date: event?.date ?? "",
     event_category: event?.category ?? "",
+    first_name: r.first_name,
+    last_name: r.last_name,
+    person_count: r.guests + 1,
   };
 }
 
@@ -222,17 +229,20 @@ export function findLocalRegistration(eventId: number, email: string) {
 
 export function createLocalRegistration(data: {
   event_id: number;
-  first_name: string;
-  last_name: string;
   email: string;
   phone: string;
-  guests: number;
   status_token: string;
-}): Registration {
-  const registration: Registration = {
+}): void {
+  const registration: LocalReg = {
     id: nextRegistrationId++,
-    ...data,
+    event_id: data.event_id,
+    first_name: "",
+    last_name: "",
+    email: data.email,
+    phone: data.phone,
+    guests: 0,
     status: "pending",
+    status_token: data.status_token,
     status_changed_at: null,
     status_note: null,
     created_at: new Date().toISOString(),
@@ -246,35 +256,33 @@ export function createLocalRegistration(data: {
   };
   localRegistrations.push(registration);
   recomputeParticipants(data.event_id);
-  return registration;
 }
 
 export function createLocalWalkInRegistration(data: {
   event_id: number;
-  first_name: string;
-  last_name: string;
+  persons: Array<{ firstName: string; lastName: string }>;
   email: string | null;
   phone: string | null;
   notes: string | null;
   checked_in_by: string | null;
-  guests?: number;
 }): { id: number; alreadyExists: boolean } {
   if (data.email) {
     const existing = localRegistrations.find(
-      (r) => r.event_id === data.event_id && r.email === data.email
+      (r) => r.event_id === data.event_id && r.email?.toLowerCase() === data.email!.toLowerCase()
     );
     if (existing) return { id: existing.id, alreadyExists: true };
   }
 
+  const first = data.persons[0] ?? { firstName: "", lastName: "" };
   const now = new Date().toISOString();
-  const registration: Registration = {
+  const registration: LocalReg = {
     id: nextRegistrationId++,
     event_id: data.event_id,
-    first_name: data.first_name,
-    last_name: data.last_name,
+    first_name: first.firstName,
+    last_name: first.lastName,
     email: data.email,
     phone: data.phone,
-    guests: data.guests ?? 0,
+    guests: Math.max(0, data.persons.length - 1),
     status: "approved",
     status_token: crypto.randomUUID(),
     status_changed_at: now,
@@ -300,6 +308,28 @@ export function getLocalRegistrationByToken(token: string): RegistrationStatusIn
   if (!reg) return null;
   const event = localEvents.find((e) => e.id === reg.event_id);
   if (!event) return null;
+
+  const persons: RegistrationStatusInfo["persons"] = [
+    {
+      id: `local-${reg.id}-0`,
+      registration_id: reg.id,
+      first_name: reg.first_name,
+      last_name: reg.last_name,
+      checked_in_at: reg.checked_in_at,
+      cancelled_at: null,
+      created_at: reg.created_at,
+    },
+    ...Array.from({ length: reg.guests }, (_, i) => ({
+      id: `local-${reg.id}-${i + 1}`,
+      registration_id: reg.id,
+      first_name: "Begleitperson",
+      last_name: `${i + 1}`,
+      checked_in_at: null,
+      cancelled_at: null,
+      created_at: reg.created_at,
+    })),
+  ];
+
   return {
     id: reg.id,
     first_name: reg.first_name,
@@ -319,6 +349,7 @@ export function getLocalRegistrationByToken(token: string): RegistrationStatusIn
     event_dress_code: event.dress_code,
     qr_code: reg.qr_code,
     checked_in_at: reg.checked_in_at,
+    persons,
   };
 }
 
@@ -377,11 +408,12 @@ export function createLocalEvent(data: EventCreateInput & { publish?: boolean })
   const id = nextEventId++;
   const status = data.publish ? "published" : "draft";
   const published_at = data.publish ? new Date().toISOString() : null;
-  const { images, publish, parking_location, ...eventFields } = data;
+  const { images, publish, parking_location, max_per_email, ...eventFields } = data;
   localEvents.push({
     id,
     ...eventFields,
     parking_location: parking_location ?? null,
+    max_per_email: max_per_email ?? 5,
     status,
     cancellation_reason: null,
     published_at,
@@ -421,7 +453,15 @@ export function resetLocalData(
   images: EventImage[] = []
 ): void {
   localEvents = [...events];
-  localRegistrations = [...registrations];
+  localRegistrations = registrations.map((r) => {
+    const lr = r as LocalReg;
+    return {
+      ...(r as Registration),
+      first_name: lr.first_name ?? "",
+      last_name: lr.last_name ?? "",
+      guests: lr.guests ?? 0,
+    };
+  });
   localTemplates = [...templates];
   localImages = [...images];
   localTemplateImages = [];
@@ -479,6 +519,42 @@ export function getLocalEventRegistrations(eventId: number): RegistrationWithEve
     .filter((r) => r.event_id === eventId)
     .map(toRegistrationWithEvent)
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+export function getLocalEventPersons(eventId: number): EventPerson[] {
+  const regs = localRegistrations.filter((r) => r.event_id === eventId);
+  const persons: EventPerson[] = [];
+  for (const r of regs) {
+    persons.push({
+      person_id: `local-${r.id}-0`,
+      registration_id: r.id,
+      first_name: r.first_name,
+      last_name: r.last_name,
+      checked_in_at: r.checked_in_at,
+      cancelled_at: null,
+      email: r.email,
+      phone: r.phone,
+      status: r.status,
+      is_walk_in: r.is_walk_in,
+      created_at: r.created_at,
+    });
+    for (let i = 0; i < r.guests; i++) {
+      persons.push({
+        person_id: `local-${r.id}-${i + 1}`,
+        registration_id: r.id,
+        first_name: "Begleitperson",
+        last_name: `${i + 1}`,
+        checked_in_at: null,
+        cancelled_at: null,
+        email: r.email,
+        phone: r.phone,
+        status: r.status,
+        is_walk_in: r.is_walk_in,
+        created_at: r.created_at,
+      });
+    }
+  }
+  return persons;
 }
 
 export function deleteLocalRegistration(id: number): void {

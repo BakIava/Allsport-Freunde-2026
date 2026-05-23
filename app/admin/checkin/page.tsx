@@ -176,11 +176,19 @@ function PastCard({ event }: { event: CheckinEvent }) {
 export default function CheckinOverviewPage() {
   const [data, setData] = useState<CheckinEventsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   async function load() {
+    setError(null);
     try {
-      const res = await fetch("/api/admin/checkin/events");      
-      if (res.ok) setData(await res.json());
+      const res = await fetch("/api/admin/checkin/events");
+      if (res.ok) {
+        setData(await res.json());
+      } else {
+        setError("Fehler beim Laden der Events.");
+      }
+    } catch {
+      setError("Netzwerkfehler.");
     } finally {
       setLoading(false);
     }
@@ -209,6 +217,11 @@ export default function CheckinOverviewPage() {
       {loading ? (
         <div className="flex justify-center py-20">
           <RefreshCw className="w-6 h-6 animate-spin text-green-600" />
+        </div>
+      ) : error ? (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm text-red-700">
+          {error}{" "}
+          <button onClick={load} className="underline font-medium hover:no-underline">Erneut versuchen</button>
         </div>
       ) : (
         <>

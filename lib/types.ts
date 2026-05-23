@@ -14,10 +14,14 @@ export interface Event {
   entry_price?: number | null;
   dress_code: string;
   max_participants: number;
+  /** Max persons per email address (default 5) */
+  max_per_email: number;
   status: EventStatus;
   cancellation_reason: string | null;
   published_at: string | null;
   created_at: string;
+  /** Optional URL for post-event feedback survey */
+  survey_url?: string | null;
 }
 
 export interface EventImage {
@@ -43,6 +47,9 @@ export interface EventWithRegistrations extends Event {
   expected_revenue?: number;
   actual_revenue?: number;
   total_donations?: number;
+  /** Physical cash count entered at end of event (from events.cash_counted) */
+  cash_counted?: number | null;
+  cash_counted_at?: string | null;
   /** Check-in summary for past events – included in admin getAllEvents query */
   total_registrations?: number;  // approved non-walk-in registrations
   checkin_count?: number;        // checked-in non-walk-in registrations
@@ -51,14 +58,21 @@ export interface EventWithRegistrations extends Event {
 
 export type RegistrationStatus = "pending" | "approved" | "rejected" | "cancelled";
 
+export interface RegistrationPerson {
+  id: string;
+  registration_id: number;
+  first_name: string;
+  last_name: string;
+  checked_in_at: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+}
+
 export interface Registration {
   id: number;
   event_id: number;
-  first_name: string;
-  last_name: string;
   email: string | null;
   phone: string | null;
-  guests: number;
   status: RegistrationStatus;
   status_token: string;
   status_changed_at: string | null;
@@ -71,6 +85,7 @@ export interface Registration {
   is_walk_in: boolean;
   notes: string | null;
   reminder_sent_at: string | null;
+  persons?: RegistrationPerson[];
 }
 
 export interface CancellationToken {
@@ -93,17 +108,20 @@ export interface WalkInInput {
 
 export interface RegistrationRequest {
   event_id: number;
-  first_name: string;
-  last_name: string;
   email: string;
   phone: string;
-  guests: number;
+  persons: Array<{ firstName: string; lastName: string }>;
 }
 
 export interface RegistrationWithEvent extends Registration {
   event_title: string;
   event_date: string;
   event_category: string;
+  /** From JOIN with registration_persons (first person) */
+  first_name: string;
+  last_name: string;
+  /** Total person count for this registration */
+  person_count: number;
 }
 
 export interface RegistrationDetail extends RegistrationWithEvent {
@@ -111,11 +129,27 @@ export interface RegistrationDetail extends RegistrationWithEvent {
   event_location: string;
 }
 
+export interface EventPerson {
+  person_id: string;
+  registration_id: number;
+  first_name: string;
+  last_name: string;
+  checked_in_at: string | null;
+  cancelled_at: string | null;
+  email: string | null;
+  phone: string | null;
+  status: RegistrationStatus;
+  is_walk_in: boolean;
+  created_at: string;
+}
+
 export interface RegistrationStatusInfo {
   id: number;
+  /** From JOIN with registration_persons (first person) */
   first_name: string;
   last_name: string;
   email: string;
+  /** Companion count = person_count - 1 */
   guests: number;
   status: RegistrationStatus;
   status_note: string | null;
@@ -130,19 +164,25 @@ export interface RegistrationStatusInfo {
   event_dress_code: string;
   qr_code: string | null;
   checked_in_at: string | null;
+  persons: RegistrationPerson[];
 }
 
 export interface CheckinParticipant {
   id: number;
+  /** From JOIN with registration_persons (first person) */
   first_name: string;
   last_name: string;
   email: string | null;
   phone: string | null;
+  /** Active person count - 1 (companions) */
   guests: number;
+  /** Registration-level check-in timestamp (set when QR scanned) */
   checked_in_at: string | null;
   checked_in_by: string | null;
   is_walk_in: boolean;
   notes: string | null;
+  /** All persons for this registration with individual check-in state */
+  persons: RegistrationPerson[];
 }
 
 export interface CheckinStatusResponse {
@@ -180,7 +220,7 @@ export interface PublishEventResult {
 export interface CancelEventResult {
   alreadyCancelled: boolean;
   event: { title: string; date: string; time: string; location: string } | null;
-  registrations: Pick<Registration, "email" | "first_name" | "last_name" | "status_token">[];
+  registrations: Array<{ email: string | null; first_name: string; last_name: string; status_token: string }>;
 }
 
 export interface TemplateCost {
@@ -208,6 +248,7 @@ export interface EventTemplate {
   entry_price?: number | null;
   dress_code: string;
   max_participants: number;
+  max_per_email?: number;
   last_used_at: string | null;
   created_at: string;
   images?: EventImageInput[];
@@ -241,6 +282,10 @@ export interface EventCreateInput {
   entry_price?: number | null;
   dress_code: string;
   max_participants: number;
+  /** Max persons per email address (default 5) */
+  max_per_email?: number;
+  /** Optional URL for post-event feedback survey */
+  survey_url?: string | null;
   images?: EventImageInput[];
 }
 
@@ -284,6 +329,9 @@ export interface EventFinancials {
   balance: number;
   costs: EventCost[];
   donations: EventDonation[];
+  /** Physical cash count entered at end of event */
+  cash_counted: number | null;
+  cash_counted_at: string | null;
 }
 
 // ─── Contact / Inquiry ───────────────────────────────────

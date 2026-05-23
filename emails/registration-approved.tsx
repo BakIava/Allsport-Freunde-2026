@@ -76,11 +76,21 @@ export function RegistrationApprovedEmail({
           )}
 
           <Text style={text}>
-            Alle Details zu deiner Anmeldung findest du hier:
+            Alle Details und deinen QR-Code für den Check-In findest du hier:
           </Text>
           <Link href={statusUrl} style={button}>
             Anmeldung ansehen
           </Link>
+          <Section style={cancelBox}>
+            <Text style={cancelHeading}>Doch verhindert?</Text>
+            <Text style={cancelText}>
+              Bitte sag rechtzeitig ab, damit wir den Platz weitergeben können.
+              Du kannst auch einzelne Personen aus der Anmeldung entfernen.
+            </Text>
+            <Link href={statusUrl} style={cancelButton}>
+              Anmeldung stornieren / Personen entfernen
+            </Link>
+          </Section>
           <Hr style={hr} />
           <Text style={footer}>
             Allsport Freunde 2026 e.V. – Gemeinsam sportlich in der Rhein-Main-Region
@@ -182,6 +192,40 @@ const button: React.CSSProperties = {
   textDecoration: "none",
   textAlign: "center" as const,
   margin: "16px 0",
+};
+
+const cancelBox: React.CSSProperties = {
+  backgroundColor: "#fff7ed",
+  borderRadius: "8px",
+  padding: "16px 20px",
+  margin: "24px 0 8px",
+  borderLeft: "4px solid #f97316",
+};
+
+const cancelHeading: React.CSSProperties = {
+  fontSize: "14px",
+  fontWeight: "bold",
+  color: "#9a3412",
+  margin: "0 0 6px 0",
+};
+
+const cancelText: React.CSSProperties = {
+  fontSize: "13px",
+  lineHeight: "20px",
+  color: "#7c3a1e",
+  margin: "0 0 12px 0",
+};
+
+const cancelButton: React.CSSProperties = {
+  backgroundColor: "#dc2626",
+  borderRadius: "6px",
+  color: "#ffffff",
+  display: "inline-block",
+  fontSize: "14px",
+  fontWeight: "bold",
+  padding: "10px 20px",
+  textDecoration: "none",
+  textAlign: "center" as const,
 };
 
 const hr: React.CSSProperties = {

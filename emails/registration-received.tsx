@@ -17,6 +17,7 @@ interface Props {
   eventTime: string;
   eventLocation: string;
   statusUrl: string;
+  persons?: Array<{ firstName: string; lastName: string }>;
 }
 
 export function RegistrationReceivedEmail({
@@ -26,6 +27,7 @@ export function RegistrationReceivedEmail({
   eventTime,
   eventLocation,
   statusUrl,
+  persons,
 }: Props) {
   return (
     <Html lang="de">
@@ -51,12 +53,39 @@ export function RegistrationReceivedEmail({
               <strong>Ort:</strong> {eventLocation}
             </Text>
           </Section>
+          {persons && persons.length > 0 && (
+            <Section style={personsBox}>
+              <Text style={personsHeading}>
+                Angemeldete Personen ({persons.length}):
+              </Text>
+              {persons.map((p, i) => (
+                <Text key={i} style={personItem}>
+                  • {p.firstName} {p.lastName}
+                </Text>
+              ))}
+              {persons.length > 1 && (
+                <Text style={personsNote}>
+                  Alle Personen werden beim Check-In mit einem QR-Code abgehakt.
+                </Text>
+              )}
+            </Section>
+          )}
           <Text style={text}>
             Du kannst den Status deiner Anmeldung jederzeit hier einsehen:
           </Text>
           <Link href={statusUrl} style={button}>
             Status prüfen
           </Link>
+          <Section style={cancelBox}>
+            <Text style={cancelHeading}>Kannst du doch nicht teilnehmen?</Text>
+            <Text style={cancelText}>
+              Bitte sag rechtzeitig ab, damit wir den Platz weitergeben können.
+              Einzelne Personen können ebenfalls aus der Anmeldung entfernt werden.
+            </Text>
+            <Link href={statusUrl} style={cancelButton}>
+              Anmeldung stornieren / Personen entfernen
+            </Link>
+          </Section>
           <Hr style={hr} />
           <Text style={footer}>
             Allsport Freunde 2026 e.V. – Gemeinsam sportlich in der Rhein-Main-Region
@@ -122,6 +151,40 @@ const button: React.CSSProperties = {
   margin: "16px 0",
 };
 
+const cancelBox: React.CSSProperties = {
+  backgroundColor: "#fff7ed",
+  borderRadius: "8px",
+  padding: "16px 20px",
+  margin: "24px 0 8px",
+  borderLeft: "4px solid #f97316",
+};
+
+const cancelHeading: React.CSSProperties = {
+  fontSize: "14px",
+  fontWeight: "bold",
+  color: "#9a3412",
+  margin: "0 0 6px 0",
+};
+
+const cancelText: React.CSSProperties = {
+  fontSize: "13px",
+  lineHeight: "20px",
+  color: "#7c3a1e",
+  margin: "0 0 12px 0",
+};
+
+const cancelButton: React.CSSProperties = {
+  backgroundColor: "#dc2626",
+  borderRadius: "6px",
+  color: "#ffffff",
+  display: "inline-block",
+  fontSize: "14px",
+  fontWeight: "bold",
+  padding: "10px 20px",
+  textDecoration: "none",
+  textAlign: "center" as const,
+};
+
 const hr: React.CSSProperties = {
   borderColor: "#e6ebf1",
   margin: "32px 0 16px",
@@ -131,4 +194,32 @@ const footer: React.CSSProperties = {
   fontSize: "12px",
   color: "#8898aa",
   lineHeight: "20px",
+};
+
+const personsBox: React.CSSProperties = {
+  backgroundColor: "#f0fdf4",
+  borderRadius: "8px",
+  padding: "12px 20px",
+  margin: "16px 0",
+};
+
+const personsHeading: React.CSSProperties = {
+  fontSize: "14px",
+  fontWeight: "bold",
+  color: "#166534",
+  margin: "0 0 8px 0",
+};
+
+const personItem: React.CSSProperties = {
+  fontSize: "14px",
+  lineHeight: "22px",
+  color: "#333333",
+  margin: "2px 0",
+};
+
+const personsNote: React.CSSProperties = {
+  fontSize: "12px",
+  color: "#4b7c5f",
+  marginTop: "8px",
+  fontStyle: "italic",
 };

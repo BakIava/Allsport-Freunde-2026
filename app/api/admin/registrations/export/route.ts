@@ -15,14 +15,14 @@ export async function GET(request: NextRequest) {
       registrations = await getAllRegistrations();
     }
 
-    const header = "Vorname;Nachname;E-Mail;Telefon;Begleitpersonen;Event;Event-Datum;Kategorie;Anmeldedatum;Walk-in;Bemerkung";
+    const header = "Vorname;Nachname;E-Mail;Telefon;Personen gesamt;Event;Event-Datum;Kategorie;Anmeldedatum;Walk-in;Bemerkung";
     const rows = registrations.map((r) =>
       [
         r.first_name,
         r.last_name,
         r.email || "",
         r.phone || "",
-        r.guests,
+        r.person_count,
         r.event_title,
         r.event_date,
         r.event_category,

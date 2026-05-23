@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StatusBadge from "./StatusBadge";
-import { Calendar, Clock, MapPin, Euro, Shirt, User, Users, Mail } from "lucide-react";
-import type { RegistrationStatusInfo } from "@/lib/types";
+import { Calendar, Clock, MapPin, Euro, Shirt, Mail, Users, X, CheckCircle2 } from "lucide-react";
+import type { RegistrationStatusInfo, RegistrationPerson, RegistrationStatus } from "@/lib/types";
 
 const categoryLabels: Record<string, string> = {
   fussball: "Fußball",
@@ -12,7 +12,7 @@ const categoryLabels: Record<string, string> = {
   schwimmen: "Schwimmen",
 };
 
-function formatDate(d: string) {  
+function formatDate(d: string) {
   return new Date(d).toLocaleDateString("de-DE", {
     weekday: "long",
     day: "numeric",
@@ -33,6 +33,120 @@ function formatDateTime(d: string) {
   });
 }
 
+interface PersonRowProps {
+  person: RegistrationPerson;
+  index: number;
+  token: string;
+  registrationStatus: RegistrationStatus;
+  onCancelled: (personId: string, allCancelled: boolean) => void;
+}
+
+function PersonRow({ person, index, token, registrationStatus, onCancelled }: PersonRowProps) {
+  const [cancelling, setCancelling] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isCancelled = !!person.cancelled_at;
+  const canCancel =
+    !isCancelled &&
+    (registrationStatus === "pending" || registrationStatus === "approved");
+
+  async function handleCancel() {
+    setCancelling(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/status/${token}/cancel-person/${person.id}`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Fehler beim Stornieren.");
+      } else {
+        onCancelled(person.id, data.allCancelled);
+        setConfirmOpen(false);
+      }
+    } catch {
+      setError("Netzwerkfehler. Bitte versuche es erneut.");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  return (
+    <div
+      className={`rounded-lg border p-3 space-y-2 ${
+        isCancelled ? "border-gray-100 bg-gray-50 opacity-60" : "border-gray-200 bg-white"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">
+            {index + 1}
+          </span>
+          <div className="min-w-0">
+            <p className={`text-sm font-medium ${isCancelled ? "line-through text-gray-400" : "text-gray-900"}`}>
+              {person.first_name} {person.last_name}
+              {index === 0 && <span className="ml-1.5 text-xs text-gray-400 font-normal">(du)</span>}
+            </p>
+            {person.checked_in_at && (
+              <p className="text-xs text-green-600 flex items-center gap-1 mt-0.5">
+                <CheckCircle2 className="w-3 h-3" />
+                Eingecheckt {formatDateTime(person.checked_in_at)}
+              </p>
+            )}
+            {isCancelled && (
+              <p className="text-xs text-gray-400 mt-0.5">
+                Storniert {formatDateTime(person.cancelled_at!)}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {canCancel && !confirmOpen && (
+          <button
+            onClick={() => setConfirmOpen(true)}
+            className="flex-shrink-0 text-xs text-gray-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50"
+            title="Person stornieren"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+
+        {isCancelled && (
+          <span className="flex-shrink-0 text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+            Storniert
+          </span>
+        )}
+      </div>
+
+      {confirmOpen && (
+        <div className="border border-red-200 bg-red-50 rounded-lg p-3 space-y-2">
+          <p className="text-xs text-red-700 font-medium">
+            {person.first_name} {person.last_name} wirklich stornieren?
+          </p>
+          {error && <p className="text-xs text-red-700">{error}</p>}
+          <div className="flex gap-2">
+            <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="flex-1 text-xs bg-red-600 text-white rounded-lg py-1.5 px-3 hover:bg-red-700 disabled:opacity-50 transition-colors"
+            >
+              {cancelling ? "Wird storniert…" : "Ja, stornieren"}
+            </button>
+            <button
+              onClick={() => { setConfirmOpen(false); setError(null); }}
+              disabled={cancelling}
+              className="flex-1 text-xs border border-gray-200 text-gray-600 rounded-lg py-1.5 px-3 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function StatusPage({
   info,
   justCancelled = false,
@@ -40,27 +154,45 @@ export default function StatusPage({
   info: RegistrationStatusInfo;
   justCancelled?: boolean;
 }) {
-  const [status, setStatus] = useState(info.status);
+  const token = typeof window !== "undefined"
+    ? window.location.pathname.split("/").pop() ?? ""
+    : "";
+
+  const [status, setStatus] = useState<RegistrationStatus>(info.status);
   const [statusChangedAt, setStatusChangedAt] = useState(info.status_changed_at);
+  const [persons, setPersons] = useState<RegistrationPerson[]>(info.persons ?? []);
   const [cancelling, setCancelling] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmAllOpen, setConfirmAllOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const activePersons = persons.filter((p) => !p.cancelled_at);
   const canCancel = status === "pending" || status === "approved";
 
-  async function handleCancel() {
+  function handlePersonCancelled(personId: string, allCancelled: boolean) {
+    const now = new Date().toISOString();
+    setPersons((prev) =>
+      prev.map((p) => (p.id === personId ? { ...p, cancelled_at: now } : p))
+    );
+    if (allCancelled) {
+      setStatus("cancelled");
+      setStatusChangedAt(now);
+    }
+  }
+
+  async function handleCancelAll() {
     setCancelling(true);
     setError(null);
     try {
-      const token = window.location.pathname.split("/").pop();
       const res = await fetch(`/api/status/${token}/cancel`, { method: "POST" });
       if (!res.ok) {
         const data = await res.json();
         setError(data.error ?? "Fehler beim Stornieren.");
       } else {
+        const now = new Date().toISOString();
         setStatus("cancelled");
-        setStatusChangedAt(new Date().toISOString());
-        setConfirmOpen(false);
+        setStatusChangedAt(now);
+        setPersons((prev) => prev.map((p) => ({ ...p, cancelled_at: p.cancelled_at ?? now })));
+        setConfirmAllOpen(false);
       }
     } catch {
       setError("Netzwerkfehler. Bitte versuche es erneut.");
@@ -140,47 +272,87 @@ export default function StatusPage({
                 Zuletzt aktualisiert: {formatDateTime(statusChangedAt)}
               </p>
             )}
-
-            {canCancel && !confirmOpen && (
-              <button
-                onClick={() => setConfirmOpen(true)}
-                className="mt-2 w-full text-sm text-gray-500 border border-gray-200 rounded-lg py-2 px-4 hover:bg-gray-50 hover:text-red-600 hover:border-red-200 transition-colors"
-              >
-                Anmeldung stornieren
-              </button>
-            )}
-
-            {canCancel && confirmOpen && (
-              <div className="border border-red-200 bg-red-50 rounded-lg p-4 space-y-3">
-                <p className="text-sm text-red-700 font-medium">
-                  Möchtest du deine Anmeldung wirklich stornieren?
-                </p>
-                <p className="text-xs text-red-600">
-                  Diese Aktion kann nicht rückgängig gemacht werden.
-                </p>
-                {error && (
-                  <p className="text-xs text-red-700 font-medium">{error}</p>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleCancel}
-                    disabled={cancelling}
-                    className="flex-1 text-sm bg-red-600 text-white rounded-lg py-2 px-4 hover:bg-red-700 disabled:opacity-50 transition-colors"
-                  >
-                    {cancelling ? "Wird storniert…" : "Ja, stornieren"}
-                  </button>
-                  <button
-                    onClick={() => { setConfirmOpen(false); setError(null); }}
-                    disabled={cancelling}
-                    className="flex-1 text-sm border border-gray-200 text-gray-600 rounded-lg py-2 px-4 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                  >
-                    Abbrechen
-                  </button>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
+
+        {/* Persons card */}
+        {persons.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="w-4 h-4 text-gray-500" />
+                  Angemeldete Personen
+                  <span className="text-sm font-normal text-gray-400">
+                    ({activePersons.length} aktiv)
+                  </span>
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {persons.map((person, idx) => (
+                <PersonRow
+                  key={person.id}
+                  person={person}
+                  index={idx}
+                  token={token}
+                  registrationStatus={status}
+                  onCancelled={handlePersonCancelled}
+                />
+              ))}
+
+              {/* Cancel all button — only show when multiple active persons remain */}
+              {canCancel && activePersons.length > 1 && !confirmAllOpen && (
+                <button
+                  onClick={() => setConfirmAllOpen(true)}
+                  className="mt-2 w-full text-sm text-gray-500 border border-gray-200 rounded-lg py-2 px-4 hover:bg-gray-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                >
+                  Alle stornieren
+                </button>
+              )}
+
+              {/* Cancel all when only 1 person */}
+              {canCancel && activePersons.length === 1 && persons.length === 1 && !confirmAllOpen && (
+                <button
+                  onClick={() => setConfirmAllOpen(true)}
+                  className="mt-2 w-full text-sm text-gray-500 border border-gray-200 rounded-lg py-2 px-4 hover:bg-gray-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                >
+                  Anmeldung stornieren
+                </button>
+              )}
+
+              {confirmAllOpen && (
+                <div className="border border-red-200 bg-red-50 rounded-lg p-4 space-y-3">
+                  <p className="text-sm text-red-700 font-medium">
+                    {activePersons.length > 1
+                      ? `Alle ${activePersons.length} Personen wirklich stornieren?`
+                      : "Anmeldung wirklich stornieren?"}
+                  </p>
+                  <p className="text-xs text-red-600">
+                    Diese Aktion kann nicht rückgängig gemacht werden.
+                  </p>
+                  {error && <p className="text-xs text-red-700 font-medium">{error}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCancelAll}
+                      disabled={cancelling}
+                      className="flex-1 text-sm bg-red-600 text-white rounded-lg py-2 px-4 hover:bg-red-700 disabled:opacity-50 transition-colors"
+                    >
+                      {cancelling ? "Wird storniert…" : "Ja, stornieren"}
+                    </button>
+                    <button
+                      onClick={() => { setConfirmAllOpen(false); setError(null); }}
+                      disabled={cancelling}
+                      className="flex-1 text-sm border border-gray-200 text-gray-600 rounded-lg py-2 px-4 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    >
+                      Abbrechen
+                    </button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -216,23 +388,13 @@ export default function StatusPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Deine Daten</CardTitle>
+            <CardTitle className="text-lg">Kontakt</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex items-center gap-2 text-gray-600">
-              <User className="w-4 h-4 text-gray-400" />
-              <span>{info.first_name} {info.last_name}</span>
-            </div>
             <div className="flex items-center gap-2 text-gray-600">
               <Mail className="w-4 h-4 text-gray-400" />
               <span>{info.email}</span>
             </div>
-            {info.guests > 0 && (
-              <div className="flex items-center gap-2 text-gray-600">
-                <Users className="w-4 h-4 text-gray-400" />
-                <span>{info.guests} Begleitperson{info.guests > 1 ? "en" : ""}</span>
-              </div>
-            )}
             <p className="text-xs text-gray-400 pt-2">
               Angemeldet am {formatDateTime(info.created_at)}
             </p>

@@ -36,6 +36,7 @@ function makeEvent(overrides: Partial<EventWithRegistrations> = {}): EventWithRe
     price: "Kostenlos",
     dress_code: "",
     max_participants: 20,
+    max_per_email: 5,
     status: "published",
     cancellation_reason: null,
     published_at: new Date().toISOString(),
@@ -218,8 +219,8 @@ describe("unpublishLocalEvent", () => {
     resetLocalData([makeEvent({ id: 1, status: "published" })]);
     // Add a registration for event 1
     createLocalRegistration({
-      event_id: 1, first_name: "Max", last_name: "Muster", email: "max@test.de",
-      phone: "0151", guests: 0, status_token: "abc-token",
+      event_id: 1, email: "max@test.de",
+      phone: "0151", status_token: "abc-token",
     });
 
     const result = unpublishLocalEvent(1);

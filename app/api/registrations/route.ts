@@ -2,8 +2,9 @@ import {
   getEvent,
   getRegistrationCount,
   findRegistration,
-  createRegistration,
+  getRemainingSlots,
 } from "@/lib/db";
+import { getSQL } from "@/lib/db/utils";
 import { sendRegistrationReceivedEmail } from "@/lib/email";
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
@@ -12,14 +13,29 @@ import type { RegistrationRequest } from "@/lib/types";
 export async function POST(request: NextRequest) {
   try {
     const body: RegistrationRequest = await request.json();
-    const { event_id, first_name, last_name, email, phone, guests } = body;
+    const { event_id, email, phone, persons } = body;
 
-    // Validation
-    if (!event_id || !first_name?.trim() || !last_name?.trim() || !email?.trim() || !phone?.trim()) {
+    if (!event_id || !email?.trim() || !phone?.trim()) {
       return NextResponse.json(
         { error: "Bitte fülle alle Pflichtfelder aus." },
         { status: 400 }
       );
+    }
+
+    if (!Array.isArray(persons) || persons.length === 0) {
+      return NextResponse.json(
+        { error: "Mindestens eine Person ist erforderlich." },
+        { status: 400 }
+      );
+    }
+
+    for (const p of persons) {
+      if (!p.firstName?.trim() || !p.lastName?.trim()) {
+        return NextResponse.json(
+          { error: "Vorname und Nachname sind für alle Personen erforderlich." },
+          { status: 400 }
+        );
+      }
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -30,16 +46,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (guests < 0 || guests > 10) {
-      return NextResponse.json(
-        { error: "Die Anzahl der Begleitpersonen muss zwischen 0 und 10 liegen." },
-        { status: 400 }
-      );
-    }
-
-    // Check if event exists and is published
     const event = await getEvent(event_id);
-
     if (!event) {
       return NextResponse.json(
         { error: "Das Event wurde nicht gefunden." },
@@ -54,22 +61,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for duplicate registration
     const normalizedEmail = email.toLowerCase().trim();
-    const existing = await findRegistration(event_id, normalizedEmail);    
+    const maxPerEmail = event.max_per_email ?? 5;
+
+    const existing = await findRegistration(event_id, normalizedEmail);
+
     if (existing && existing.status !== "cancelled") {
-      return NextResponse.json(
-        { error: "Du bist bereits für dieses Event angemeldet." },
-        { status: 409 }
-      );
+      // Check remaining slots for this email (already registered, adding more persons)
+      const remaining = await getRemainingSlots(event_id, normalizedEmail, maxPerEmail);
+      if (persons.length > remaining) {
+        return NextResponse.json(
+          {
+            error: remaining === 0
+              ? `Du hast das Limit von ${maxPerEmail} Personen pro E-Mail für dieses Event erreicht.`
+              : `Du kannst noch ${remaining} weitere Person${remaining !== 1 ? "en" : ""} anmelden (Limit: ${maxPerEmail} pro E-Mail).`,
+          },
+          { status: 409 }
+        );
+      }
     }
 
-    // Check available spots
     const currentCount = await getRegistrationCount(event_id);
-    const spotsNeeded = 1 + guests;
     const spotsAvailable = event.max_participants - currentCount;
 
-    if (spotsNeeded > spotsAvailable) {
+    if (persons.length > spotsAvailable) {
       return NextResponse.json(
         {
           error:
@@ -81,38 +96,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create registration with status token
-    const statusToken = randomUUID();
-
-    if(existing && existing.status === "cancelled") {
-      // If there is a cancelled registration, we can reuse it by updating the record instead of creating a new one.
-      // This way we keep the same ID and just update the details and status. 
-      // However, for simplicity, we will just create a new registration and let the old cancelled one be.
-      // In a real application, you might want to implement the update logic here.
-      // cannot create another registration if there is already a cancelled one, because of the unique constraint on email + event_id.
-      
+    if (persons.length > maxPerEmail) {
+      return NextResponse.json(
+        { error: `Maximal ${maxPerEmail} Personen pro E-Mail-Adresse erlaubt.` },
+        { status: 400 }
+      );
     }
 
-    await createRegistration({
-      event_id,
-      first_name: first_name.trim(),
-      last_name: last_name.trim(),
-      email: normalizedEmail,
-      phone: phone.trim(),
-      guests,
-      status_token: statusToken,
-    });
+    const statusToken = randomUUID();
+    const sql = getSQL();
+    let registrationId: number;
 
-    // Fire-and-forget email
+    if (existing && existing.status === "cancelled") {
+      const rows = await sql`
+        UPDATE registrations SET
+          phone = ${phone.trim()},
+          status = 'pending',
+          status_token = ${statusToken},
+          status_changed_at = NOW(),
+          status_note = NULL
+        WHERE id = ${existing.id}
+        RETURNING id
+      `;
+      registrationId = (rows[0] as { id: number }).id;
+      await sql`DELETE FROM registration_persons WHERE registration_id = ${registrationId}`;
+    } else {
+      const rows = await sql`
+        INSERT INTO registrations (event_id, email, phone, status, status_token)
+        VALUES (${event_id}, ${normalizedEmail}, ${phone.trim()}, 'pending', ${statusToken})
+        RETURNING id
+      `;
+      registrationId = (rows[0] as { id: number }).id;
+    }
+
+    for (const p of persons) {
+      await sql`
+        INSERT INTO registration_persons (registration_id, first_name, last_name)
+        VALUES (${registrationId}, ${p.firstName.trim()}, ${p.lastName.trim()})
+      `;
+    }
+
     sendRegistrationReceivedEmail({
       to: normalizedEmail,
-      firstName: first_name.trim(),
-      lastName: last_name.trim(),
+      firstName: persons[0].firstName.trim(),
+      lastName: persons[0].lastName.trim(),
       eventTitle: event.title,
       eventDate: event.date,
       eventTime: event.time,
       eventLocation: event.location,
       statusToken,
+      persons: persons.map((p) => ({ firstName: p.firstName.trim(), lastName: p.lastName.trim() })),
     });
 
     return NextResponse.json(

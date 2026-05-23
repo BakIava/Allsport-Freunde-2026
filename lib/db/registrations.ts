@@ -4,6 +4,7 @@ import type {
   RegistrationDetail,
   RegistrationStatusInfo,
   RegistrationStatus,
+  EventPerson,
 } from "../types";
 
 export async function getRegistrationCount(eventId: number): Promise<number> {
@@ -14,9 +15,10 @@ export async function getRegistrationCount(eventId: number): Promise<number> {
 
   const sql = getSQL();
   const rows = await sql`
-    SELECT COALESCE(SUM(guests + 1), 0)::int AS count
-    FROM registrations
-    WHERE event_id = ${eventId} AND status = 'approved'
+    SELECT COUNT(rp.id)::int AS count
+    FROM registrations r
+    JOIN registration_persons rp ON rp.registration_id = r.id AND rp.cancelled_at IS NULL
+    WHERE r.event_id = ${eventId} AND r.status = 'approved'
   `;
   return (rows[0] as { count: number }).count;
 }
@@ -40,13 +42,30 @@ export async function findRegistration(
   return (rows[0] as { id: number, status: string }) ?? null;
 }
 
+export async function getRemainingSlots(
+  eventId: number,
+  email: string,
+  maxPerEmail: number
+): Promise<number> {
+  if (!isPostgresConfigured()) return maxPerEmail;
+
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT COUNT(rp.id)::int AS count
+    FROM registrations r
+    JOIN registration_persons rp ON rp.registration_id = r.id AND rp.cancelled_at IS NULL
+    WHERE r.event_id = ${eventId}
+      AND LOWER(r.email) = LOWER(${email})
+      AND r.status NOT IN ('cancelled', 'rejected')
+  `;
+  const used = (rows[0] as { count: number }).count;
+  return Math.max(0, maxPerEmail - used);
+}
+
 export async function createRegistration(data: {
   event_id: number;
-  first_name: string;
-  last_name: string;
   email: string;
   phone: string;
-  guests: number;
   status_token: string;
 }): Promise<void> {
   if (!isPostgresConfigured()) {
@@ -57,14 +76,11 @@ export async function createRegistration(data: {
 
   const sql = getSQL();
   await sql`
-    INSERT INTO registrations (event_id, first_name, last_name, email, phone, guests, status, status_token)
-    VALUES (${data.event_id}, ${data.first_name}, ${data.last_name}, ${data.email}, ${data.phone}, ${data.guests}, 'pending', ${data.status_token})
+    INSERT INTO registrations (event_id, email, phone, status, status_token)
+    VALUES (${data.event_id}, ${data.email}, ${data.phone}, 'pending', ${data.status_token})
     ON CONFLICT (email, event_id)
     DO UPDATE SET
-      first_name = EXCLUDED.first_name,
-      last_name = EXCLUDED.last_name,
       phone = EXCLUDED.phone,
-      guests = EXCLUDED.guests,
       status = 'pending',
       status_token = EXCLUDED.status_token
   `;
@@ -79,17 +95,30 @@ export async function getRegistrationByToken(token: string): Promise<Registratio
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      r.id, r.first_name, r.last_name, r.email, r.guests,
+      r.id, r.email,
       r.status, r.status_note, r.status_changed_at, r.created_at,
       r.qr_code, r.checked_in_at,
-      e.title AS event_title, e.date AS event_date, e.time AS event_time,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      GREATEST(0, (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) - 1) AS guests,
+      e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.time::text AS event_time,
       e.location AS event_location, e.category AS event_category,
       e.price AS event_price, e.dress_code AS event_dress_code
     FROM registrations r
     JOIN events e ON r.event_id = e.id
     WHERE r.status_token = ${token}
   `;
-  return (rows[0] as RegistrationStatusInfo) ?? null;
+  if (!rows[0]) return null;
+
+  const reg = rows[0] as RegistrationStatusInfo;
+  const persons = await sql`
+    SELECT id, registration_id, first_name, last_name, checked_in_at, cancelled_at, created_at
+    FROM registration_persons
+    WHERE registration_id = ${reg.id}
+    ORDER BY created_at ASC
+  `;
+  reg.persons = persons as import("../types").RegistrationPerson[];
+  return reg;
 }
 
 export async function cancelRegistrationByToken(token: string): Promise<RegistrationStatusInfo | null> {
@@ -106,8 +135,67 @@ export async function cancelRegistrationByToken(token: string): Promise<Registra
       status_note = NULL
     WHERE status_token = ${token} AND status IN ('pending', 'approved')
   `;
+  await sql`
+    UPDATE registration_persons SET cancelled_at = NOW()
+    WHERE registration_id = (SELECT id FROM registrations WHERE status_token = ${token})
+      AND cancelled_at IS NULL
+  `;
   return getRegistrationByToken(token);
 }
+
+export async function cancelPersonByToken(
+  token: string,
+  personId: string
+): Promise<{ ok: boolean; allCancelled: boolean } | null> {
+  if (!isPostgresConfigured()) {
+    return { ok: true, allCancelled: false };
+  }
+
+  const sql = getSQL();
+  // Verify token belongs to this person's registration
+  const check = await sql`
+    SELECT r.id, r.status
+    FROM registrations r
+    JOIN registration_persons rp ON rp.registration_id = r.id
+    WHERE r.status_token = ${token}
+      AND rp.id = ${personId}
+      AND r.status IN ('pending', 'approved')
+      AND rp.cancelled_at IS NULL
+  `;
+  if (!check[0]) return null;
+
+  const registrationId = (check[0] as { id: number }).id;
+
+  await sql`
+    UPDATE registration_persons SET cancelled_at = NOW()
+    WHERE id = ${personId}
+  `;
+
+  // Check if all persons are now cancelled
+  const remaining = await sql`
+    SELECT COUNT(*)::int AS count FROM registration_persons
+    WHERE registration_id = ${registrationId} AND cancelled_at IS NULL
+  `;
+  const allCancelled = (remaining[0] as { count: number }).count === 0;
+
+  if (allCancelled) {
+    await sql`
+      UPDATE registrations SET status = 'cancelled', status_changed_at = NOW()
+      WHERE id = ${registrationId}
+    `;
+  }
+
+  return { ok: true, allCancelled };
+}
+
+// Helper: correlated subqueries for person name + count
+// Used inline in SELECT lists throughout this file.
+const personNameCols = `
+  COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+  COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+  (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) AS person_count
+`;
+void personNameCols; // Used as documentation; actual SQL is inlined below
 
 export async function getAllRegistrations(): Promise<RegistrationWithEvent[]> {
   if (!isPostgresConfigured()) {
@@ -118,9 +206,15 @@ export async function getAllRegistrations(): Promise<RegistrationWithEvent[]> {
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      r.*,
+      r.id, r.event_id, r.email, r.phone, r.status, r.status_token,
+      r.status_changed_at, r.status_note, r.created_at,
+      r.qr_code, r.qr_token, r.checked_in_at, r.checked_in_by,
+      r.is_walk_in, r.notes, r.reminder_sent_at,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) AS person_count,
       e.title AS event_title,
-      e.date AS event_date,
+      TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
       e.category AS event_category
     FROM registrations r
     JOIN events e ON r.event_id = e.id
@@ -138,7 +232,13 @@ export async function getEventRegistrations(eventId: number): Promise<Registrati
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      r.*,
+      r.id, r.event_id, r.email, r.phone, r.status, r.status_token,
+      r.status_changed_at, r.status_note, r.created_at,
+      r.qr_code, r.qr_token, r.checked_in_at, r.checked_in_by,
+      r.is_walk_in, r.notes, r.reminder_sent_at,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) AS person_count,
       e.title AS event_title,
       TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
       e.category AS event_category
@@ -148,6 +248,34 @@ export async function getEventRegistrations(eventId: number): Promise<Registrati
     ORDER BY r.created_at DESC
   `;
   return rows as RegistrationWithEvent[];
+}
+
+export async function getEventPersons(eventId: number): Promise<EventPerson[]> {
+  if (!isPostgresConfigured()) {
+    const { getLocalEventPersons } = await import("../local-data");
+    return getLocalEventPersons(eventId);
+  }
+
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT
+      rp.id AS person_id,
+      rp.registration_id,
+      rp.first_name,
+      rp.last_name,
+      rp.checked_in_at,
+      rp.cancelled_at,
+      rp.created_at,
+      r.email,
+      r.phone,
+      r.status,
+      r.is_walk_in
+    FROM registration_persons rp
+    JOIN registrations r ON r.id = rp.registration_id
+    WHERE r.event_id = ${eventId}
+    ORDER BY r.created_at ASC, rp.created_at ASC
+  `;
+  return rows as EventPerson[];
 }
 
 export async function deleteRegistration(id: number): Promise<void> {
@@ -181,7 +309,15 @@ export async function updateRegistrationStatus(
   `;
 
   const rows = await sql`
-    SELECT r.*, e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.category AS event_category
+    SELECT
+      r.id, r.event_id, r.email, r.phone, r.status, r.status_token,
+      r.status_changed_at, r.status_note, r.created_at,
+      r.qr_code, r.qr_token, r.checked_in_at, r.checked_in_by,
+      r.is_walk_in, r.notes, r.reminder_sent_at,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) AS person_count,
+      e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.category AS event_category
     FROM registrations r
     JOIN events e ON r.event_id = e.id
     WHERE r.id = ${id}
@@ -197,7 +333,15 @@ export async function getRegistrationWithEvent(id: number): Promise<Registration
 
   const sql = getSQL();
   const rows = await sql`
-    SELECT r.*, e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.category AS event_category
+    SELECT
+      r.id, r.event_id, r.email, r.phone, r.status, r.status_token,
+      r.status_changed_at, r.status_note, r.created_at,
+      r.qr_code, r.qr_token, r.checked_in_at, r.checked_in_by,
+      r.is_walk_in, r.notes, r.reminder_sent_at,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) AS person_count,
+      e.title AS event_title, TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date, e.category AS event_category
     FROM registrations r
     JOIN events e ON r.event_id = e.id
     WHERE r.id = ${id}
@@ -214,7 +358,14 @@ export async function getRegistrationDetail(id: number): Promise<RegistrationDet
 
   const sql = getSQL();
   const rows = await sql`
-    SELECT r.*,
+    SELECT
+      r.id, r.event_id, r.email, r.phone, r.status, r.status_token,
+      r.status_changed_at, r.status_note, r.created_at,
+      r.qr_code, r.qr_token, r.checked_in_at, r.checked_in_by,
+      r.is_walk_in, r.notes, r.reminder_sent_at,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
+      (SELECT COUNT(*)::int FROM registration_persons rp WHERE rp.registration_id = r.id AND rp.cancelled_at IS NULL) AS person_count,
       e.title AS event_title,
       TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
       e.time::text AS event_time,
@@ -294,10 +445,10 @@ export async function getCancellationTokenInfo(
       ct.expires_at,
       ct.used_at,
       r.status        AS registration_status,
-      r.first_name,
-      r.last_name,
       r.email,
       r.status_token,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
       e.title         AS event_title,
       TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
       e.time::text    AS event_time,
@@ -366,10 +517,10 @@ export async function getRegistrationsDueForReminder(): Promise<RegistrationDueF
   const rows = await sql`
     SELECT
       r.id,
-      r.first_name,
-      r.last_name,
       r.email,
       r.status_token,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
       e.title       AS event_title,
       TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
       e.time::text  AS event_time,
@@ -391,12 +542,12 @@ export async function sendReminderEmail(registrationId: number): Promise<void> {
   const rows = await sql`
     SELECT
       r.id,
-      r.first_name,
-      r.last_name,
       r.email,
       r.status,
       r.reminder_sent_at,
       r.status_token,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      COALESCE((SELECT rp.last_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS last_name,
       e.title       AS event_title,
       TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
       e.time::text  AS event_time,
@@ -428,7 +579,6 @@ export async function sendReminderEmail(registrationId: number): Promise<void> {
   if (reg.reminder_sent_at) throw new Error(`Reminder für Registration ${registrationId} wurde bereits gesendet`);
   if (reg.event_status === "cancelled") throw new Error(`Event für Registration ${registrationId} wurde abgesagt`);
 
-  // expires_at = end of event day (link invalid after the event)
   const eventEndsAt = new Date(`${reg.event_date}T23:59:59`);
   const cancellationToken = await generateCancellationToken(registrationId, eventEndsAt);
 
@@ -447,6 +597,85 @@ export async function sendReminderEmail(registrationId: number): Promise<void> {
   await sql`
     UPDATE registrations
     SET reminder_sent_at = NOW()
+    WHERE id = ${registrationId}
+  `;
+}
+
+// ─── Survey Emails ────────────────────────────────────────
+
+export interface RegistrationDueForSurvey {
+  id: number;
+  email: string;
+}
+
+export async function getRegistrationsDueForSurvey(): Promise<RegistrationDueForSurvey[]> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT r.id, r.email
+    FROM registrations r
+    JOIN events e ON r.event_id = e.id
+    WHERE r.status = 'approved'
+      AND r.survey_sent_at IS NULL
+      AND r.email IS NOT NULL
+      AND e.survey_url IS NOT NULL
+      AND e.survey_url != ''
+      AND e.date < CURRENT_DATE
+      AND e.date >= CURRENT_DATE - INTERVAL '30 days'
+      AND e.status != 'cancelled'
+  `;
+  return rows as RegistrationDueForSurvey[];
+}
+
+export async function sendSurveyEmailForRegistration(registrationId: number): Promise<void> {
+  const sql = getSQL();
+
+  const rows = await sql`
+    SELECT
+      r.id,
+      r.email,
+      r.status,
+      r.survey_sent_at,
+      COALESCE((SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1), '') AS first_name,
+      e.title       AS event_title,
+      TO_CHAR(e.date, 'YYYY-MM-DD') AS event_date,
+      e.survey_url  AS survey_url,
+      e.status      AS event_status
+    FROM registrations r
+    JOIN events e ON r.event_id = e.id
+    WHERE r.id = ${registrationId}
+  `;
+
+  const reg = rows[0] as {
+    id: number;
+    first_name: string;
+    email: string | null;
+    status: string;
+    survey_sent_at: string | null;
+    event_title: string;
+    event_date: string;
+    survey_url: string | null;
+    event_status: string;
+  } | undefined;
+
+  if (!reg) throw new Error(`Registration ${registrationId} nicht gefunden`);
+  if (!reg.email) throw new Error(`Registration ${registrationId} hat keine E-Mail-Adresse`);
+  if (reg.status !== "approved") throw new Error(`Registration ${registrationId} ist nicht approved`);
+  if (reg.survey_sent_at) throw new Error(`Survey-E-Mail für Registration ${registrationId} wurde bereits gesendet`);
+  if (!reg.survey_url) throw new Error(`Kein Survey-URL für Event der Registration ${registrationId}`);
+  if (reg.event_status === "cancelled") throw new Error(`Event für Registration ${registrationId} wurde abgesagt`);
+
+  const { sendEventSurveyEmail } = await import("../email");
+  await sendEventSurveyEmail({
+    to: reg.email,
+    firstName: reg.first_name,
+    eventTitle: reg.event_title,
+    eventDate: reg.event_date,
+    surveyUrl: reg.survey_url,
+  });
+
+  await sql`
+    UPDATE registrations
+    SET survey_sent_at = NOW()
     WHERE id = ${registrationId}
   `;
 }

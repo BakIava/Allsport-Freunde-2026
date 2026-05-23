@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { flushSync } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -20,8 +21,15 @@ import {
   Heart,
   Trash2,
   MoreHorizontal,
+  Plus,
+  List,
+  BadgeCheck,
+  AlertTriangle,
+  Banknote,
+  Euro,
 } from "lucide-react";
 import RegistrationDetailButton from "@/components/RegistrationDetailButton";
+import { LastNameInput } from "@/components/ui/LastNameInput";
 import type { CheckinParticipant, CheckinStatusResponse, EventFinancials, EventDonation } from "@/lib/types";
 import { formatEuro } from "@/lib/finance";
 
@@ -30,13 +38,16 @@ function formatTime(iso: string | null) {
   return new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 }
 
+interface WalkInPerson {
+  firstName: string;
+  lastName: string;
+}
+
 interface WalkInForm {
-  first_name: string;
-  last_name: string;
+  persons: WalkInPerson[];
   email: string;
   phone: string;
   notes: string;
-  guests: number;
 }
 
 interface DonationForm {
@@ -54,12 +65,10 @@ const EMPTY_DONATION: DonationForm = {
 };
 
 const EMPTY_FORM: WalkInForm = {
-  first_name: "",
-  last_name: "",
+  persons: [{ firstName: "", lastName: "" }],
   email: "",
   phone: "",
   notes: "",
-  guests: 0,
 };
 
 export default function CheckinDashboardPage() {
@@ -71,8 +80,14 @@ export default function CheckinDashboardPage() {
   const [search, setSearch] = useState("");
   const [manualCheckinId, setManualCheckinId] = useState<number | null>(null);
   const [undoId, setUndoId] = useState<number | null>(null);
+  const [personLoadingId, setPersonLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [financials, setFinancials] = useState<EventFinancials | null>(null);
+
+  // Kassenabschluss state
+  const [cashInput, setCashInput] = useState("");
+  const [cashSaving, setCashSaving] = useState(false);
+  const [cashError, setCashError] = useState<string | null>(null);
 
   // Walk-in modal state
   const [showWalkIn, setShowWalkIn] = useState(false);
@@ -80,6 +95,7 @@ export default function CheckinDashboardPage() {
   const [walkInLoading, setWalkInLoading] = useState(false);
   const [walkInError, setWalkInError] = useState<string | null>(null);
   const firstNameRef = useRef<HTMLInputElement>(null);
+  const walkInFirstNameRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Walk-in QR modal state
   interface QRData { qrCodeDataUrl: string; walkInUrl: string; eventTitle: string }
@@ -97,6 +113,13 @@ export default function CheckinDashboardPage() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [deletingDonationId, setDeletingDonationId] = useState<number | null>(null);
   const donorNameRef = useRef<HTMLInputElement>(null);
+
+  // Person-detail overlay (lifted here so data refreshes don't close it)
+  const [overlayParticipantId, setOverlayParticipantId] = useState<number | null>(null);
+
+  // Tab state
+  type Tab = "anmeldungen" | "finanzen" | "spenden";
+  const [activeTab, setActiveTab] = useState<Tab>("anmeldungen");
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -125,6 +148,8 @@ export default function CheckinDashboardPage() {
           balance: 0,
           costs: [],
           donations: [],
+          cash_counted: null,
+          cash_counted_at: null,
         });
       }
     } catch {
@@ -173,6 +198,15 @@ export default function CheckinDashboardPage() {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [showDonation]);
+
+  useEffect(() => {
+    if (!overlayParticipantId) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOverlayParticipantId(null);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [overlayParticipantId]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -303,12 +337,10 @@ export default function CheckinDashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           event_id: Number(eventId),
-          first_name: walkInForm.first_name,
-          last_name: walkInForm.last_name,
-          email: walkInForm.email || undefined,
+          persons: walkInForm.persons,
+          email: walkInForm.email,
           phone: walkInForm.phone || undefined,
           notes: walkInForm.notes || undefined,
-          guests: walkInForm.guests,
         }),
       });
       const body = await res.json();
@@ -322,6 +354,36 @@ export default function CheckinDashboardPage() {
       setWalkInError("Netzwerkfehler.");
     } finally {
       setWalkInLoading(false);
+    }
+  }
+
+  async function handlePersonCheckin(personId: string) {
+    setPersonLoadingId(personId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/checkin/persons/${personId}`, { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) setError(body.error ?? "Fehler beim Person-Check-In.");
+      else await fetchStatus();
+    } catch {
+      setError("Netzwerkfehler.");
+    } finally {
+      setPersonLoadingId(null);
+    }
+  }
+
+  async function handlePersonUndo(personId: string) {
+    setPersonLoadingId(personId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/checkin/persons/${personId}`, { method: "DELETE" });
+      const body = await res.json();
+      if (!res.ok) setError(body.error ?? "Fehler beim Rückgängig.");
+      else await fetchStatus();
+    } catch {
+      setError("Netzwerkfehler.");
+    } finally {
+      setPersonLoadingId(null);
     }
   }
 
@@ -366,6 +428,35 @@ export default function CheckinDashboardPage() {
     }
   }
 
+  async function handleSaveCashCount(e: React.FormEvent) {
+    e.preventDefault();
+    setCashError(null);
+    const amount = parseFloat(cashInput.replace(",", "."));
+    if (isNaN(amount) || amount < 0) {
+      setCashError("Bitte einen gültigen Betrag eingeben.");
+      return;
+    }
+    setCashSaving(true);
+    try {
+      const res = await fetch(`/api/admin/events/${eventId}/cash-count`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setCashError(body.error ?? "Fehler beim Speichern.");
+      } else {
+        await fetchStatus();
+        setCashInput("");
+      }
+    } catch {
+      setCashError("Netzwerkfehler.");
+    } finally {
+      setCashSaving(false);
+    }
+  }
+
   function exportCSV() {
     if (!data) return;
     const rows = [
@@ -402,6 +493,7 @@ export default function CheckinDashboardPage() {
 
   const checkedInFiltered = filtered.filter((p) => p.checked_in_at !== null);
   const missingFiltered = filtered.filter((p) => p.checked_in_at === null);
+  const overlayParticipant = (data?.participants ?? []).find((p) => p.id === overlayParticipantId) ?? null;
 
   const progressPct = data && data.total > 0 ? Math.round((data.checked_in / data.total) * 100) : 0;
 
@@ -545,105 +637,336 @@ export default function CheckinDashboardPage() {
             </p>
           </div>
 
-          {/* ── Finanzen ── */}
-          {financials && (
-            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold">€</span>
-                Finanzen
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                {/* Gesamtkosten */}
-                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
-                  <p className="text-xs text-gray-500">Gesamtkosten</p>
-                  <p className="text-base font-bold text-gray-900">{formatEuro(financials.total_costs)}</p>
-                </div>
-
-                {/* Erwarteter Umsatz */}
-                {financials.entry_price != null && financials.entry_price > 0 ? (
-                  <div className="bg-blue-50 rounded-lg p-3 space-y-1">
-                    <p className="text-xs text-blue-700">Erw. Umsatz</p>
-                    <p className="text-base font-bold text-blue-900">{formatEuro(financials.expected_revenue)}</p>
-                    <p className="text-xs text-blue-600">
-                      ({financials.approved_persons} Anm.{financials.approved_guests > 0 ? ` + ${financials.approved_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 rounded-lg p-3 space-y-1">
-                    <p className="text-xs text-gray-500">Erw. Umsatz</p>
-                    <p className="text-sm text-gray-400 italic">Kein Preis</p>
-                  </div>
+          {/* ── Tab bar ── */}
+          <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+            {(
+              [
+                {
+                  key: "anmeldungen" as const,
+                  label: "Anmeldungen",
+                  icon: <Users className="w-4 h-4" />,
+                  badge: data.missing > 0 ? String(data.missing) : null,
+                  badgeColor: "bg-amber-500",
+                },
+                {
+                  key: "finanzen" as const,
+                  label: "Finanzen",
+                  icon: <Euro className="w-4 h-4" />,
+                  badge: financials?.cash_counted != null ? "✓" : null,
+                  badgeColor: "bg-green-600",
+                },
+                {
+                  key: "spenden" as const,
+                  label: "Spenden",
+                  icon: <Heart className="w-4 h-4" />,
+                  badge: (financials?.donation_count ?? 0) > 0 ? String(financials!.donation_count) : null,
+                  badgeColor: "bg-rose-500",
+                },
+              ] as { key: Tab; label: string; icon: React.ReactNode; badge: string | null; badgeColor: string }[]
+            ).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {tab.icon}
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">
+                  {tab.key === "anmeldungen" ? "Liste" : tab.key === "finanzen" ? "Finanzen" : "Spenden"}
+                </span>
+                {tab.badge && (
+                  <span className={`${tab.badgeColor} text-white text-xs rounded-full min-w-[1.25rem] h-5 px-1 flex items-center justify-center font-bold leading-none`}>
+                    {tab.badge}
+                  </span>
                 )}
+              </button>
+            ))}
+          </div>
 
-                {/* Tatsächlicher Umsatz */}
-                {financials.entry_price != null && financials.entry_price > 0 ? (
-                  <div className="bg-green-50 rounded-lg p-3 space-y-1">
-                    <p className="text-xs text-green-700">Tats. Umsatz</p>
-                    <p className="text-base font-bold text-green-900">{formatEuro(financials.actual_revenue)}</p>
-                    <p className="text-xs text-green-600">
-                      ({financials.checkedin_persons} eingecheckt{financials.checkedin_guests > 0 ? ` + ${financials.checkedin_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 rounded-lg p-3 space-y-1">
-                    <p className="text-xs text-gray-500">Tats. Umsatz</p>
-                    <p className="text-sm text-gray-400 italic">Kein Preis</p>
-                  </div>
+          {/* ── Tab: Anmeldungen ── */}
+          {activeTab === "anmeldungen" && (
+            <>
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Name oder E-Mail suchen…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                />
+              </div>
+
+              {error && (
+                <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{error}</p>
+              )}
+
+              {/* Participant list – missing first, then checked in */}
+              <div className="space-y-2">
+                {missingFiltered.length > 0 && (
+                  <>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">
+                      Ausstehend ({missingFiltered.length})
+                    </h3>
+                    {missingFiltered.map((p) => (
+                      <ParticipantRow
+                        key={p.id}
+                        participant={p}
+                        onManualCheckin={handleManualCheckin}
+                        onUndo={handleUndo}
+                        loadingId={manualCheckinId}
+                        undoId={undoId}
+                        onPersonCheckin={handlePersonCheckin}
+                        onPersonUndo={handlePersonUndo}
+                        personLoadingId={personLoadingId}
+                        onOpenOverlay={setOverlayParticipantId}
+                      />
+                    ))}
+                  </>
                 )}
-
-                {/* Spenden */}
-                <div className="bg-rose-50 rounded-lg p-3 space-y-1">
-                  <p className="text-xs text-rose-700 flex items-center gap-1">
-                    <Heart className="w-3 h-3" />
-                    Spenden
+                {checkedInFiltered.length > 0 && (
+                  <>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1 pt-2">
+                      Eingecheckt ({checkedInFiltered.length})
+                    </h3>
+                    {checkedInFiltered.map((p) => (
+                      <ParticipantRow
+                        key={p.id}
+                        participant={p}
+                        onManualCheckin={handleManualCheckin}
+                        onUndo={handleUndo}
+                        loadingId={manualCheckinId}
+                        undoId={undoId}
+                        onPersonCheckin={handlePersonCheckin}
+                        onPersonUndo={handlePersonUndo}
+                        personLoadingId={personLoadingId}
+                        onOpenOverlay={setOverlayParticipantId}
+                      />
+                    ))}
+                  </>
+                )}
+                {filtered.length === 0 && (
+                  <p className="text-center text-gray-400 py-10 text-sm">
+                    {search
+                      ? "Keine Teilnehmer gefunden."
+                      : "Noch keine Teilnehmer – Teilnehmer können manuell oder per Walk-in hinzugefügt werden."}
                   </p>
-                  <p className="text-base font-bold text-rose-900">{formatEuro(financials.total_donations ?? 0)}</p>
-                  <p className="text-xs text-rose-600">{financials.donation_count ?? 0} Spende{(financials.donation_count ?? 0) !== 1 ? "n" : ""}</p>
-                </div>
-
-                {/* Bilanz */}
-                {(financials.entry_price != null && financials.entry_price > 0) || (financials.total_donations ?? 0) > 0 || financials.total_costs > 0 ? (
-                  <div className={`rounded-lg p-3 space-y-1 ${financials.balance > 0 ? "bg-green-100" : financials.balance < 0 ? "bg-red-100" : "bg-gray-50"}`}>
-                    <p className={`text-xs ${financials.balance > 0 ? "text-green-700" : financials.balance < 0 ? "text-red-700" : "text-gray-500"}`}>Bilanz</p>
-                    <p className={`text-base font-bold ${financials.balance > 0 ? "text-green-800" : financials.balance < 0 ? "text-red-800" : "text-gray-700"}`}>
-                      {financials.balance > 0 ? "+" : ""}{formatEuro(financials.balance)}
-                    </p>
-                    <p className={`text-xs ${financials.balance > 0 ? "text-green-600" : financials.balance < 0 ? "text-red-600" : "text-gray-400"}`}>
-                      {financials.balance > 0 ? "Überschuss" : financials.balance < 0 ? "Defizit" : "Ausgeglichen"}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 rounded-lg p-3 space-y-1">
-                    <p className="text-xs text-gray-500">Bilanz</p>
-                    <p className="text-sm text-gray-400 italic">–</p>
-                  </div>
                 )}
               </div>
-            </div>
+            </>
           )}
 
-          {/* ── Spenden-Liste ── */}
-          {financials && (
+          {/* ── Tab: Finanzen ── */}
+          {activeTab === "finanzen" && (
+            <>
+              {financials ? (
+                <>
+                  {/* Finance summary cards */}
+                  <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+                    <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <Euro className="w-4 h-4 text-indigo-500" />
+                      Übersicht
+                    </h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      {/* Gesamtkosten */}
+                      <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                        <p className="text-xs text-gray-500">Gesamtkosten</p>
+                        <p className="text-base font-bold text-gray-900">{formatEuro(financials.total_costs)}</p>
+                      </div>
+
+                      {/* Erwarteter Umsatz */}
+                      {financials.entry_price != null && financials.entry_price > 0 ? (
+                        <div className="bg-blue-50 rounded-lg p-3 space-y-1">
+                          <p className="text-xs text-blue-700">Erw. Umsatz</p>
+                          <p className="text-base font-bold text-blue-900">{formatEuro(financials.expected_revenue)}</p>
+                          <p className="text-xs text-blue-600">
+                            ({financials.approved_persons} Anm.{financials.approved_guests > 0 ? ` + ${financials.approved_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                          <p className="text-xs text-gray-500">Erw. Umsatz</p>
+                          <p className="text-sm text-gray-400 italic">Kein Preis</p>
+                        </div>
+                      )}
+
+                      {/* Tatsächlicher Umsatz */}
+                      {financials.entry_price != null && financials.entry_price > 0 ? (
+                        <div className="bg-green-50 rounded-lg p-3 space-y-1">
+                          <p className="text-xs text-green-700">Tats. Umsatz</p>
+                          <p className="text-base font-bold text-green-900">{formatEuro(financials.actual_revenue)}</p>
+                          <p className="text-xs text-green-600">
+                            ({financials.checkedin_persons} eingecheckt{financials.checkedin_guests > 0 ? ` + ${financials.checkedin_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                          <p className="text-xs text-gray-500">Tats. Umsatz</p>
+                          <p className="text-sm text-gray-400 italic">Kein Preis</p>
+                        </div>
+                      )}
+
+                      {/* Spenden */}
+                      <div className="bg-rose-50 rounded-lg p-3 space-y-1">
+                        <p className="text-xs text-rose-700 flex items-center gap-1">
+                          <Heart className="w-3 h-3" />
+                          Spenden
+                        </p>
+                        <p className="text-base font-bold text-rose-900">{formatEuro(financials.total_donations ?? 0)}</p>
+                        <p className="text-xs text-rose-600">{financials.donation_count ?? 0} Spende{(financials.donation_count ?? 0) !== 1 ? "n" : ""}</p>
+                      </div>
+
+                      {/* Bilanz */}
+                      {(financials.entry_price != null && financials.entry_price > 0) || (financials.total_donations ?? 0) > 0 || financials.total_costs > 0 ? (
+                        <div className={`rounded-lg p-3 space-y-1 ${financials.balance > 0 ? "bg-green-100" : financials.balance < 0 ? "bg-red-100" : "bg-gray-50"}`}>
+                          <p className={`text-xs ${financials.balance > 0 ? "text-green-700" : financials.balance < 0 ? "text-red-700" : "text-gray-500"}`}>Bilanz</p>
+                          <p className={`text-base font-bold ${financials.balance > 0 ? "text-green-800" : financials.balance < 0 ? "text-red-800" : "text-gray-700"}`}>
+                            {financials.balance > 0 ? "+" : ""}{formatEuro(financials.balance)}
+                          </p>
+                          <p className={`text-xs ${financials.balance > 0 ? "text-green-600" : financials.balance < 0 ? "text-red-600" : "text-gray-400"}`}>
+                            {financials.balance > 0 ? "Überschuss" : financials.balance < 0 ? "Defizit" : "Ausgeglichen"}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                          <p className="text-xs text-gray-500">Bilanz</p>
+                          <p className="text-sm text-gray-400 italic">–</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Kassenabschluss */}
+                  <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+                    <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <Banknote className="w-4 h-4 text-gray-500" />
+                      Kassenabschluss
+                    </h2>
+
+                    {financials.cash_counted != null ? (
+                      (() => {
+                        const einlass = financials.actual_revenue ?? 0;
+                        const spenden = financials.total_donations ?? 0;
+                        const diff = Math.round((financials.cash_counted - einlass) * 100) / 100;
+                        const isMatch = diff === 0;
+                        return (
+                          <div className="space-y-2">
+                            <div className={`rounded-xl border px-4 py-3 flex items-start gap-3 ${isMatch ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+                              {isMatch ? (
+                                <BadgeCheck className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                              ) : (
+                                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-semibold ${isMatch ? "text-green-800" : "text-amber-800"}`}>
+                                  {isMatch ? "Einlasskasse bestätigt" : "Abweichung Einlasskasse"}
+                                </p>
+                                <p className={`text-xs mt-0.5 ${isMatch ? "text-green-700" : "text-amber-700"}`}>
+                                  Gezählt: <strong>{formatEuro(financials.cash_counted)}</strong>
+                                  {" · "}Erwartet: <strong>{formatEuro(einlass)}</strong>
+                                  {!isMatch && <> · Differenz: <strong>{diff > 0 ? "+" : ""}{formatEuro(diff)}</strong></>}
+                                </p>
+                                {financials.cash_counted_at && (
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    Eingetragen: {new Date(financials.cash_counted_at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {spenden > 0 && (
+                              <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-2 text-xs text-gray-500 flex justify-between items-center">
+                                <span>+ Spenden</span>
+                                <span className="font-medium text-rose-600">{formatEuro(spenden)}</span>
+                              </div>
+                            )}
+                            {spenden > 0 && (
+                              <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-2 text-xs text-gray-600 flex justify-between items-center font-medium">
+                                <span>= Gesamt</span>
+                                <span>{formatEuro(financials.cash_counted + spenden)}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">Noch kein Kassenabschluss eingetragen.</p>
+                    )}
+
+                    <form onSubmit={handleSaveCashCount} className="flex gap-2 items-end pt-1">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          {financials.cash_counted != null ? "Neuen Wert eintragen" : "Kassenbestand eintragen"}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">€</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={cashInput}
+                            onChange={(e) => { setCashInput(e.target.value); setCashError(null); }}
+                            placeholder="0,00"
+                            className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={cashSaving || !cashInput.trim()}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                      >
+                        {cashSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        Speichern
+                      </button>
+                    </form>
+                    {cashError && <p className="text-xs text-red-600">{cashError}</p>}
+                  </div>
+                </>
+              ) : (
+                <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
+                  <Euro className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                  <p className="text-sm text-gray-400">Finanzdaten werden geladen…</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── Tab: Spenden ── */}
+          {activeTab === "spenden" && (
             <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Heart className="w-4 h-4 text-rose-500" />
-                  Spenden ({financials.donation_count ?? 0})
+                  Spenden ({financials?.donation_count ?? 0})
                 </h2>
                 <button
                   onClick={openDonation}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium transition-colors"
                 >
-                  <Heart className="w-3 h-3" />
-                  Eintragen
+                  <Plus className="w-3.5 h-3.5" />
+                  Spende eintragen
                 </button>
               </div>
 
-              {(financials.donations ?? []).length === 0 ? (
-                <p className="text-sm text-gray-400 italic py-2">Noch keine Spenden erfasst.</p>
+              {(financials?.donations ?? []).length === 0 ? (
+                <div className="py-8 text-center">
+                  <Heart className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                  <p className="text-sm text-gray-400">Noch keine Spenden erfasst.</p>
+                  <button
+                    onClick={openDonation}
+                    className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Erste Spende eintragen
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-2">
-                  {(financials.donations ?? []).map((d: EventDonation) => (
+                  {(financials!.donations).map((d: EventDonation) => (
                     <div key={d.id} className="flex items-start justify-between gap-3 rounded-lg border border-rose-100 bg-rose-50/40 px-3 py-2.5">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900">{d.donor_name}</p>
@@ -671,74 +994,13 @@ export default function CheckinDashboardPage() {
                   ))}
                   <div className="flex justify-end pt-1 border-t border-gray-100">
                     <p className="text-sm font-semibold text-gray-700">
-                      Gesamt: <span className="text-rose-700">{formatEuro(financials.total_donations ?? 0)}</span>
+                      Gesamt: <span className="text-rose-700">{formatEuro(financials!.total_donations ?? 0)}</span>
                     </p>
                   </div>
                 </div>
               )}
             </div>
           )}
-
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Name oder E-Mail suchen…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-            />
-          </div>
-
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{error}</p>
-          )}
-
-          {/* Participant list – checked in first, then missing */}
-          <div className="space-y-2">
-            {checkedInFiltered.length > 0 && (
-              <>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">
-                  Eingecheckt ({checkedInFiltered.length})
-                </h3>
-                {checkedInFiltered.map((p) => (
-                  <ParticipantRow
-                    key={p.id}
-                    participant={p}
-                    onManualCheckin={handleManualCheckin}
-                    onUndo={handleUndo}
-                    loadingId={manualCheckinId}
-                    undoId={undoId}
-                  />
-                ))}
-              </>
-            )}
-            {missingFiltered.length > 0 && (
-              <>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1 pt-2">
-                  Ausstehend ({missingFiltered.length})
-                </h3>
-                {missingFiltered.map((p) => (
-                  <ParticipantRow
-                    key={p.id}
-                    participant={p}
-                    onManualCheckin={handleManualCheckin}
-                    onUndo={handleUndo}
-                    loadingId={manualCheckinId}
-                    undoId={undoId}
-                  />
-                ))}
-              </>
-            )}
-            {filtered.length === 0 && (
-              <p className="text-center text-gray-400 py-10 text-sm">
-                {search
-                  ? "Keine Teilnehmer gefunden."
-                  : "Noch keine Teilnehmer – Teilnehmer können manuell oder per Walk-in hinzugefügt werden."}
-              </p>
-            )}
-          </div>
         </>
       )}
 
@@ -766,42 +1028,15 @@ export default function CheckinDashboardPage() {
 
             {/* Modal form */}
             <form onSubmit={handleWalkInSubmit} className="px-6 py-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Vorname <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    ref={firstNameRef}
-                    type="text"
-                    required
-                    value={walkInForm.first_name}
-                    onChange={(e) => setWalkInForm((f) => ({ ...f, first_name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Max"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Nachname <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={walkInForm.last_name}
-                    onChange={(e) => setWalkInForm((f) => ({ ...f, last_name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Mustermann"
-                  />
-                </div>
-              </div>
-
+              {/* E-Mail (required) */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  E-Mail <span className="text-gray-400 font-normal">(optional)</span>
+                  E-Mail <span className="text-red-500">*</span>
                 </label>
                 <input
+                  ref={firstNameRef}
                   type="email"
+                  required
                   value={walkInForm.email}
                   onChange={(e) => setWalkInForm((f) => ({ ...f, email: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -809,6 +1044,7 @@ export default function CheckinDashboardPage() {
                 />
               </div>
 
+              {/* Telefon */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Telefonnummer <span className="text-gray-400 font-normal">(optional)</span>
@@ -822,6 +1058,75 @@ export default function CheckinDashboardPage() {
                 />
               </div>
 
+              {/* Persons list */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-gray-700">
+                    Personen <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-xs text-gray-400">{walkInForm.persons.length} Person{walkInForm.persons.length !== 1 ? "en" : ""}</span>
+                </div>
+                {walkInForm.persons.map((person, idx) => (
+                  <div key={idx} className="border border-gray-100 rounded-lg p-3 bg-gray-50 space-y-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-gray-500">
+                        Person {idx + 1}{idx === 0 && <span className="ml-1 text-gray-400">(Walk-in)</span>}
+                      </span>
+                      {walkInForm.persons.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setWalkInForm((f) => ({ ...f, persons: f.persons.filter((_, i) => i !== idx) }))}
+                          className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        ref={(el) => { walkInFirstNameRefs.current[idx] = el; }}
+                        type="text"
+                        required
+                        value={person.firstName}
+                        maxLength={50}
+                        onChange={(e) => setWalkInForm((f) => ({
+                          ...f,
+                          persons: f.persons.map((p, i) => i === idx ? { ...p, firstName: e.target.value } : p),
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Vorname"
+                      />
+                      <LastNameInput
+                        required
+                        value={person.lastName}
+                        maxLength={50}
+                        onChange={(v) => setWalkInForm((f) => ({
+                          ...f,
+                          persons: f.persons.map((p, i) => i === idx ? { ...p, lastName: v } : p),
+                        }))}
+                        siblings={walkInForm.persons.filter((_, i) => i !== idx).map((p) => p.lastName)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newIdx = walkInForm.persons.length;
+                    flushSync(() => {
+                      setWalkInForm((f) => ({ ...f, persons: [...f.persons, { firstName: "", lastName: "" }] }));
+                    });
+                    walkInFirstNameRefs.current[newIdx]?.focus();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Person hinzufügen
+                </button>
+              </div>
+
+              {/* Bemerkung */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Bemerkung <span className="text-gray-400 font-normal">(optional)</span>
@@ -833,31 +1138,6 @@ export default function CheckinDashboardPage() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                   placeholder="z.B. Kam mit Mitglied XY, Schnuppertraining…"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Begleitpersonen
-                </label>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setWalkInForm((f) => ({ ...f, guests: Math.max(0, f.guests - 1) }))}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-lg font-medium transition-colors"
-                  >
-                    −
-                  </button>
-                  <span className="text-sm font-semibold text-gray-900 w-6 text-center tabular-nums">
-                    {walkInForm.guests}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setWalkInForm((f) => ({ ...f, guests: Math.min(10, f.guests + 1) }))}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-lg font-medium transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
               </div>
 
               {walkInError && (
@@ -883,7 +1163,7 @@ export default function CheckinDashboardPage() {
                   ) : (
                     <UserCheck className="w-4 h-4" />
                   )}
-                  Einchecken
+                  {walkInForm.persons.length} {walkInForm.persons.length === 1 ? "Person" : "Personen"} einchecken
                 </button>
               </div>
             </form>
@@ -1116,6 +1396,98 @@ export default function CheckinDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Person-detail overlay — rendered at page level so data refreshes don't close it */}
+      {overlayParticipant && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50"
+          onClick={(e) => { if (e.target === e.currentTarget) setOverlayParticipantId(null); }}
+        >
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-xl">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+              <div>
+                <p className="text-base font-semibold text-gray-900">
+                  {overlayParticipant.first_name} {overlayParticipant.last_name}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {overlayParticipant.email ?? overlayParticipant.phone ?? "–"}
+                </p>
+              </div>
+              <button
+                onClick={() => setOverlayParticipantId(null)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-5 py-3 space-y-1.5 max-h-72 overflow-y-auto">
+              {(overlayParticipant.persons ?? []).map((person) => {
+                const personChecked = person.checked_in_at !== null;
+                const personBusy = personLoadingId === person.id;
+                return (
+                  <div
+                    key={person.id}
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-xl border transition-colors ${
+                      personChecked ? "bg-green-50 border-green-100" : "bg-gray-50 border-gray-100"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${personChecked ? "bg-green-500" : "bg-gray-300"}`} />
+                      <span className={`text-sm font-medium truncate ${personChecked ? "text-green-900" : "text-gray-800"}`}>
+                        {person.first_name} {person.last_name}
+                      </span>
+                      {personChecked && (
+                        <span className="text-xs text-green-600 shrink-0">{formatTime(person.checked_in_at)}</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => personChecked ? handlePersonUndo(person.id) : handlePersonCheckin(person.id)}
+                      disabled={personBusy}
+                      className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-50 ${
+                        personChecked
+                          ? "border-red-200 text-red-600 hover:bg-red-50"
+                          : "border-green-200 text-green-700 hover:bg-green-50 bg-white"
+                      }`}
+                    >
+                      {personBusy ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : personChecked ? (
+                        <><Undo2 className="w-3.5 h-3.5" /> Zurück</>
+                      ) : (
+                        <><UserCheck className="w-3.5 h-3.5" /> Einchecken</>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="px-5 pb-5 pt-3 flex gap-2 border-t border-gray-100">
+              {(overlayParticipant.persons ?? []).some((p) => p.checked_in_at === null) && (
+                <button
+                  onClick={() => handleManualCheckin(overlayParticipant.id)}
+                  disabled={manualCheckinId === overlayParticipant.id}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors"
+                >
+                  {manualCheckinId === overlayParticipant.id ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <UserCheck className="w-4 h-4" />
+                  )}
+                  Alle einchecken
+                </button>
+              )}
+              <button
+                onClick={() => setOverlayParticipantId(null)}
+                className="flex-1 py-2.5 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl text-sm font-medium transition-colors"
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1126,92 +1498,162 @@ function ParticipantRow({
   onUndo,
   loadingId,
   undoId,
+  onPersonCheckin,
+  onPersonUndo,
+  personLoadingId,
+  onOpenOverlay,
 }: {
   participant: CheckinParticipant;
   onManualCheckin: (id: number) => void;
   onUndo: (id: number) => void;
   loadingId: number | null;
   undoId: number | null;
+  onPersonCheckin: (personId: string) => void;
+  onPersonUndo: (personId: string) => void;
+  personLoadingId: string | null;
+  onOpenOverlay: (id: number) => void;
 }) {
   const checked = participant.checked_in_at !== null;
   const loadingCheckin = loadingId === participant.id;
   const loadingUndo = undoId === participant.id;
-  const busy = loadingCheckin || loadingUndo;
+  const regBusy = loadingCheckin || loadingUndo;
 
+  const persons = participant.persons ?? [];
+  const checkedPersons = persons.filter((p) => p.checked_in_at !== null).length;
   const subtitle = participant.email ?? participant.phone ?? "–";
 
   return (
     <div
-      className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-colors ${
-        checked
-          ? "bg-green-50 border-green-100"
-          : "bg-white border-gray-100 hover:border-gray-200"
+      className={`rounded-xl border transition-colors ${
+        checked ? "bg-green-50 border-green-100" : "bg-white border-gray-100"
       }`}
     >
-      <div className="flex items-center gap-3 min-w-0">
-        <div
-          className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold ${
-            checked ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
-          }`}
-        >
-          {participant.first_name[0]}{participant.last_name[0]}
+      {/* Registration header row */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold ${
+              checked ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+            }`}
+          >
+            {participant.first_name[0]}{participant.last_name[0]}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
+              {participant.first_name} {participant.last_name}
+              {persons.length > 1 && (
+                <span className="text-xs text-gray-400">
+                  {checkedPersons}/{persons.length}
+                </span>
+              )}
+              {participant.is_walk_in && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 leading-none">
+                  Walk-in
+                </span>
+              )}
+            </p>
+            <p className="text-xs text-gray-400 truncate">{subtitle}</p>
+            {participant.notes && (
+              <p className="text-xs text-gray-400 truncate italic">{participant.notes}</p>
+            )}
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
-            {participant.first_name} {participant.last_name}
-            {participant.guests > 0 && (
-              <span className="text-xs text-gray-400">+{participant.guests}</span>
-            )}
-            {participant.is_walk_in && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 leading-none">
-                Walk-in
+        <div className="flex items-center gap-2 shrink-0 ml-3">
+          <RegistrationDetailButton registrationId={participant.id} />
+          {checked ? (
+            <>
+              <span className="flex items-center gap-1 text-xs font-medium text-green-700">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {formatTime(participant.checked_in_at)}
               </span>
-            )}
-          </p>
-          <p className="text-xs text-gray-400 truncate">{subtitle}</p>
-          {participant.notes && (
-            <p className="text-xs text-gray-400 truncate italic">{participant.notes}</p>
+              <button
+                onClick={() => onOpenOverlay(participant.id)}
+                title="Personen anzeigen"
+                className="flex items-center gap-1 px-2 py-1.5 text-xs border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-500 rounded-lg transition-colors"
+              >
+                <List className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => onUndo(participant.id)}
+                disabled={regBusy}
+                title="Alle rückgängig"
+                className="flex items-center gap-1 px-2 py-1.5 text-xs border border-gray-200 hover:border-red-300 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {loadingUndo ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Undo2 className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">Alle zurück</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => onManualCheckin(participant.id)}
+                disabled={regBusy}
+                title="Alle einchecken"
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 hover:border-green-300 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {loadingCheckin ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <UserCheck className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">Alle ein</span>
+              </button>
+              <button
+                onClick={() => onOpenOverlay(participant.id)}
+                title="Einzeln einchecken"
+                className="flex items-center gap-1 px-2 py-1.5 text-xs border border-gray-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 text-gray-500 rounded-lg transition-colors"
+              >
+                <List className="w-3.5 h-3.5" />
+              </button>
+            </>
           )}
         </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0 ml-3">
-        <RegistrationDetailButton registrationId={participant.id} />
-        {checked ? (
-          <>
-            <span className="flex items-center gap-1 text-xs font-medium text-green-700">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              {formatTime(participant.checked_in_at)}
-            </span>
-            <button
-              onClick={() => onUndo(participant.id)}
-              disabled={busy}
-              title="Check-In rückgängig machen"
-              className="flex items-center gap-1 px-2 py-1.5 text-xs border border-gray-200 hover:border-red-300 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {loadingUndo ? (
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Undo2 className="w-3.5 h-3.5" />
-              )}
-              <span>Rückgängig</span>
-            </button>
-          </>
-        ) : (
-          <button
-            onClick={() => onManualCheckin(participant.id)}
-            disabled={busy}
-            title="Manuell einchecken"
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 hover:border-green-300 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors disabled:opacity-50"
-          >
-            {loadingCheckin ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <UserCheck className="w-3.5 h-3.5" />
-            )}
-            Einchecken
-          </button>
-        )}
-      </div>
+
+      {/* Per-person rows (only when multiple persons) */}
+      {persons.length > 0 && (
+        <div className="border-t border-gray-100 divide-y divide-gray-50">
+          {persons.map((person) => {
+            const personChecked = person.checked_in_at !== null;
+            const personBusy = personLoadingId === person.id;
+            return (
+              <div
+                key={person.id}
+                className={`flex items-center justify-between px-4 py-2 ${
+                  personChecked ? "bg-green-50/60" : ""
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${personChecked ? "bg-green-500" : "bg-gray-300"}`} />
+                  <span className={`text-xs truncate ${personChecked ? "text-green-800" : "text-gray-700"}`}>
+                    {person.first_name} {person.last_name}
+                  </span>
+                  {personChecked && (
+                    <span className="text-xs text-green-600 shrink-0">
+                      {formatTime(person.checked_in_at)}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() =>
+                    personChecked ? onPersonUndo(person.id) : onPersonCheckin(person.id)
+                  }
+                  disabled={personBusy}
+                  className={`shrink-0 flex items-center gap-1 px-2 py-1 text-xs rounded-lg border transition-colors disabled:opacity-50 ${
+                    personChecked
+                      ? "border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-600 hover:bg-red-50"
+                      : "border-gray-200 text-gray-600 hover:border-green-300 hover:text-green-700 hover:bg-green-50"
+                  }`}
+                >
+                  {personBusy ? (
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                  ) : personChecked ? (
+                    <Undo2 className="w-3 h-3" />
+                  ) : (
+                    <UserCheck className="w-3 h-3" />
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
