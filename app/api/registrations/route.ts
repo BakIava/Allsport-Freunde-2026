@@ -2,8 +2,8 @@ import {
   getEvent,
   getRegistrationCount,
   findRegistration,
-  createRegistration,
 } from "@/lib/db";
+import { getSQL } from "@/lib/db/utils";
 import { sendRegistrationReceivedEmail } from "@/lib/email";
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
@@ -14,7 +14,6 @@ export async function POST(request: NextRequest) {
     const body: RegistrationRequest = await request.json();
     const { event_id, first_name, last_name, email, phone, guests } = body;
 
-    // Validation
     if (!event_id || !first_name?.trim() || !last_name?.trim() || !email?.trim() || !phone?.trim()) {
       return NextResponse.json(
         { error: "Bitte fülle alle Pflichtfelder aus." },
@@ -30,16 +29,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (guests < 0 || guests > 10) {
-      return NextResponse.json(
-        { error: "Die Anzahl der Begleitpersonen muss zwischen 0 und 10 liegen." },
-        { status: 400 }
-      );
-    }
+    const guestCount = Math.max(0, Math.min(10, parseInt(String(guests)) || 0));
 
-    // Check if event exists and is published
     const event = await getEvent(event_id);
-
     if (!event) {
       return NextResponse.json(
         { error: "Das Event wurde nicht gefunden." },
@@ -54,9 +46,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for duplicate registration
     const normalizedEmail = email.toLowerCase().trim();
-    const existing = await findRegistration(event_id, normalizedEmail);    
+    const existing = await findRegistration(event_id, normalizedEmail);
     if (existing && existing.status !== "cancelled") {
       return NextResponse.json(
         { error: "Du bist bereits für dieses Event angemeldet." },
@@ -64,9 +55,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check available spots
+    const spotsNeeded = 1 + guestCount;
     const currentCount = await getRegistrationCount(event_id);
-    const spotsNeeded = 1 + guests;
     const spotsAvailable = event.max_participants - currentCount;
 
     if (spotsNeeded > spotsAvailable) {
@@ -81,29 +71,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create registration with status token
-    const statusToken = randomUUID();
+    // Persons: main registrant + placeholder companions
+    const persons = [
+      { firstName: first_name.trim(), lastName: last_name.trim() },
+      ...Array.from({ length: guestCount }, () => ({
+        firstName: "Begleitperson",
+        lastName: "Begleitperson",
+      })),
+    ];
 
-    if(existing && existing.status === "cancelled") {
-      // If there is a cancelled registration, we can reuse it by updating the record instead of creating a new one.
-      // This way we keep the same ID and just update the details and status. 
-      // However, for simplicity, we will just create a new registration and let the old cancelled one be.
-      // In a real application, you might want to implement the update logic here.
-      // cannot create another registration if there is already a cancelled one, because of the unique constraint on email + event_id.
-      
+    const statusToken = randomUUID();
+    const sql = getSQL();
+    let registrationId: number;
+
+    if (existing && existing.status === "cancelled") {
+      // Reactivate cancelled registration
+      const rows = await sql`
+        UPDATE registrations SET
+          phone = ${phone.trim()},
+          guests = ${guestCount},
+          status = 'pending',
+          status_token = ${statusToken},
+          status_changed_at = NOW(),
+          status_note = NULL
+        WHERE id = ${existing.id}
+        RETURNING id
+      `;
+      registrationId = (rows[0] as { id: number }).id;
+      await sql`DELETE FROM registration_persons WHERE registration_id = ${registrationId}`;
+    } else {
+      // New registration — no first_name/last_name written to registrations
+      const rows = await sql`
+        INSERT INTO registrations (event_id, email, phone, guests, status, status_token)
+        VALUES (${event_id}, ${normalizedEmail}, ${phone.trim()}, ${guestCount}, 'pending', ${statusToken})
+        RETURNING id
+      `;
+      registrationId = (rows[0] as { id: number }).id;
     }
 
-    await createRegistration({
-      event_id,
-      first_name: first_name.trim(),
-      last_name: last_name.trim(),
-      email: normalizedEmail,
-      phone: phone.trim(),
-      guests,
-      status_token: statusToken,
-    });
+    // Insert all persons into registration_persons
+    for (const p of persons) {
+      await sql`
+        INSERT INTO registration_persons (registration_id, first_name, last_name)
+        VALUES (${registrationId}, ${p.firstName}, ${p.lastName})
+      `;
+    }
 
-    // Fire-and-forget email
     sendRegistrationReceivedEmail({
       to: normalizedEmail,
       firstName: first_name.trim(),
