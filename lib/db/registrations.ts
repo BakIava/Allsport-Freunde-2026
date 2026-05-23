@@ -13,10 +13,27 @@ export async function getRegistrationCount(eventId: number): Promise<number> {
   }
 
   const sql = getSQL();
+  // Zählt aktive Personen aus registration_persons (fällt zurück auf guests+1 für alte Datensätze ohne persons)
   const rows = await sql`
-    SELECT COALESCE(SUM(guests + 1), 0)::int AS count
-    FROM registrations
-    WHERE event_id = ${eventId} AND status = 'approved'
+    SELECT (
+      COALESCE((
+        SELECT COUNT(rp.id)
+        FROM registration_persons rp
+        JOIN registrations r2 ON rp.registration_id = r2.id
+        WHERE r2.event_id = ${eventId}
+          AND r2.status = 'approved'
+          AND rp.cancelled_at IS NULL
+      ), 0) +
+      COALESCE((
+        SELECT SUM(r3.guests + 1)
+        FROM registrations r3
+        WHERE r3.event_id = ${eventId}
+          AND r3.status = 'approved'
+          AND NOT EXISTS (
+            SELECT 1 FROM registration_persons rp2 WHERE rp2.registration_id = r3.id
+          )
+      ), 0)
+    )::int AS count
   `;
   return (rows[0] as { count: number }).count;
 }

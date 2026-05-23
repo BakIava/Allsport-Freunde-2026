@@ -16,9 +16,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import StatusBadge from "@/components/status/StatusBadge";
-import { Trash2, Loader2, Search, Download, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Trash2, Loader2, Search, Download, CheckCircle2, XCircle, Clock, Users, List, Ban } from "lucide-react";
 import RegistrationDetailButton from "@/components/RegistrationDetailButton";
 import type { RegistrationWithEvent, RegistrationStatus } from "@/lib/types";
+import type { AdminPersonRow } from "@/app/api/admin/persons/route";
 
 interface RegistrationTableProps {
   eventId?: number;
@@ -26,7 +27,10 @@ interface RegistrationTableProps {
 
 export default function RegistrationTable({ eventId }: RegistrationTableProps) {
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<"registrations" | "persons">("registrations");
   const [registrations, setRegistrations] = useState<RegistrationWithEvent[]>([]);
+  const [persons, setPersons] = useState<AdminPersonRow[]>([]);
+  const [personsLoading, setPersonsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("alle");
@@ -57,7 +61,23 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
       .finally(() => setLoading(false));
   };
 
+  const fetchPersons = () => {
+    setPersonsLoading(true);
+    const url = eventId
+      ? `/api/admin/persons?event_id=${eventId}`
+      : "/api/admin/persons";
+    fetch(url)
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setPersons(data); })
+      .catch(() => toast("Personen konnten nicht geladen werden.", "error"))
+      .finally(() => setPersonsLoading(false));
+  };
+
   useEffect(() => { fetchRegistrations(); }, [eventId]);
+
+  useEffect(() => {
+    if (activeTab === "persons") fetchPersons();
+  }, [activeTab, eventId]);
 
   const filtered = useMemo(() => {
     return registrations.filter((r) => {
@@ -170,6 +190,24 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
     }
   };
 
+  const handleCancelPerson = async (personId: string, registrationId: number) => {
+    if (!confirm("Person stornieren?")) return;
+    try {
+      const res = await fetch(`/api/registrations/${registrationId}/persons/${personId}`, {
+        method: "PATCH",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        toast(data.error || "Fehler beim Stornieren.", "error");
+        return;
+      }
+      toast("Person storniert.", "success");
+      fetchPersons();
+    } catch {
+      toast("Verbindungsfehler.", "error");
+    }
+  };
+
   const handleExport = () => {
     const url = eventId
       ? `/api/admin/registrations/export?event_id=${eventId}`
@@ -191,6 +229,22 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
     return date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   };
 
+  // Persons filtered list
+  const filteredPersons = useMemo(() => {
+    return persons.filter((p) => {
+      if (search) {
+        const q = search.toLowerCase();
+        if (
+          !p.first_name.toLowerCase().includes(q) &&
+          !p.last_name.toLowerCase().includes(q) &&
+          !p.email?.toLowerCase().includes(q)
+        ) return false;
+      }
+      if (categoryFilter !== "alle" && p.event_category !== categoryFilter) return false;
+      return true;
+    });
+  }, [persons, search, categoryFilter]);
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -201,6 +255,124 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
 
   return (
     <div className="space-y-4">
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab("registrations")}
+          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            activeTab === "registrations"
+              ? "border-green-600 text-green-700"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <List className="w-4 h-4" />
+          Nach Anmeldung
+        </button>
+        <button
+          onClick={() => setActiveTab("persons")}
+          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            activeTab === "persons"
+              ? "border-green-600 text-green-700"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          Alle Personen
+        </button>
+      </div>
+
+      {/* Persons Tab */}
+      {activeTab === "persons" && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Name oder E-Mail suchen..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            {!eventId && (
+              <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-full sm:w-40">
+                <option value="alle">Alle Kategorien</option>
+                <option value="fussball">Fußball</option>
+                <option value="fitness">Fitness</option>
+                <option value="schwimmen">Schwimmen</option>
+              </Select>
+            )}
+          </div>
+
+          {personsLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-green-600" />
+            </div>
+          ) : filteredPersons.length === 0 ? (
+            <p className="text-center py-8 text-muted-foreground">Keine Personen gefunden.</p>
+          ) : (
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Vorname</TableHead>
+                    <TableHead>Nachname</TableHead>
+                    <TableHead className="hidden sm:table-cell">E-Mail</TableHead>
+                    <TableHead>Status</TableHead>
+                    {!eventId && <TableHead className="hidden xl:table-cell">Event</TableHead>}
+                    <TableHead className="text-right">Aktionen</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPersons.map((p) => {
+                    const isCancelled = !!p.cancelled_at;
+                    const isCheckedIn = !!p.checked_in_at && !isCancelled;
+                    return (
+                      <TableRow key={p.person_id} className={isCancelled ? "opacity-50" : ""}>
+                        <TableCell className="font-medium">{p.first_name}</TableCell>
+                        <TableCell>{p.last_name}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-sm text-gray-500">{p.email ?? "–"}</TableCell>
+                        <TableCell>
+                          {isCancelled ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">Storniert</span>
+                          ) : isCheckedIn ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                              <CheckCircle2 className="w-3 h-3" /> Eingecheckt
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">Aktiv</span>
+                          )}
+                        </TableCell>
+                        {!eventId && (
+                          <TableCell className="hidden xl:table-cell max-w-[180px] truncate text-sm text-gray-500">
+                            {p.event_title}
+                          </TableCell>
+                        )}
+                        <TableCell className="text-right">
+                          {!isCancelled && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Person stornieren"
+                              onClick={() => handleCancelPerson(p.person_id, p.registration_id)}
+                            >
+                              <Ban className="w-4 h-4 text-orange-500" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <p className="text-sm text-muted-foreground">{filteredPersons.length} Person{filteredPersons.length !== 1 ? "en" : ""}</p>
+        </div>
+      )}
+
+      {activeTab === "registrations" && (
+      <>
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -452,6 +624,7 @@ export default function RegistrationTable({ eventId }: RegistrationTableProps) {
       <p className="text-sm text-muted-foreground">
         {filtered.length} Anmeldung{filtered.length !== 1 ? "en" : ""}
       </p>
+      </>)}
 
       {/* Status change dialog */}
       <Dialog open={!!statusTarget} onOpenChange={(o) => { if (!o) { setStatusTarget(null); setStatusNote(""); } }}>

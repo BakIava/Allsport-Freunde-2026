@@ -28,7 +28,8 @@ function formatDateDE(date: string): string {
 interface EmailData {
   to: string;
   firstName: string;
-  lastName: string;
+  lastName?: string;
+  persons?: Array<{ firstName: string; lastName: string }>;
   eventTitle: string;
   eventDate: string;
   eventTime: string;
@@ -66,6 +67,7 @@ export async function sendRegistrationReceivedEmail(data: EmailData) {
     data.to,
     RegistrationReceivedEmail({
       firstName: data.firstName,
+      persons: data.persons,
       eventTitle: data.eventTitle,
       eventDate: formatDateDE(data.eventDate),
       eventTime: data.eventTime,

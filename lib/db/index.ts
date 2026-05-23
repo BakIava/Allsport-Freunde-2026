@@ -2,6 +2,7 @@ export * from "./utils";
 export * from "./events";
 export * from "./registrations";
 export * from "./checkins";
+export * from "./persons";
 export * from "./finances";
 export * from "./templates";
 export * from "./inquiries";

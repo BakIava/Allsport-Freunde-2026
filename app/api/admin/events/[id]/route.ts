@@ -51,6 +51,7 @@ export async function PUT(
       entry_price: entryPrice != null && !isNaN(entryPrice) ? entryPrice : null,
       dress_code: (body.dress_code || "").trim(),
       max_participants: body.max_participants,
+      max_per_email: body.max_per_email && body.max_per_email > 0 ? body.max_per_email : 5,
       images: Array.isArray(body.images) ? body.images : undefined,
     });
 

@@ -12,7 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EventWithRegistrations } from "@/lib/types";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, Plus, X } from "lucide-react";
+
+interface PersonEntry {
+  firstName: string;
+  lastName: string;
+}
 
 interface RegistrationModalProps {
   event: EventWithRegistrations | null;
@@ -27,45 +32,51 @@ export default function RegistrationModal({
   onOpenChange,
   onSuccess,
 }: RegistrationModalProps) {
-  const [formData, setFormData] = useState({
-    first_name: "",
-    last_name: "",
-    email: "",
-    phone: "",
-    guests: 0,
-    accepted: false,
-  });
+  const maxPerEmail = (event as { max_per_email?: number } & typeof event)?.max_per_email ?? 5;
+
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [persons, setPersons] = useState<PersonEntry[]>([{ firstName: "", lastName: "" }]);
+  const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [statusToken, setStatusToken] = useState<string | null>(null);
 
   const resetForm = () => {
-    setFormData({
-      first_name: "",
-      last_name: "",
-      email: "",
-      phone: "",
-      guests: 0,
-      accepted: false,
-    });
+    setEmail("");
+    setPhone("");
+    setPersons([{ firstName: "", lastName: "" }]);
+    setAccepted(false);
     setError(null);
     setSuccess(false);
     setStatusToken(null);
   };
 
   const handleClose = (open: boolean) => {
-    if (!open) {
-      resetForm();
-    }
+    if (!open) resetForm();
     onOpenChange(open);
+  };
+
+  const addPerson = () => {
+    if (persons.length >= maxPerEmail) return;
+    setPersons((prev) => [...prev, { firstName: "", lastName: "" }]);
+  };
+
+  const removePerson = (index: number) => {
+    if (persons.length <= 1) return;
+    setPersons((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updatePerson = (index: number, field: "firstName" | "lastName", value: string) => {
+    setPersons((prev) => prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!event) return;
 
-    if (!formData.accepted) {
+    if (!accepted) {
       setError("Bitte akzeptiere die Teilnahmebedingungen.");
       return;
     }
@@ -79,11 +90,9 @@ export default function RegistrationModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           event_id: event.id,
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          email: formData.email,
-          phone: formData.phone,
-          guests: formData.guests,
+          email,
+          phone,
+          persons,
         }),
       });
 
@@ -108,7 +117,7 @@ export default function RegistrationModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="mx-4">
+      <DialogContent className="mx-4 max-h-[90vh] overflow-y-auto">
         {success ? (
           <div className="text-center py-6">
             <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
@@ -130,8 +139,8 @@ export default function RegistrationModal({
                 um {event.time} Uhr
               </p>
               <p>{event.location}</p>
-              {formData.guests > 0 && (
-                <p>+ {formData.guests} Begleitperson{formData.guests > 1 ? "en" : ""}</p>
+              {persons.length > 1 && (
+                <p>{persons.length} Personen angemeldet</p>
               )}
             </div>
             <p className="text-sm text-amber-600 bg-amber-50 rounded-lg p-3 mb-4">
@@ -161,46 +170,15 @@ export default function RegistrationModal({
             </DialogHeader>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="first_name">Vorname *</Label>
-                  <Input
-                    id="first_name"
-                    required
-                    value={formData.first_name}
-                    maxLength={50}
-                    onChange={(e) =>
-                      setFormData({ ...formData, first_name: e.target.value })
-                    }
-                    placeholder="Max"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="last_name">Nachname *</Label>
-                  <Input
-                    id="last_name"
-                    required
-                    value={formData.last_name}
-                    maxLength={50}
-                    onChange={(e) =>
-                      setFormData({ ...formData, last_name: e.target.value })
-                    }
-                    placeholder="Mustermann"
-                  />
-                </div>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="email">E-Mail *</Label>
                 <Input
                   id="email"
                   type="email"
                   required
-                  value={formData.email}
+                  value={email}
                   maxLength={255}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="max@beispiel.de"
                 />
               </div>
@@ -211,40 +189,73 @@ export default function RegistrationModal({
                   id="phone"
                   type="tel"
                   required
-                  value={formData.phone}
+                  value={phone}
                   maxLength={20}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
+                  onChange={(e) => setPhone(e.target.value)}
                   placeholder="0151 12345678"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="guests">Wie viele Leute nimmst du mit?</Label>
-                <Input
-                  id="guests"
-                  type="number"
-                  min={0}
-                  max={10}
-                  value={formData.guests}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      guests: parseInt(e.target.value) || 0,
-                    })
-                  }
-                />
+              {/* Personen-Sektion */}
+              <div className="space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <Label className="text-sm font-medium">
+                    Personen
+                  </Label>
+                  <span className="text-xs text-gray-400">
+                    max. {maxPerEmail} pro E-Mail
+                  </span>
+                </div>
+
+                {persons.map((person, index) => (
+                  <div key={index} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1 grid grid-cols-2 gap-2">
+                      <Input
+                        required
+                        value={person.firstName}
+                        maxLength={50}
+                        onChange={(e) => updatePerson(index, "firstName", e.target.value)}
+                        placeholder="Vorname"
+                      />
+                      <Input
+                        required
+                        value={person.lastName}
+                        maxLength={50}
+                        onChange={(e) => updatePerson(index, "lastName", e.target.value)}
+                        placeholder="Nachname"
+                      />
+                    </div>
+                    {persons.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removePerson(index)}
+                        className="mt-1 p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                        title="Person entfernen"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {persons.length < maxPerEmail && (
+                  <button
+                    type="button"
+                    onClick={addPerson}
+                    className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Person hinzufügen
+                  </button>
+                )}
               </div>
 
               <div className="flex items-start gap-2">
                 <input
                   type="checkbox"
                   id="accepted"
-                  checked={formData.accepted}
-                  onChange={(e) =>
-                    setFormData({ ...formData, accepted: e.target.checked })
-                  }
+                  checked={accepted}
+                  onChange={(e) => setAccepted(e.target.checked)}
                   className="mt-1 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer"
                 />
                 <Label htmlFor="accepted" className="text-sm text-gray-600 cursor-pointer">
