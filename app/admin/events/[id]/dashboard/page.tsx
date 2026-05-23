@@ -706,14 +706,14 @@ export default function CheckinDashboardPage() {
                 <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{error}</p>
               )}
 
-              {/* Participant list – checked in first, then missing */}
+              {/* Participant list – missing first, then checked in */}
               <div className="space-y-2">
-                {checkedInFiltered.length > 0 && (
+                {missingFiltered.length > 0 && (
                   <>
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">
-                      Eingecheckt ({checkedInFiltered.length})
+                      Ausstehend ({missingFiltered.length})
                     </h3>
-                    {checkedInFiltered.map((p) => (
+                    {missingFiltered.map((p) => (
                       <ParticipantRow
                         key={p.id}
                         participant={p}
@@ -729,12 +729,12 @@ export default function CheckinDashboardPage() {
                     ))}
                   </>
                 )}
-                {missingFiltered.length > 0 && (
+                {checkedInFiltered.length > 0 && (
                   <>
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1 pt-2">
-                      Ausstehend ({missingFiltered.length})
+                      Eingecheckt ({checkedInFiltered.length})
                     </h3>
-                    {missingFiltered.map((p) => (
+                    {checkedInFiltered.map((p) => (
                       <ParticipantRow
                         key={p.id}
                         participant={p}
