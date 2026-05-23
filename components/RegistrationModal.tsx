@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { flushSync } from "react-dom";
 import {
   Dialog,
   DialogContent,
@@ -63,8 +64,10 @@ export default function RegistrationModal({
   const addPerson = () => {
     if (persons.length >= maxPerEmail) return;
     const newIdx = persons.length;
-    setPersons((prev) => [...prev, { firstName: "", lastName: "" }]);
-    setTimeout(() => firstNameRefs.current[newIdx]?.focus(), 0);
+    flushSync(() => {
+      setPersons((prev) => [...prev, { firstName: "", lastName: "" }]);
+    });
+    firstNameRefs.current[newIdx]?.focus();
   };
 
   const removePerson = (idx: number) => {

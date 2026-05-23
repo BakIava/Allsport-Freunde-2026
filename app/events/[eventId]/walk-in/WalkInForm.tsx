@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { flushSync } from "react-dom";
 import {
   MapPin,
   Calendar,
@@ -64,8 +65,10 @@ export function WalkInForm({
 
   const addPerson = () => {
     const newIdx = form.persons.length;
-    setForm((f) => ({ ...f, persons: [...f.persons, { firstName: "", lastName: "" }] }));
-    setTimeout(() => firstNameRefs.current[newIdx]?.focus(), 0);
+    flushSync(() => {
+      setForm((f) => ({ ...f, persons: [...f.persons, { firstName: "", lastName: "" }] }));
+    });
+    firstNameRefs.current[newIdx]?.focus();
   };
 
   const removePerson = (idx: number) =>

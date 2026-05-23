@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { flushSync } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -907,8 +908,10 @@ export default function CheckinDashboardPage() {
                   type="button"
                   onClick={() => {
                     const newIdx = walkInForm.persons.length;
-                    setWalkInForm((f) => ({ ...f, persons: [...f.persons, { firstName: "", lastName: "" }] }));
-                    setTimeout(() => walkInFirstNameRefs.current[newIdx]?.focus(), 0);
+                    flushSync(() => {
+                      setWalkInForm((f) => ({ ...f, persons: [...f.persons, { firstName: "", lastName: "" }] }));
+                    });
+                    walkInFirstNameRefs.current[newIdx]?.focus();
                   }}
                   className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                 >
