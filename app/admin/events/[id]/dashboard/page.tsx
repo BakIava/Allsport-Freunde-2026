@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { flushSync } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -26,6 +26,7 @@ import {
   BadgeCheck,
   AlertTriangle,
   Banknote,
+  Euro,
 } from "lucide-react";
 import RegistrationDetailButton from "@/components/RegistrationDetailButton";
 import { LastNameInput } from "@/components/ui/LastNameInput";
@@ -115,6 +116,10 @@ export default function CheckinDashboardPage() {
 
   // Person-detail overlay (lifted here so data refreshes don't close it)
   const [overlayParticipantId, setOverlayParticipantId] = useState<number | null>(null);
+
+  // Tab state
+  type Tab = "anmeldungen" | "finanzen" | "spenden";
+  const [activeTab, setActiveTab] = useState<Tab>("anmeldungen");
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -632,105 +637,336 @@ export default function CheckinDashboardPage() {
             </p>
           </div>
 
-          {/* ── Finanzen ── */}
-          {financials && (
-            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold">€</span>
-                Finanzen
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                {/* Gesamtkosten */}
-                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
-                  <p className="text-xs text-gray-500">Gesamtkosten</p>
-                  <p className="text-base font-bold text-gray-900">{formatEuro(financials.total_costs)}</p>
-                </div>
-
-                {/* Erwarteter Umsatz */}
-                {financials.entry_price != null && financials.entry_price > 0 ? (
-                  <div className="bg-blue-50 rounded-lg p-3 space-y-1">
-                    <p className="text-xs text-blue-700">Erw. Umsatz</p>
-                    <p className="text-base font-bold text-blue-900">{formatEuro(financials.expected_revenue)}</p>
-                    <p className="text-xs text-blue-600">
-                      ({financials.approved_persons} Anm.{financials.approved_guests > 0 ? ` + ${financials.approved_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 rounded-lg p-3 space-y-1">
-                    <p className="text-xs text-gray-500">Erw. Umsatz</p>
-                    <p className="text-sm text-gray-400 italic">Kein Preis</p>
-                  </div>
+          {/* ── Tab bar ── */}
+          <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+            {(
+              [
+                {
+                  key: "anmeldungen" as const,
+                  label: "Anmeldungen",
+                  icon: <Users className="w-4 h-4" />,
+                  badge: data.missing > 0 ? String(data.missing) : null,
+                  badgeColor: "bg-amber-500",
+                },
+                {
+                  key: "finanzen" as const,
+                  label: "Finanzen",
+                  icon: <Euro className="w-4 h-4" />,
+                  badge: financials?.cash_counted != null ? "✓" : null,
+                  badgeColor: "bg-green-600",
+                },
+                {
+                  key: "spenden" as const,
+                  label: "Spenden",
+                  icon: <Heart className="w-4 h-4" />,
+                  badge: (financials?.donation_count ?? 0) > 0 ? String(financials!.donation_count) : null,
+                  badgeColor: "bg-rose-500",
+                },
+              ] as { key: Tab; label: string; icon: React.ReactNode; badge: string | null; badgeColor: string }[]
+            ).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {tab.icon}
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">
+                  {tab.key === "anmeldungen" ? "Liste" : tab.key === "finanzen" ? "Finanzen" : "Spenden"}
+                </span>
+                {tab.badge && (
+                  <span className={`${tab.badgeColor} text-white text-xs rounded-full min-w-[1.25rem] h-5 px-1 flex items-center justify-center font-bold leading-none`}>
+                    {tab.badge}
+                  </span>
                 )}
+              </button>
+            ))}
+          </div>
 
-                {/* Tatsächlicher Umsatz */}
-                {financials.entry_price != null && financials.entry_price > 0 ? (
-                  <div className="bg-green-50 rounded-lg p-3 space-y-1">
-                    <p className="text-xs text-green-700">Tats. Umsatz</p>
-                    <p className="text-base font-bold text-green-900">{formatEuro(financials.actual_revenue)}</p>
-                    <p className="text-xs text-green-600">
-                      ({financials.checkedin_persons} eingecheckt{financials.checkedin_guests > 0 ? ` + ${financials.checkedin_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 rounded-lg p-3 space-y-1">
-                    <p className="text-xs text-gray-500">Tats. Umsatz</p>
-                    <p className="text-sm text-gray-400 italic">Kein Preis</p>
-                  </div>
+          {/* ── Tab: Anmeldungen ── */}
+          {activeTab === "anmeldungen" && (
+            <>
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Name oder E-Mail suchen…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                />
+              </div>
+
+              {error && (
+                <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{error}</p>
+              )}
+
+              {/* Participant list – checked in first, then missing */}
+              <div className="space-y-2">
+                {checkedInFiltered.length > 0 && (
+                  <>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">
+                      Eingecheckt ({checkedInFiltered.length})
+                    </h3>
+                    {checkedInFiltered.map((p) => (
+                      <ParticipantRow
+                        key={p.id}
+                        participant={p}
+                        onManualCheckin={handleManualCheckin}
+                        onUndo={handleUndo}
+                        loadingId={manualCheckinId}
+                        undoId={undoId}
+                        onPersonCheckin={handlePersonCheckin}
+                        onPersonUndo={handlePersonUndo}
+                        personLoadingId={personLoadingId}
+                        onOpenOverlay={setOverlayParticipantId}
+                      />
+                    ))}
+                  </>
                 )}
-
-                {/* Spenden */}
-                <div className="bg-rose-50 rounded-lg p-3 space-y-1">
-                  <p className="text-xs text-rose-700 flex items-center gap-1">
-                    <Heart className="w-3 h-3" />
-                    Spenden
+                {missingFiltered.length > 0 && (
+                  <>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1 pt-2">
+                      Ausstehend ({missingFiltered.length})
+                    </h3>
+                    {missingFiltered.map((p) => (
+                      <ParticipantRow
+                        key={p.id}
+                        participant={p}
+                        onManualCheckin={handleManualCheckin}
+                        onUndo={handleUndo}
+                        loadingId={manualCheckinId}
+                        undoId={undoId}
+                        onPersonCheckin={handlePersonCheckin}
+                        onPersonUndo={handlePersonUndo}
+                        personLoadingId={personLoadingId}
+                        onOpenOverlay={setOverlayParticipantId}
+                      />
+                    ))}
+                  </>
+                )}
+                {filtered.length === 0 && (
+                  <p className="text-center text-gray-400 py-10 text-sm">
+                    {search
+                      ? "Keine Teilnehmer gefunden."
+                      : "Noch keine Teilnehmer – Teilnehmer können manuell oder per Walk-in hinzugefügt werden."}
                   </p>
-                  <p className="text-base font-bold text-rose-900">{formatEuro(financials.total_donations ?? 0)}</p>
-                  <p className="text-xs text-rose-600">{financials.donation_count ?? 0} Spende{(financials.donation_count ?? 0) !== 1 ? "n" : ""}</p>
-                </div>
-
-                {/* Bilanz */}
-                {(financials.entry_price != null && financials.entry_price > 0) || (financials.total_donations ?? 0) > 0 || financials.total_costs > 0 ? (
-                  <div className={`rounded-lg p-3 space-y-1 ${financials.balance > 0 ? "bg-green-100" : financials.balance < 0 ? "bg-red-100" : "bg-gray-50"}`}>
-                    <p className={`text-xs ${financials.balance > 0 ? "text-green-700" : financials.balance < 0 ? "text-red-700" : "text-gray-500"}`}>Bilanz</p>
-                    <p className={`text-base font-bold ${financials.balance > 0 ? "text-green-800" : financials.balance < 0 ? "text-red-800" : "text-gray-700"}`}>
-                      {financials.balance > 0 ? "+" : ""}{formatEuro(financials.balance)}
-                    </p>
-                    <p className={`text-xs ${financials.balance > 0 ? "text-green-600" : financials.balance < 0 ? "text-red-600" : "text-gray-400"}`}>
-                      {financials.balance > 0 ? "Überschuss" : financials.balance < 0 ? "Defizit" : "Ausgeglichen"}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 rounded-lg p-3 space-y-1">
-                    <p className="text-xs text-gray-500">Bilanz</p>
-                    <p className="text-sm text-gray-400 italic">–</p>
-                  </div>
                 )}
               </div>
-            </div>
+            </>
           )}
 
-          {/* ── Spenden-Liste ── */}
-          {financials && (
+          {/* ── Tab: Finanzen ── */}
+          {activeTab === "finanzen" && (
+            <>
+              {financials ? (
+                <>
+                  {/* Finance summary cards */}
+                  <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+                    <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <Euro className="w-4 h-4 text-indigo-500" />
+                      Übersicht
+                    </h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      {/* Gesamtkosten */}
+                      <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                        <p className="text-xs text-gray-500">Gesamtkosten</p>
+                        <p className="text-base font-bold text-gray-900">{formatEuro(financials.total_costs)}</p>
+                      </div>
+
+                      {/* Erwarteter Umsatz */}
+                      {financials.entry_price != null && financials.entry_price > 0 ? (
+                        <div className="bg-blue-50 rounded-lg p-3 space-y-1">
+                          <p className="text-xs text-blue-700">Erw. Umsatz</p>
+                          <p className="text-base font-bold text-blue-900">{formatEuro(financials.expected_revenue)}</p>
+                          <p className="text-xs text-blue-600">
+                            ({financials.approved_persons} Anm.{financials.approved_guests > 0 ? ` + ${financials.approved_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                          <p className="text-xs text-gray-500">Erw. Umsatz</p>
+                          <p className="text-sm text-gray-400 italic">Kein Preis</p>
+                        </div>
+                      )}
+
+                      {/* Tatsächlicher Umsatz */}
+                      {financials.entry_price != null && financials.entry_price > 0 ? (
+                        <div className="bg-green-50 rounded-lg p-3 space-y-1">
+                          <p className="text-xs text-green-700">Tats. Umsatz</p>
+                          <p className="text-base font-bold text-green-900">{formatEuro(financials.actual_revenue)}</p>
+                          <p className="text-xs text-green-600">
+                            ({financials.checkedin_persons} eingecheckt{financials.checkedin_guests > 0 ? ` + ${financials.checkedin_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                          <p className="text-xs text-gray-500">Tats. Umsatz</p>
+                          <p className="text-sm text-gray-400 italic">Kein Preis</p>
+                        </div>
+                      )}
+
+                      {/* Spenden */}
+                      <div className="bg-rose-50 rounded-lg p-3 space-y-1">
+                        <p className="text-xs text-rose-700 flex items-center gap-1">
+                          <Heart className="w-3 h-3" />
+                          Spenden
+                        </p>
+                        <p className="text-base font-bold text-rose-900">{formatEuro(financials.total_donations ?? 0)}</p>
+                        <p className="text-xs text-rose-600">{financials.donation_count ?? 0} Spende{(financials.donation_count ?? 0) !== 1 ? "n" : ""}</p>
+                      </div>
+
+                      {/* Bilanz */}
+                      {(financials.entry_price != null && financials.entry_price > 0) || (financials.total_donations ?? 0) > 0 || financials.total_costs > 0 ? (
+                        <div className={`rounded-lg p-3 space-y-1 ${financials.balance > 0 ? "bg-green-100" : financials.balance < 0 ? "bg-red-100" : "bg-gray-50"}`}>
+                          <p className={`text-xs ${financials.balance > 0 ? "text-green-700" : financials.balance < 0 ? "text-red-700" : "text-gray-500"}`}>Bilanz</p>
+                          <p className={`text-base font-bold ${financials.balance > 0 ? "text-green-800" : financials.balance < 0 ? "text-red-800" : "text-gray-700"}`}>
+                            {financials.balance > 0 ? "+" : ""}{formatEuro(financials.balance)}
+                          </p>
+                          <p className={`text-xs ${financials.balance > 0 ? "text-green-600" : financials.balance < 0 ? "text-red-600" : "text-gray-400"}`}>
+                            {financials.balance > 0 ? "Überschuss" : financials.balance < 0 ? "Defizit" : "Ausgeglichen"}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                          <p className="text-xs text-gray-500">Bilanz</p>
+                          <p className="text-sm text-gray-400 italic">–</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Kassenabschluss */}
+                  <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+                    <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <Banknote className="w-4 h-4 text-gray-500" />
+                      Kassenabschluss
+                    </h2>
+
+                    {financials.cash_counted != null ? (
+                      (() => {
+                        const einlass = financials.actual_revenue ?? 0;
+                        const spenden = financials.total_donations ?? 0;
+                        const diff = Math.round((financials.cash_counted - einlass) * 100) / 100;
+                        const isMatch = diff === 0;
+                        return (
+                          <div className="space-y-2">
+                            <div className={`rounded-xl border px-4 py-3 flex items-start gap-3 ${isMatch ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+                              {isMatch ? (
+                                <BadgeCheck className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                              ) : (
+                                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-semibold ${isMatch ? "text-green-800" : "text-amber-800"}`}>
+                                  {isMatch ? "Einlasskasse bestätigt" : "Abweichung Einlasskasse"}
+                                </p>
+                                <p className={`text-xs mt-0.5 ${isMatch ? "text-green-700" : "text-amber-700"}`}>
+                                  Gezählt: <strong>{formatEuro(financials.cash_counted)}</strong>
+                                  {" · "}Erwartet: <strong>{formatEuro(einlass)}</strong>
+                                  {!isMatch && <> · Differenz: <strong>{diff > 0 ? "+" : ""}{formatEuro(diff)}</strong></>}
+                                </p>
+                                {financials.cash_counted_at && (
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    Eingetragen: {new Date(financials.cash_counted_at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {spenden > 0 && (
+                              <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-2 text-xs text-gray-500 flex justify-between items-center">
+                                <span>+ Spenden</span>
+                                <span className="font-medium text-rose-600">{formatEuro(spenden)}</span>
+                              </div>
+                            )}
+                            {spenden > 0 && (
+                              <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-2 text-xs text-gray-600 flex justify-between items-center font-medium">
+                                <span>= Gesamt</span>
+                                <span>{formatEuro(financials.cash_counted + spenden)}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">Noch kein Kassenabschluss eingetragen.</p>
+                    )}
+
+                    <form onSubmit={handleSaveCashCount} className="flex gap-2 items-end pt-1">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          {financials.cash_counted != null ? "Neuen Wert eintragen" : "Kassenbestand eintragen"}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">€</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={cashInput}
+                            onChange={(e) => { setCashInput(e.target.value); setCashError(null); }}
+                            placeholder="0,00"
+                            className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={cashSaving || !cashInput.trim()}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                      >
+                        {cashSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        Speichern
+                      </button>
+                    </form>
+                    {cashError && <p className="text-xs text-red-600">{cashError}</p>}
+                  </div>
+                </>
+              ) : (
+                <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
+                  <Euro className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                  <p className="text-sm text-gray-400">Finanzdaten werden geladen…</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── Tab: Spenden ── */}
+          {activeTab === "spenden" && (
             <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Heart className="w-4 h-4 text-rose-500" />
-                  Spenden ({financials.donation_count ?? 0})
+                  Spenden ({financials?.donation_count ?? 0})
                 </h2>
                 <button
                   onClick={openDonation}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium transition-colors"
                 >
-                  <Heart className="w-3 h-3" />
-                  Eintragen
+                  <Plus className="w-3.5 h-3.5" />
+                  Spende eintragen
                 </button>
               </div>
 
-              {(financials.donations ?? []).length === 0 ? (
-                <p className="text-sm text-gray-400 italic py-2">Noch keine Spenden erfasst.</p>
+              {(financials?.donations ?? []).length === 0 ? (
+                <div className="py-8 text-center">
+                  <Heart className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                  <p className="text-sm text-gray-400">Noch keine Spenden erfasst.</p>
+                  <button
+                    onClick={openDonation}
+                    className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Erste Spende eintragen
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-2">
-                  {(financials.donations ?? []).map((d: EventDonation) => (
+                  {(financials!.donations).map((d: EventDonation) => (
                     <div key={d.id} className="flex items-start justify-between gap-3 rounded-lg border border-rose-100 bg-rose-50/40 px-3 py-2.5">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900">{d.donor_name}</p>
@@ -758,173 +994,13 @@ export default function CheckinDashboardPage() {
                   ))}
                   <div className="flex justify-end pt-1 border-t border-gray-100">
                     <p className="text-sm font-semibold text-gray-700">
-                      Gesamt: <span className="text-rose-700">{formatEuro(financials.total_donations ?? 0)}</span>
+                      Gesamt: <span className="text-rose-700">{formatEuro(financials!.total_donations ?? 0)}</span>
                     </p>
                   </div>
                 </div>
               )}
             </div>
           )}
-
-          {/* ── Kassenabschluss ── */}
-          {financials && (
-            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Banknote className="w-4 h-4 text-gray-500" />
-                Kassenabschluss
-              </h2>
-
-              {/* Current status */}
-              {financials.cash_counted != null ? (
-                (() => {
-                  const einlass = financials.actual_revenue ?? 0;
-                  const spenden = financials.total_donations ?? 0;
-                  const diff = Math.round((financials.cash_counted - einlass) * 100) / 100;
-                  const isMatch = diff === 0;
-                  return (
-                    <div className="space-y-2">
-                      {/* Einlass comparison */}
-                      <div className={`rounded-xl border px-4 py-3 flex items-start gap-3 ${isMatch ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
-                        {isMatch ? (
-                          <BadgeCheck className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
-                        ) : (
-                          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-semibold ${isMatch ? "text-green-800" : "text-amber-800"}`}>
-                            {isMatch ? "Einlasskasse bestätigt" : "Abweichung Einlasskasse"}
-                          </p>
-                          <p className={`text-xs mt-0.5 ${isMatch ? "text-green-700" : "text-amber-700"}`}>
-                            Gezählt: <strong>{formatEuro(financials.cash_counted)}</strong>
-                            {" · "}Erwartet: <strong>{formatEuro(einlass)}</strong>
-                            {!isMatch && <> · Differenz: <strong>{diff > 0 ? "+" : ""}{formatEuro(diff)}</strong></>}
-                          </p>
-                          {financials.cash_counted_at && (
-                            <p className="text-xs text-gray-400 mt-1">
-                              Eingetragen: {new Date(financials.cash_counted_at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {/* Donations addendum */}
-                      {spenden > 0 && (
-                        <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-2 text-xs text-gray-500 flex justify-between items-center">
-                          <span>+ Spenden</span>
-                          <span className="font-medium text-rose-600">{formatEuro(spenden)}</span>
-                        </div>
-                      )}
-                      {spenden > 0 && (
-                        <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-2 text-xs text-gray-600 flex justify-between items-center font-medium">
-                          <span>= Gesamt</span>
-                          <span>{formatEuro(financials.cash_counted + spenden)}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()
-              ) : (
-                <p className="text-sm text-gray-400 italic">Noch kein Kassenabschluss eingetragen.</p>
-              )}
-
-              {/* Input form */}
-              <form onSubmit={handleSaveCashCount} className="flex gap-2 items-end pt-1">
-                <div className="flex-1">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    {financials.cash_counted != null ? "Neuen Wert eintragen" : "Kassenbestand eintragen"}
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">€</span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={cashInput}
-                      onChange={(e) => { setCashInput(e.target.value); setCashError(null); }}
-                      placeholder="0,00"
-                      className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                    />
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  disabled={cashSaving || !cashInput.trim()}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
-                >
-                  {cashSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  Speichern
-                </button>
-              </form>
-              {cashError && <p className="text-xs text-red-600">{cashError}</p>}
-            </div>
-          )}
-
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Name oder E-Mail suchen…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-            />
-          </div>
-
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{error}</p>
-          )}
-
-          {/* Participant list – checked in first, then missing */}
-          <div className="space-y-2">
-            {checkedInFiltered.length > 0 && (
-              <>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">
-                  Eingecheckt ({checkedInFiltered.length})
-                </h3>
-                {checkedInFiltered.map((p) => (
-                  <ParticipantRow
-                    key={p.id}
-                    participant={p}
-                    onManualCheckin={handleManualCheckin}
-                    onUndo={handleUndo}
-                    loadingId={manualCheckinId}
-                    undoId={undoId}
-                    onPersonCheckin={handlePersonCheckin}
-                    onPersonUndo={handlePersonUndo}
-                    personLoadingId={personLoadingId}
-                    onOpenOverlay={setOverlayParticipantId}
-                  />
-                ))}
-              </>
-            )}
-            {missingFiltered.length > 0 && (
-              <>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1 pt-2">
-                  Ausstehend ({missingFiltered.length})
-                </h3>
-                {missingFiltered.map((p) => (
-                  <ParticipantRow
-                    key={p.id}
-                    participant={p}
-                    onManualCheckin={handleManualCheckin}
-                    onUndo={handleUndo}
-                    loadingId={manualCheckinId}
-                    undoId={undoId}
-                    onPersonCheckin={handlePersonCheckin}
-                    onPersonUndo={handlePersonUndo}
-                    personLoadingId={personLoadingId}
-                    onOpenOverlay={setOverlayParticipantId}
-                  />
-                ))}
-              </>
-            )}
-            {filtered.length === 0 && (
-              <p className="text-center text-gray-400 py-10 text-sm">
-                {search
-                  ? "Keine Teilnehmer gefunden."
-                  : "Noch keine Teilnehmer – Teilnehmer können manuell oder per Walk-in hinzugefügt werden."}
-              </p>
-            )}
-          </div>
         </>
       )}
 

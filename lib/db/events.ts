@@ -63,6 +63,8 @@ export async function getAllEvents(): Promise<EventWithRegistrations[]> {
       (COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END) * COALESCE(e.entry_price, 0))::float8 AS expected_revenue,
       (COUNT(CASE WHEN r.status = 'approved' AND r.checked_in_at IS NOT NULL THEN rp.id ELSE NULL END) * COALESCE(e.entry_price, 0))::float8 AS actual_revenue,
       COALESCE((SELECT SUM(ed.amount)::float8 FROM event_donations ed WHERE ed.event_id = e.id), 0)::float8 AS total_donations,
+      e.cash_counted::float8 AS cash_counted,
+      e.cash_counted_at,
       COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.is_walk_in = FALSE THEN 1 ELSE 0 END), 0)::int AS total_registrations,
       COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.is_walk_in = FALSE AND r.checked_in_at IS NOT NULL THEN 1 ELSE 0 END), 0)::int AS checkin_count,
       COALESCE(SUM(CASE WHEN r.status = 'approved' AND r.is_walk_in = TRUE THEN 1 ELSE 0 END), 0)::int AS walk_in_count

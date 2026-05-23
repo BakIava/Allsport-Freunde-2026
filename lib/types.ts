@@ -45,6 +45,9 @@ export interface EventWithRegistrations extends Event {
   expected_revenue?: number;
   actual_revenue?: number;
   total_donations?: number;
+  /** Physical cash count entered at end of event (from events.cash_counted) */
+  cash_counted?: number | null;
+  cash_counted_at?: string | null;
   /** Check-in summary for past events – included in admin getAllEvents query */
   total_registrations?: number;  // approved non-walk-in registrations
   checkin_count?: number;        // checked-in non-walk-in registrations
