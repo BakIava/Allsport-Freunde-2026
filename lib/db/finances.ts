@@ -118,29 +118,33 @@ export async function getEventFinancials(eventId: number): Promise<EventFinancia
   }
   const totalCosts = costs.reduce((sum, c) => sum + c.amount, 0);
 
-  // Approved registrations (expected revenue)
+  // Approved persons (expected revenue) — count via registration_persons
   const approvedRows = await sql`
     SELECT
-      COUNT(*)::int AS count,
-      COALESCE(SUM(guests), 0)::int AS total_guests
-    FROM registrations
-    WHERE event_id = ${eventId} AND status = 'approved'
+      COUNT(DISTINCT r.id)::int AS registrations,
+      COUNT(rp.id)::int AS persons
+    FROM registrations r
+    JOIN registration_persons rp ON rp.registration_id = r.id AND rp.cancelled_at IS NULL
+    WHERE r.event_id = ${eventId} AND r.status = 'approved'
   `;
-  const approvedCount = (approvedRows[0] as { count: number; total_guests: number }).count;
-  const approvedGuests = (approvedRows[0] as { count: number; total_guests: number }).total_guests;
-  const expectedRevenue = entryPrice != null ? (approvedCount + approvedGuests) * entryPrice : 0;
+  const approvedCount = (approvedRows[0] as { registrations: number; persons: number }).registrations;
+  const approvedPersons = (approvedRows[0] as { registrations: number; persons: number }).persons;
+  const approvedGuests = Math.max(0, approvedPersons - approvedCount);
+  const expectedRevenue = entryPrice != null ? approvedPersons * entryPrice : 0;
 
-  // Checked-in registrations (actual revenue)
+  // Checked-in persons (actual revenue) — count via registration_persons
   const checkinRows = await sql`
     SELECT
-      COUNT(*)::int AS count,
-      COALESCE(SUM(guests), 0)::int AS total_guests
-    FROM registrations
-    WHERE event_id = ${eventId} AND status = 'approved' AND checked_in_at IS NOT NULL
+      COUNT(DISTINCT r.id)::int AS registrations,
+      COUNT(rp.id)::int AS persons
+    FROM registrations r
+    JOIN registration_persons rp ON rp.registration_id = r.id AND rp.cancelled_at IS NULL AND rp.checked_in_at IS NOT NULL
+    WHERE r.event_id = ${eventId} AND r.status = 'approved'
   `;
-  const checkinCount = (checkinRows[0] as { count: number; total_guests: number }).count;
-  const checkinGuests = (checkinRows[0] as { count: number; total_guests: number }).total_guests;
-  const actualRevenue = entryPrice != null ? (checkinCount + checkinGuests) * entryPrice : 0;
+  const checkinCount = (checkinRows[0] as { registrations: number; persons: number }).registrations;
+  const checkinPersons = (checkinRows[0] as { registrations: number; persons: number }).persons;
+  const checkinGuests = Math.max(0, checkinPersons - checkinCount);
+  const actualRevenue = entryPrice != null ? checkinPersons * entryPrice : 0;
 
   // Donations (table may not exist if migration not run yet)
   let donations: EventDonation[] = [];
@@ -154,10 +158,10 @@ export async function getEventFinancials(eventId: number): Promise<EventFinancia
   return {
     entry_price: entryPrice,
     total_costs: totalCosts,
-    approved_persons: approvedCount,
+    approved_persons: approvedPersons,
     approved_guests: approvedGuests,
     expected_revenue: expectedRevenue,
-    checkedin_persons: checkinCount,
+    checkedin_persons: checkinPersons,
     checkedin_guests: checkinGuests,
     actual_revenue: actualRevenue,
     total_donations: totalDonations,
