@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   RefreshCw,
   Users,
+  Plus,
+  X,
 } from "lucide-react";
 
 interface WalkInFormProps {
@@ -17,24 +19,25 @@ interface WalkInFormProps {
   eventLocation: string;
 }
 
+interface Person {
+  firstName: string;
+  lastName: string;
+}
+
 interface FormState {
-  first_name: string;
-  last_name: string;
+  persons: Person[];
   email: string;
   phone: string;
   notes: string;
-  guests: number;
   privacy_accepted: boolean;
   terms_accepted: boolean;
 }
 
 const EMPTY_FORM: FormState = {
-  first_name: "",
-  last_name: "",
+  persons: [{ firstName: "", lastName: "" }],
   email: "",
   phone: "",
   notes: "",
-  guests: 0,
   privacy_accepted: false,
   terms_accepted: false,
 };
@@ -56,9 +59,17 @@ export function WalkInForm({
     firstNameRef.current?.focus();
   }, []);
 
-  function set<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((f) => ({ ...f, [key]: value }));
-  }
+  const addPerson = () =>
+    setForm((f) => ({ ...f, persons: [...f.persons, { firstName: "", lastName: "" }] }));
+
+  const removePerson = (idx: number) =>
+    setForm((f) => ({ ...f, persons: f.persons.filter((_, i) => i !== idx) }));
+
+  const updatePerson = (idx: number, field: keyof Person, value: string) =>
+    setForm((f) => ({
+      ...f,
+      persons: f.persons.map((p, i) => (i === idx ? { ...p, [field]: value } : p)),
+    }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -72,12 +83,13 @@ export function WalkInForm({
         body: JSON.stringify({
           eventId,
           token,
-          first_name: form.first_name,
-          last_name: form.last_name,
+          persons: form.persons.map((p) => ({
+            firstName: p.firstName.trim(),
+            lastName: p.lastName.trim(),
+          })),
           email: form.email || undefined,
           phone: form.phone || undefined,
           notes: form.notes || undefined,
-          guests: form.guests,
           privacy_accepted: form.privacy_accepted,
           terms_accepted: form.terms_accepted,
         }),
@@ -109,14 +121,17 @@ export function WalkInForm({
             Du bist jetzt für <strong>{eventTitle}</strong> eingetragen.
             Bitte melde dich beim Organisator vor Ort.
           </p>
-          {form.guests > 0 && (
-            <p className="text-sm text-gray-500">
-              Eingetragen mit{" "}
-              {form.guests === 1
-                ? "1 Begleitperson"
-                : `${form.guests} Begleitpersonen`}
-              .
-            </p>
+          {form.persons.length > 0 && (
+            <div className="bg-green-50 rounded-xl p-3 text-left">
+              <p className="text-xs font-semibold text-green-700 mb-1">
+                {form.persons.length} {form.persons.length === 1 ? "Person" : "Personen"} eingetragen:
+              </p>
+              {form.persons.map((p, i) => (
+                <p key={i} className="text-sm text-green-900">
+                  {p.firstName} {p.lastName}
+                </p>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -146,38 +161,6 @@ export function WalkInForm({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Vorname <span className="text-red-500">*</span>
-              </label>
-              <input
-                ref={firstNameRef}
-                type="text"
-                required
-                autoComplete="given-name"
-                value={form.first_name}
-                onChange={(e) => set("first_name", e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                placeholder="Max"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Nachname <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                autoComplete="family-name"
-                value={form.last_name}
-                onChange={(e) => set("last_name", e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                placeholder="Mustermann"
-              />
-            </div>
-          </div>
 
           {/* Email */}
           <div>
@@ -190,7 +173,7 @@ export function WalkInForm({
               autoComplete="email"
               inputMode="email"
               value={form.email}
-              onChange={(e) => set("email", e.target.value)}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
               placeholder="max@beispiel.de"
             />
@@ -207,42 +190,80 @@ export function WalkInForm({
               autoComplete="tel"
               inputMode="tel"
               value={form.phone}
-              onChange={(e) => set("phone", e.target.value)}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
               className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
               placeholder="0151 12345678"
             />
           </div>
 
-          {/* Guests */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              <span className="flex items-center gap-1.5">
+          {/* Persons */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
                 <Users className="w-4 h-4" />
-                Begleitpersonen
+                Personen <span className="text-red-500">*</span>
+              </label>
+              <span className="text-xs text-gray-400">
+                {form.persons.length} {form.persons.length === 1 ? "Person" : "Personen"}
               </span>
-            </label>
-            <p className="text-xs text-gray-400 mb-2">
-              Wie viele Personen bringst du zusätzlich mit?
-            </p>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => set("guests", Math.max(0, form.guests - 1))}
-                className="w-11 h-11 flex items-center justify-center rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 text-xl font-medium transition-colors"
-              >
-                −
-              </button>
-              <span className="text-xl font-semibold text-gray-900 w-8 text-center tabular-nums">
-                {form.guests}
-              </span>
-              <button
-                type="button"
-                onClick={() => set("guests", Math.min(10, form.guests + 1))}
-                className="w-11 h-11 flex items-center justify-center rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 text-xl font-medium transition-colors"
-              >
-                +
-              </button>
             </div>
+
+            {form.persons.map((person, idx) => (
+              <div
+                key={idx}
+                className="border border-gray-100 rounded-xl p-4 bg-white space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-gray-500">
+                    Person {idx + 1}
+                    {idx === 0 && (
+                      <span className="ml-1 text-gray-400">(du)</span>
+                    )}
+                  </span>
+                  {form.persons.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePerson(idx)}
+                      className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    ref={idx === 0 ? firstNameRef : undefined}
+                    type="text"
+                    required
+                    autoComplete={idx === 0 ? "given-name" : "off"}
+                    value={person.firstName}
+                    maxLength={50}
+                    onChange={(e) => updatePerson(idx, "firstName", e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                    placeholder="Vorname"
+                  />
+                  <input
+                    type="text"
+                    required
+                    autoComplete={idx === 0 ? "family-name" : "off"}
+                    value={person.lastName}
+                    maxLength={50}
+                    onChange={(e) => updatePerson(idx, "lastName", e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                    placeholder="Nachname"
+                  />
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={addPerson}
+              className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-green-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Begleitperson hinzufügen
+            </button>
           </div>
 
           {/* Notes */}
@@ -253,7 +274,7 @@ export function WalkInForm({
             </label>
             <textarea
               value={form.notes}
-              onChange={(e) => set("notes", e.target.value)}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               rows={2}
               className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-white resize-none"
               placeholder="z.B. Probetraining, komme mit Mitglied XY…"
@@ -267,7 +288,7 @@ export function WalkInForm({
                 type="checkbox"
                 required
                 checked={form.privacy_accepted}
-                onChange={(e) => set("privacy_accepted", e.target.checked)}
+                onChange={(e) => setForm((f) => ({ ...f, privacy_accepted: e.target.checked }))}
                 className="mt-1 w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500 shrink-0"
               />
               <span className="text-sm text-gray-600 leading-snug">
@@ -285,7 +306,7 @@ export function WalkInForm({
                 type="checkbox"
                 required
                 checked={form.terms_accepted}
-                onChange={(e) => set("terms_accepted", e.target.checked)}
+                onChange={(e) => setForm((f) => ({ ...f, terms_accepted: e.target.checked }))}
                 className="mt-1 w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500 shrink-0"
               />
               <span className="text-sm text-gray-600 leading-snug">
@@ -299,14 +320,12 @@ export function WalkInForm({
             </label>
           </div>
 
-          {/* Error */}
           {error && (
             <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={loading}
@@ -318,7 +337,7 @@ export function WalkInForm({
                 Wird registriert…
               </>
             ) : (
-              "Jetzt eintragen"
+              `${form.persons.length} ${form.persons.length === 1 ? "Person" : "Personen"} eintragen`
             )}
           </button>
 

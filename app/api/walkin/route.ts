@@ -38,28 +38,16 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       eventId: number;
       token: string;
-      first_name: string;
-      last_name: string;
+      persons: Array<{ firstName: string; lastName: string }>;
       email?: string;
       phone?: string;
       notes?: string;
-      guests: number;
       privacy_accepted: boolean;
       terms_accepted: boolean;
     };
 
-    const {
-      eventId,
-      token,
-      first_name,
-      last_name,
-      email,
-      phone,
-      notes,
-      guests,
-    } = body;
+    const { eventId, token, persons, email, phone, notes } = body;
 
-    // Token validation
     if (!token || typeof token !== "string") {
       return NextResponse.json({ error: "Token fehlt." }, { status: 400 });
     }
@@ -77,24 +65,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Required field validation
-    if (!first_name?.trim()) {
-      return NextResponse.json({ error: "Vorname ist erforderlich." }, { status: 400 });
+    if (!Array.isArray(persons) || persons.length === 0) {
+      return NextResponse.json(
+        { error: "Mindestens eine Person ist erforderlich." },
+        { status: 400 }
+      );
     }
-    if (!last_name?.trim()) {
-      return NextResponse.json({ error: "Nachname ist erforderlich." }, { status: 400 });
+    for (const p of persons) {
+      if (!p.firstName?.trim() || !p.lastName?.trim()) {
+        return NextResponse.json(
+          { error: "Alle Personen benötigen Vor- und Nachname." },
+          { status: 400 }
+        );
+      }
     }
 
     const emailTrimmed = email?.trim() || null;
     if (emailTrimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
       return NextResponse.json({ error: "Ungültige E-Mail-Adresse." }, { status: 400 });
-    }
-
-    if (typeof guests !== "number" || guests < 0 || guests > 10 || !Number.isInteger(guests)) {
-      return NextResponse.json(
-        { error: "Ungültige Anzahl Begleitpersonen (0–10)." },
-        { status: 400 }
-      );
     }
 
     if (!body.privacy_accepted) {
@@ -110,7 +98,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify event is still active
     const event = await getEvent(eventId);
     if (!event || event.status !== "published") {
       return NextResponse.json(
@@ -119,22 +106,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const persons = [
-      { firstName: first_name.trim(), lastName: last_name.trim() },
-      ...Array.from({ length: guests }, (_, i) => ({
-        firstName: "Begleitperson",
-        lastName: `${i + 1}`,
-      })),
-    ];
-
-    // Create walk-in registration (already checked-in)
     const result = await createWalkInRegistration({
       event_id: eventId,
-      persons,
+      persons: persons.map((p) => ({ firstName: p.firstName.trim(), lastName: p.lastName.trim() })),
       email: emailTrimmed,
       phone: phone?.trim() || null,
       notes: notes?.trim() || null,
-      checked_in_by: null, // No admin, it's a self-check-in
+      checked_in_by: null,
     });
 
     if (result.alreadyExists) {
