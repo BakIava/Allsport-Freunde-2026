@@ -34,7 +34,7 @@ export async function getEvents(): Promise<EventWithRegistrations[]> {
 
 export async function getEvent(
   id: number
-): Promise<{ id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string; status: string; cancellation_reason: string | null; published_at: string | null } | null> {
+): Promise<{ id: number; max_participants: number; max_per_email: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string; status: string; cancellation_reason: string | null; published_at: string | null } | null> {
   if (!isPostgresConfigured()) {
     const { getLocalEvent } = await import("../local-data");
     const event = getLocalEvent(id);
@@ -42,8 +42,8 @@ export async function getEvent(
   }
 
   const sql = getSQL();
-  const rows = await sql`SELECT id, max_participants, title, TO_CHAR(date, 'YYYY-MM-DD') AS date, time::text AS time, location, price, dress_code, category, status, cancellation_reason, published_at FROM events WHERE id = ${id}`;
-  return (rows[0] as { id: number; max_participants: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string; status: string; cancellation_reason: string | null; published_at: string | null }) ?? null;
+  const rows = await sql`SELECT id, max_participants, COALESCE(max_per_email, 5)::int AS max_per_email, title, TO_CHAR(date, 'YYYY-MM-DD') AS date, time::text AS time, location, price, dress_code, category, status, cancellation_reason, published_at FROM events WHERE id = ${id}`;
+  return (rows[0] as { id: number; max_participants: number; max_per_email: number; title: string; date: string; time: string; location: string; price: string; dress_code: string; category: string; status: string; cancellation_reason: string | null; published_at: string | null }) ?? null;
 }
 
 export async function getAllEvents(): Promise<EventWithRegistrations[]> {
@@ -133,9 +133,10 @@ export async function createEvent(data: EventCreateInput & { publish?: boolean }
   const status = data.publish ? "published" : "draft";
   const publishedAt = data.publish ? new Date().toISOString() : null;
   const entryPrice = (data.entry_price != null && data.entry_price > 0) ? data.entry_price : null;
+  const maxPerEmail = Math.max(1, data.max_per_email ?? 5);
   const rows = await sql`
-    INSERT INTO events (title, category, description, date, time, location, parking_location, price, entry_price, dress_code, max_participants, status, published_at)
-    VALUES (${data.title}, ${data.category}, ${data.description}, ${data.date}, ${data.time}, ${data.location}, ${data.parking_location ?? null}, ${data.price}, ${entryPrice}, ${data.dress_code}, ${data.max_participants}, ${status}, ${publishedAt})
+    INSERT INTO events (title, category, description, date, time, location, parking_location, price, entry_price, dress_code, max_participants, max_per_email, status, published_at)
+    VALUES (${data.title}, ${data.category}, ${data.description}, ${data.date}, ${data.time}, ${data.location}, ${data.parking_location ?? null}, ${data.price}, ${entryPrice}, ${data.dress_code}, ${data.max_participants}, ${maxPerEmail}, ${status}, ${publishedAt})
     RETURNING id
   `;
   const { id } = rows[0] as { id: number };
@@ -184,6 +185,7 @@ export async function updateEvent(id: number, data: EventCreateInput): Promise<v
 
   const sql = getSQL();
   const entryPrice = (data.entry_price != null && data.entry_price > 0) ? data.entry_price : null;
+  const maxPerEmail = Math.max(1, data.max_per_email ?? 5);
   await sql`
     UPDATE events SET
       title = ${data.title},
@@ -196,7 +198,8 @@ export async function updateEvent(id: number, data: EventCreateInput): Promise<v
       price = ${data.price},
       entry_price = ${entryPrice},
       dress_code = ${data.dress_code},
-      max_participants = ${data.max_participants}
+      max_participants = ${data.max_participants},
+      max_per_email = ${maxPerEmail}
     WHERE id = ${id}
   `;
   if (data.images !== undefined) {

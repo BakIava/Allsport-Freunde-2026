@@ -34,6 +34,8 @@ interface EmailData {
   eventTime: string;
   eventLocation: string;
   statusToken: string;
+  /** All persons in this registration */
+  persons?: Array<{ firstName: string; lastName: string }>;
 }
 
 async function sendEmail(subject: string, to: string, react: React.ReactElement) {
@@ -60,7 +62,6 @@ export async function sendRegistrationReceivedEmail(data: EmailData) {
   const statusUrl = `${appUrl}/status/${data.statusToken}`;
   const subject = `Anmeldung eingegangen – ${data.eventTitle}`;
 
-  // Fire-and-forget
   sendEmail(
     subject,
     data.to,
@@ -71,6 +72,7 @@ export async function sendRegistrationReceivedEmail(data: EmailData) {
       eventTime: data.eventTime,
       eventLocation: data.eventLocation,
       statusUrl,
+      persons: data.persons,
     })
   );
 }

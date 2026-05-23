@@ -29,6 +29,13 @@ async function migrate() {
   `;
   console.log("  ✓ Tabelle 'registration_persons' bereit");
 
+  // 1b. max_per_email auf events hinzufügen (falls noch nicht vorhanden)
+  await sql`
+    ALTER TABLE events
+      ADD COLUMN IF NOT EXISTS max_per_email INT NOT NULL DEFAULT 5
+  `;
+  console.log("  ✓ Spalte 'max_per_email' auf events bereit");
+
   // 2. Datenmigration: pro Anmeldung prüfen (idempotent, sicher auch wenn
   //    registration_persons bereits Einträge für neue Anmeldungen hat)
 

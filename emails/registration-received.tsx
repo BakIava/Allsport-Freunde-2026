@@ -17,6 +17,7 @@ interface Props {
   eventTime: string;
   eventLocation: string;
   statusUrl: string;
+  persons?: Array<{ firstName: string; lastName: string }>;
 }
 
 export function RegistrationReceivedEmail({
@@ -26,6 +27,7 @@ export function RegistrationReceivedEmail({
   eventTime,
   eventLocation,
   statusUrl,
+  persons,
 }: Props) {
   return (
     <Html lang="de">
@@ -51,6 +53,23 @@ export function RegistrationReceivedEmail({
               <strong>Ort:</strong> {eventLocation}
             </Text>
           </Section>
+          {persons && persons.length > 0 && (
+            <Section style={personsBox}>
+              <Text style={personsHeading}>
+                Angemeldete Personen ({persons.length}):
+              </Text>
+              {persons.map((p, i) => (
+                <Text key={i} style={personItem}>
+                  • {p.firstName} {p.lastName}
+                </Text>
+              ))}
+              {persons.length > 1 && (
+                <Text style={personsNote}>
+                  Alle Personen werden beim Check-In mit einem QR-Code abgehakt.
+                </Text>
+              )}
+            </Section>
+          )}
           <Text style={text}>
             Du kannst den Status deiner Anmeldung jederzeit hier einsehen:
           </Text>
@@ -131,4 +150,32 @@ const footer: React.CSSProperties = {
   fontSize: "12px",
   color: "#8898aa",
   lineHeight: "20px",
+};
+
+const personsBox: React.CSSProperties = {
+  backgroundColor: "#f0fdf4",
+  borderRadius: "8px",
+  padding: "12px 20px",
+  margin: "16px 0",
+};
+
+const personsHeading: React.CSSProperties = {
+  fontSize: "14px",
+  fontWeight: "bold",
+  color: "#166534",
+  margin: "0 0 8px 0",
+};
+
+const personItem: React.CSSProperties = {
+  fontSize: "14px",
+  lineHeight: "22px",
+  color: "#333333",
+  margin: "2px 0",
+};
+
+const personsNote: React.CSSProperties = {
+  fontSize: "12px",
+  color: "#4b7c5f",
+  marginTop: "8px",
+  fontStyle: "italic",
 };

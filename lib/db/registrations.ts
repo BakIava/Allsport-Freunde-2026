@@ -4,6 +4,7 @@ import type {
   RegistrationDetail,
   RegistrationStatusInfo,
   RegistrationStatus,
+  EventPerson,
 } from "../types";
 
 export async function getRegistrationCount(eventId: number): Promise<number> {
@@ -39,6 +40,26 @@ export async function findRegistration(
   `;
 
   return (rows[0] as { id: number, status: string }) ?? null;
+}
+
+export async function getRemainingSlots(
+  eventId: number,
+  email: string,
+  maxPerEmail: number
+): Promise<number> {
+  if (!isPostgresConfigured()) return maxPerEmail;
+
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT COUNT(rp.id)::int AS count
+    FROM registrations r
+    JOIN registration_persons rp ON rp.registration_id = r.id AND rp.cancelled_at IS NULL
+    WHERE r.event_id = ${eventId}
+      AND LOWER(r.email) = LOWER(${email})
+      AND r.status NOT IN ('cancelled', 'rejected')
+  `;
+  const used = (rows[0] as { count: number }).count;
+  return Math.max(0, maxPerEmail - used);
 }
 
 export async function createRegistration(data: {
@@ -167,6 +188,34 @@ export async function getEventRegistrations(eventId: number): Promise<Registrati
     ORDER BY r.created_at DESC
   `;
   return rows as RegistrationWithEvent[];
+}
+
+export async function getEventPersons(eventId: number): Promise<EventPerson[]> {
+  if (!isPostgresConfigured()) {
+    const { getLocalEventPersons } = await import("../local-data");
+    return getLocalEventPersons(eventId);
+  }
+
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT
+      rp.id AS person_id,
+      rp.registration_id,
+      rp.first_name,
+      rp.last_name,
+      rp.checked_in_at,
+      rp.cancelled_at,
+      rp.created_at,
+      r.email,
+      r.phone,
+      r.status,
+      r.is_walk_in
+    FROM registration_persons rp
+    JOIN registrations r ON r.id = rp.registration_id
+    WHERE r.event_id = ${eventId}
+    ORDER BY r.created_at ASC, rp.created_at ASC
+  `;
+  return rows as EventPerson[];
 }
 
 export async function deleteRegistration(id: number): Promise<void> {

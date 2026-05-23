@@ -131,6 +131,51 @@ export async function markCheckedIn(
     SET checked_in_at = NOW(), checked_in_by = ${checkedInBy}
     WHERE id = ${registrationId}
   `;
+  await sql`
+    UPDATE registration_persons
+    SET checked_in_at = NOW()
+    WHERE registration_id = ${registrationId} AND cancelled_at IS NULL AND checked_in_at IS NULL
+  `;
+}
+
+export async function markPersonCheckedIn(
+  personId: string,
+  checkedInBy: string
+): Promise<{ registrationId: number } | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    UPDATE registration_persons
+    SET checked_in_at = NOW()
+    WHERE id = ${personId} AND cancelled_at IS NULL AND checked_in_at IS NULL
+    RETURNING registration_id
+  `;
+  if (!rows[0]) return null;
+  const registrationId = (rows[0] as { registration_id: number }).registration_id;
+  await sql`
+    UPDATE registrations SET checked_in_at = NOW(), checked_in_by = ${checkedInBy}
+    WHERE id = ${registrationId} AND checked_in_at IS NULL
+  `;
+  return { registrationId };
+}
+
+export async function undoPersonCheckin(personId: string): Promise<{ registrationId: number } | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    UPDATE registration_persons
+    SET checked_in_at = NULL
+    WHERE id = ${personId} AND cancelled_at IS NULL
+    RETURNING registration_id
+  `;
+  if (!rows[0]) return null;
+  const registrationId = (rows[0] as { registration_id: number }).registration_id;
+  const remaining = await sql`
+    SELECT COUNT(*)::int AS n FROM registration_persons
+    WHERE registration_id = ${registrationId} AND cancelled_at IS NULL AND checked_in_at IS NOT NULL
+  `;
+  if ((remaining[0] as { n: number }).n === 0) {
+    await sql`UPDATE registrations SET checked_in_at = NULL, checked_in_by = NULL WHERE id = ${registrationId}`;
+  }
+  return { registrationId };
 }
 
 export async function getCheckinStatus(eventId: number): Promise<CheckinStatusResponse> {
@@ -148,13 +193,41 @@ export async function getCheckinStatus(eventId: number): Promise<CheckinStatusRe
       (SELECT rp.first_name FROM registration_persons rp WHERE rp.registration_id = r.id ORDER BY rp.created_at LIMIT 1) ASC
   `;
 
-  const participants = rows as CheckinParticipant[];
+  const participantsBase = rows as Omit<CheckinParticipant, "persons">[];
+
+  // Fetch all persons for these registrations in one query
+  const regIds = participantsBase.map((r) => r.id);
+  type PersonRow = import("../types").RegistrationPerson & { registration_id: number };
+  let personRows: PersonRow[] = [];
+  if (regIds.length > 0) {
+    personRows = await sql`
+      SELECT id::text AS id, registration_id, first_name, last_name, checked_in_at, cancelled_at, created_at
+      FROM registration_persons
+      WHERE registration_id = ANY(${regIds})
+        AND cancelled_at IS NULL
+      ORDER BY created_at ASC
+    ` as PersonRow[];
+  }
+
+  const personsByReg = new Map<number, import("../types").RegistrationPerson[]>();
+  for (const p of personRows) {
+    if (!personsByReg.has(p.registration_id)) personsByReg.set(p.registration_id, []);
+    personsByReg.get(p.registration_id)!.push(p);
+  }
+
+  const participants: CheckinParticipant[] = participantsBase.map((r) => ({
+    ...r,
+    persons: personsByReg.get(r.id) ?? [],
+  }));
+
   const totalRegistrations = participants.length;
   const totalGuests = participants.reduce((sum, p) => sum + p.guests, 0);
   const total = totalRegistrations + totalGuests;
-  const checkedIn = participants
-    .filter((p) => p.checked_in_at !== null)
-    .reduce((sum, p) => sum + p.guests + 1, 0);
+  // checked_in: count persons whose checked_in_at is set (person-level)
+  const checkedIn = participants.reduce(
+    (sum, p) => sum + p.persons.filter((pp) => pp.checked_in_at !== null).length,
+    0
+  );
   const walkIns = participants.filter((p) => p.is_walk_in);
   const walkInRegistrations = walkIns.length;
   const walkInGuests = walkIns.reduce((sum, p) => sum + p.guests, 0);

@@ -2,6 +2,7 @@ import {
   getEvent,
   getRegistrationCount,
   findRegistration,
+  getRemainingSlots,
 } from "@/lib/db";
 import { getSQL } from "@/lib/db/utils";
 import { sendRegistrationReceivedEmail } from "@/lib/email";
@@ -12,13 +13,29 @@ import type { RegistrationRequest } from "@/lib/types";
 export async function POST(request: NextRequest) {
   try {
     const body: RegistrationRequest = await request.json();
-    const { event_id, first_name, last_name, email, phone, guests } = body;
+    const { event_id, email, phone, persons } = body;
 
-    if (!event_id || !first_name?.trim() || !last_name?.trim() || !email?.trim() || !phone?.trim()) {
+    if (!event_id || !email?.trim() || !phone?.trim()) {
       return NextResponse.json(
         { error: "Bitte fülle alle Pflichtfelder aus." },
         { status: 400 }
       );
+    }
+
+    if (!Array.isArray(persons) || persons.length === 0) {
+      return NextResponse.json(
+        { error: "Mindestens eine Person ist erforderlich." },
+        { status: 400 }
+      );
+    }
+
+    for (const p of persons) {
+      if (!p.firstName?.trim() || !p.lastName?.trim()) {
+        return NextResponse.json(
+          { error: "Vorname und Nachname sind für alle Personen erforderlich." },
+          { status: 400 }
+        );
+      }
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -28,8 +45,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    const guestCount = Math.max(0, Math.min(10, parseInt(String(guests)) || 0));
 
     const event = await getEvent(event_id);
     if (!event) {
@@ -47,19 +62,29 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
+    const maxPerEmail = event.max_per_email ?? 5;
+
     const existing = await findRegistration(event_id, normalizedEmail);
+
     if (existing && existing.status !== "cancelled") {
-      return NextResponse.json(
-        { error: "Du bist bereits für dieses Event angemeldet." },
-        { status: 409 }
-      );
+      // Check remaining slots for this email (already registered, adding more persons)
+      const remaining = await getRemainingSlots(event_id, normalizedEmail, maxPerEmail);
+      if (persons.length > remaining) {
+        return NextResponse.json(
+          {
+            error: remaining === 0
+              ? `Du hast das Limit von ${maxPerEmail} Personen pro E-Mail für dieses Event erreicht.`
+              : `Du kannst noch ${remaining} weitere Person${remaining !== 1 ? "en" : ""} anmelden (Limit: ${maxPerEmail} pro E-Mail).`,
+          },
+          { status: 409 }
+        );
+      }
     }
 
-    const spotsNeeded = 1 + guestCount;
     const currentCount = await getRegistrationCount(event_id);
     const spotsAvailable = event.max_participants - currentCount;
 
-    if (spotsNeeded > spotsAvailable) {
+    if (persons.length > spotsAvailable) {
       return NextResponse.json(
         {
           error:
@@ -71,21 +96,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Persons: main registrant + placeholder companions
-    const persons = [
-      { firstName: first_name.trim(), lastName: last_name.trim() },
-      ...Array.from({ length: guestCount }, () => ({
-        firstName: "Begleitperson",
-        lastName: "Begleitperson",
-      })),
-    ];
+    if (persons.length > maxPerEmail) {
+      return NextResponse.json(
+        { error: `Maximal ${maxPerEmail} Personen pro E-Mail-Adresse erlaubt.` },
+        { status: 400 }
+      );
+    }
 
     const statusToken = randomUUID();
     const sql = getSQL();
     let registrationId: number;
 
     if (existing && existing.status === "cancelled") {
-      // Reactivate cancelled registration
       const rows = await sql`
         UPDATE registrations SET
           phone = ${phone.trim()},
@@ -99,7 +121,6 @@ export async function POST(request: NextRequest) {
       registrationId = (rows[0] as { id: number }).id;
       await sql`DELETE FROM registration_persons WHERE registration_id = ${registrationId}`;
     } else {
-      // New registration
       const rows = await sql`
         INSERT INTO registrations (event_id, email, phone, status, status_token)
         VALUES (${event_id}, ${normalizedEmail}, ${phone.trim()}, 'pending', ${statusToken})
@@ -108,23 +129,23 @@ export async function POST(request: NextRequest) {
       registrationId = (rows[0] as { id: number }).id;
     }
 
-    // Insert all persons into registration_persons
     for (const p of persons) {
       await sql`
         INSERT INTO registration_persons (registration_id, first_name, last_name)
-        VALUES (${registrationId}, ${p.firstName}, ${p.lastName})
+        VALUES (${registrationId}, ${p.firstName.trim()}, ${p.lastName.trim()})
       `;
     }
 
     sendRegistrationReceivedEmail({
       to: normalizedEmail,
-      firstName: first_name.trim(),
-      lastName: last_name.trim(),
+      firstName: persons[0].firstName.trim(),
+      lastName: persons[0].lastName.trim(),
       eventTitle: event.title,
       eventDate: event.date,
       eventTime: event.time,
       eventLocation: event.location,
       statusToken,
+      persons: persons.map((p) => ({ firstName: p.firstName.trim(), lastName: p.lastName.trim() })),
     });
 
     return NextResponse.json(

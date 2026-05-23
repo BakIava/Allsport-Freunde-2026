@@ -33,6 +33,7 @@ function makeEvent(overrides: Partial<EventWithRegistrations> = {}): EventWithRe
     price: "Kostenlos",
     dress_code: "Sportkleidung",
     max_participants: 20,
+    max_per_email: 5,
     status: "published",
     cancellation_reason: null,
     published_at: new Date().toISOString(),
