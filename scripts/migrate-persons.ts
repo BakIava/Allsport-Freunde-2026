@@ -29,34 +29,35 @@ async function migrate() {
   `;
   console.log("  ✓ Tabelle 'registration_persons' bereit");
 
-  // 2. Datenmigration nur wenn Tabelle leer
-  const countResult = await sql`SELECT COUNT(*)::int AS n FROM registration_persons`;
-  const existing = (countResult[0] as { n: number }).n;
+  // 2. Datenmigration: pro Anmeldung prüfen (idempotent, sicher auch wenn
+  //    registration_persons bereits Einträge für neue Anmeldungen hat)
 
-  if (existing === 0) {
-    // Anmelder selbst
-    const main = await sql`
-      INSERT INTO registration_persons (registration_id, first_name, last_name)
-      SELECT id, first_name, last_name
-      FROM registrations
-      WHERE first_name IS NOT NULL
-      RETURNING id
-    `;
-    console.log(`  ✓ ${main.length} Anmelder migriert`);
+  // Anmelder selbst – nur für Anmeldungen, die noch keinen Personen-Eintrag haben
+  const main = await sql`
+    INSERT INTO registration_persons (registration_id, first_name, last_name)
+    SELECT r.id, r.first_name, r.last_name
+    FROM registrations r
+    WHERE r.first_name IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM registration_persons rp WHERE rp.registration_id = r.id
+      )
+    RETURNING id
+  `;
+  console.log(`  ✓ ${main.length} Anmelder migriert`);
 
-    // Begleitpersonen (Spalte heißt 'guests' in diesem Schema)
-    const guests = await sql`
-      INSERT INTO registration_persons (registration_id, first_name, last_name)
-      SELECT r.id, 'Begleitperson', 'Begleitperson'
-      FROM registrations r
-      CROSS JOIN generate_series(1, r.guests) AS gs
-      WHERE r.guests > 0
-      RETURNING id
-    `;
-    console.log(`  ✓ ${guests.length} Begleitpersonen migriert`);
-  } else {
-    console.log(`  ℹ ${existing} Einträge bereits vorhanden, Datenmigration übersprungen`);
-  }
+  // Begleitpersonen – ebenfalls nur für Anmeldungen ohne bisherigen Personen-Eintrag
+  const guests = await sql`
+    INSERT INTO registration_persons (registration_id, first_name, last_name)
+    SELECT r.id, 'Begleitperson', 'Begleitperson'
+    FROM registrations r
+    CROSS JOIN generate_series(1, r.guests) AS gs(n)
+    WHERE r.guests > 0
+      AND NOT EXISTS (
+        SELECT 1 FROM registration_persons rp WHERE rp.registration_id = r.id
+      )
+    RETURNING id
+  `;
+  console.log(`  ✓ ${guests.length} Begleitpersonen migriert`);
 
   // 3. Spalten entfernen
   await sql`
