@@ -100,13 +100,28 @@ export async function deleteDonation(donationId: number): Promise<void> {
 export async function getEventFinancials(eventId: number): Promise<EventFinancials> {
   const sql = getSQL();
 
-  // Entry price (column may not exist if migration not run yet)
+  // Entry price + cash count (columns may not exist if migration not run yet)
   let entryPrice: number | null = null;
+  let cashCounted: number | null = null;
+  let cashCountedAt: string | null = null;
   try {
-    const eventRows = await sql`SELECT entry_price::float8 AS entry_price FROM events WHERE id = ${eventId}`;
-    entryPrice = (eventRows[0] as { entry_price: number | null })?.entry_price ?? null;
+    const eventRows = await sql`
+      SELECT
+        entry_price::float8    AS entry_price,
+        cash_counted::float8   AS cash_counted,
+        cash_counted_at
+      FROM events WHERE id = ${eventId}
+    `;
+    const row = eventRows[0] as {
+      entry_price: number | null;
+      cash_counted: number | null;
+      cash_counted_at: string | null;
+    } | undefined;
+    entryPrice    = row?.entry_price   ?? null;
+    cashCounted   = row?.cash_counted  ?? null;
+    cashCountedAt = row?.cash_counted_at ? String(row.cash_counted_at) : null;
   } catch {
-    // entry_price column not yet migrated – treat as null
+    // columns not yet migrated – treat as null
   }
 
   // Costs (table may not exist if migration not run yet)
@@ -169,5 +184,16 @@ export async function getEventFinancials(eventId: number): Promise<EventFinancia
     balance: actualRevenue + totalDonations - totalCosts,
     costs,
     donations,
+    cash_counted: cashCounted,
+    cash_counted_at: cashCountedAt,
   };
+}
+
+export async function saveCashCount(eventId: number, amount: number): Promise<void> {
+  const sql = getSQL();
+  await sql`
+    UPDATE events
+    SET cash_counted = ${amount}, cash_counted_at = NOW()
+    WHERE id = ${eventId}
+  `;
 }

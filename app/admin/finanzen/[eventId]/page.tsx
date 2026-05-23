@@ -18,6 +18,9 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  Banknote,
+  BadgeCheck,
+  AlertTriangle,
 } from "lucide-react";
 import type { EventFinancials, EventWithRegistrations } from "@/lib/types";
 import { formatEuro } from "@/lib/finance";
@@ -597,6 +600,65 @@ export default function FinanzDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Kassenabschluss ── */}
+      {(() => {
+        if (financials.cash_counted == null) {
+          return (
+            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-5 py-4 flex items-center gap-3 text-sm text-gray-400">
+              <Banknote className="w-4 h-4 shrink-0" />
+              Kein Kassenabschluss eingetragen. Kann im{" "}
+              <a href={`/admin/events/${event.id}/dashboard`} className="underline hover:text-gray-600 ml-1">
+                Check-In Dashboard
+              </a>{" "}
+              nachgetragen werden.
+            </div>
+          );
+        }
+        const expected = totalRevenue;
+        const diff = Math.round((financials.cash_counted - expected) * 100) / 100;
+        const isMatch = diff === 0;
+        return (
+          <div className={`rounded-xl border-2 px-5 py-4 space-y-2 ${isMatch ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+            <div className="flex items-center gap-2">
+              {isMatch ? (
+                <BadgeCheck className="w-5 h-5 text-green-600" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              )}
+              <h3 className={`font-semibold text-sm ${isMatch ? "text-green-800" : "text-amber-800"}`}>
+                Kassenabschluss – {isMatch ? "Bestätigt" : "Abweichung"}
+              </h3>
+              {financials.cash_counted_at && (
+                <span className="ml-auto text-xs text-gray-400">
+                  {new Date(financials.cash_counted_at).toLocaleString("de-DE", {
+                    day: "2-digit", month: "2-digit", year: "numeric",
+                    hour: "2-digit", minute: "2-digit",
+                  })}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+              <div className="bg-white/70 rounded-lg px-3 py-2 space-y-0.5">
+                <p className="text-xs text-gray-500">Erwartet (System)</p>
+                <p className="text-base font-bold text-gray-900 tabular-nums">{formatEuro(expected)}</p>
+              </div>
+              <div className={`rounded-lg px-3 py-2 space-y-0.5 ${isMatch ? "bg-green-100" : "bg-amber-100"}`}>
+                <p className={`text-xs ${isMatch ? "text-green-700" : "text-amber-700"}`}>Gezählt</p>
+                <p className={`text-base font-bold tabular-nums ${isMatch ? "text-green-900" : "text-amber-900"}`}>{formatEuro(financials.cash_counted)}</p>
+              </div>
+              {!isMatch && (
+                <div className={`rounded-lg px-3 py-2 space-y-0.5 ${diff > 0 ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
+                  <p className={`text-xs ${diff > 0 ? "text-green-700" : "text-red-700"}`}>Differenz</p>
+                  <p className={`text-base font-bold tabular-nums ${diff > 0 ? "text-green-800" : "text-red-800"}`}>
+                    {diff > 0 ? "+" : ""}{formatEuro(diff)}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Donated-items note */}
       {financials.donation_count > 0 && (

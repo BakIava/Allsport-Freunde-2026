@@ -322,6 +322,9 @@ export interface EventFinancials {
   balance: number;
   costs: EventCost[];
   donations: EventDonation[];
+  /** Physical cash count entered at end of event */
+  cash_counted: number | null;
+  cash_counted_at: string | null;
 }
 
 // ─── Contact / Inquiry ───────────────────────────────────
