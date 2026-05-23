@@ -8,6 +8,7 @@ import { ContactReceivedEmail } from "@/emails/contact-received";
 import { ContactAdminEmail } from "@/emails/contact-admin";
 import { ContactResponseEmail } from "@/emails/contact-response";
 import { ReminderEmail } from "@/emails/reminder";
+import { SurveyEmail } from "@/emails/survey";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -152,6 +153,29 @@ export async function sendRegistrationRejectedEmail(
       eventLocation: data.eventLocation,
       statusUrl,
       note: data.note,
+    })
+  );
+}
+
+// ─── Survey Email ────────────────────────────────────────
+
+export async function sendEventSurveyEmail(data: {
+  to: string;
+  firstName: string;
+  eventTitle: string;
+  eventDate: string;
+  surveyUrl: string;
+}) {
+  const subject = `Wie war das Event? Dein Feedback zu ${data.eventTitle}`;
+
+  sendEmail(
+    subject,
+    data.to,
+    SurveyEmail({
+      firstName: data.firstName,
+      eventTitle: data.eventTitle,
+      eventDate: formatDateDE(data.eventDate),
+      surveyUrl: data.surveyUrl,
     })
   );
 }

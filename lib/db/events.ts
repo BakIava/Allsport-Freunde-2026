@@ -55,7 +55,7 @@ export async function getAllEvents(): Promise<EventWithRegistrations[]> {
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.parking_location, e.price, e.entry_price::float8 AS entry_price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.published_at, e.created_at,
+      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.parking_location, e.price, e.entry_price::float8 AS entry_price, e.dress_code, e.max_participants, e.max_per_email, e.status, e.cancellation_reason, e.published_at, e.created_at, e.survey_url,
       COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END)::int AS current_participants,
       COUNT(CASE WHEN r.status = 'pending' THEN rp.id ELSE NULL END)::int AS pending_participants,
       COALESCE((SELECT JSON_AGG(jsonb_build_object('id', i.id, 'event_id', i.event_id, 'url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM event_images i WHERE i.event_id = e.id), '[]') AS images,
@@ -86,7 +86,7 @@ export async function getEventFull(id: number): Promise<EventWithRegistrations |
   const sql = getSQL();
   const rows = await sql`
     SELECT
-      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.parking_location, e.price, e.entry_price::float8 AS entry_price, e.dress_code, e.max_participants, e.status, e.cancellation_reason, e.published_at, e.created_at,
+      e.id, e.title, e.category, e.description, TO_CHAR(e.date, 'YYYY-MM-DD') AS date, e.time::text AS time, e.location, e.parking_location, e.price, e.entry_price::float8 AS entry_price, e.dress_code, e.max_participants, e.max_per_email, e.status, e.cancellation_reason, e.published_at, e.created_at, e.survey_url,
       COUNT(CASE WHEN r.status = 'approved' THEN rp.id ELSE NULL END)::int AS current_participants,
       COUNT(CASE WHEN r.status = 'pending' THEN rp.id ELSE NULL END)::int AS pending_participants,
       COALESCE((SELECT JSON_AGG(jsonb_build_object('id', i.id, 'event_id', i.event_id, 'url', i.url, 'alt_text', i.alt_text, 'position', i.position) ORDER BY i.position) FROM event_images i WHERE i.event_id = e.id), '[]') AS images
@@ -137,8 +137,8 @@ export async function createEvent(data: EventCreateInput & { publish?: boolean }
   const entryPrice = (data.entry_price != null && data.entry_price > 0) ? data.entry_price : null;
   const maxPerEmail = Math.max(1, data.max_per_email ?? 5);
   const rows = await sql`
-    INSERT INTO events (title, category, description, date, time, location, parking_location, price, entry_price, dress_code, max_participants, max_per_email, status, published_at)
-    VALUES (${data.title}, ${data.category}, ${data.description}, ${data.date}, ${data.time}, ${data.location}, ${data.parking_location ?? null}, ${data.price}, ${entryPrice}, ${data.dress_code}, ${data.max_participants}, ${maxPerEmail}, ${status}, ${publishedAt})
+    INSERT INTO events (title, category, description, date, time, location, parking_location, price, entry_price, dress_code, max_participants, max_per_email, survey_url, status, published_at)
+    VALUES (${data.title}, ${data.category}, ${data.description}, ${data.date}, ${data.time}, ${data.location}, ${data.parking_location ?? null}, ${data.price}, ${entryPrice}, ${data.dress_code}, ${data.max_participants}, ${maxPerEmail}, ${data.survey_url ?? null}, ${status}, ${publishedAt})
     RETURNING id
   `;
   const { id } = rows[0] as { id: number };
@@ -201,7 +201,8 @@ export async function updateEvent(id: number, data: EventCreateInput): Promise<v
       entry_price = ${entryPrice},
       dress_code = ${data.dress_code},
       max_participants = ${data.max_participants},
-      max_per_email = ${maxPerEmail}
+      max_per_email = ${maxPerEmail},
+      survey_url = ${data.survey_url ?? null}
     WHERE id = ${id}
   `;
   if (data.images !== undefined) {
