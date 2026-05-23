@@ -106,6 +106,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const maxPersons = event.max_per_email ?? 5;
+    if (persons.length > maxPersons) {
+      return NextResponse.json(
+        { error: `Maximal ${maxPersons} ${maxPersons === 1 ? "Person" : "Personen"} pro Anmeldung erlaubt.` },
+        { status: 400 }
+      );
+    }
+
     const result = await createWalkInRegistration({
       event_id: eventId,
       persons: persons.map((p) => ({ firstName: p.firstName.trim(), lastName: p.lastName.trim() })),

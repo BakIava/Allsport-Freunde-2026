@@ -17,6 +17,7 @@ interface WalkInFormProps {
   eventTitle: string;
   eventDate: string;
   eventLocation: string;
+  maxPersons: number;
 }
 
 interface Person {
@@ -48,6 +49,7 @@ export function WalkInForm({
   eventTitle,
   eventDate,
   eventLocation,
+  maxPersons,
 }: WalkInFormProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
@@ -204,7 +206,7 @@ export function WalkInForm({
                 Personen <span className="text-red-500">*</span>
               </label>
               <span className="text-xs text-gray-400">
-                {form.persons.length} {form.persons.length === 1 ? "Person" : "Personen"}
+                {form.persons.length} / {maxPersons}
               </span>
             </div>
 
@@ -256,14 +258,16 @@ export function WalkInForm({
               </div>
             ))}
 
-            <button
-              type="button"
-              onClick={addPerson}
-              className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-green-400 hover:text-green-600 hover:bg-green-50 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Begleitperson hinzufügen
-            </button>
+            {form.persons.length < maxPersons && (
+              <button
+                type="button"
+                onClick={addPerson}
+                className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-green-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Begleitperson hinzufügen
+              </button>
+            )}
           </div>
 
           {/* Notes */}
