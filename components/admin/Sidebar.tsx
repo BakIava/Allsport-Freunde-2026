@@ -75,7 +75,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
         </Button>
       </div>
 
-      <nav className={cn("flex-1 p-4", collapsed && "p-2")}>        
+      <nav className={cn("flex-1 min-h-0 overflow-y-auto p-4", collapsed && "p-2")}>
         {navSections.map((section, index) => (
           <div key={section.title} className={cn(index > 0 && "mt-6 pt-4 border-t border-gray-800")}>            
             {!collapsed && (
