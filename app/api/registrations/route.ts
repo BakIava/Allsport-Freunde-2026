@@ -81,6 +81,16 @@ export async function POST(request: NextRequest) {
 
     const existing = await findRegistration(event_id, normalizedEmail);
 
+    if (existing && existing.status === "pending") {
+      return NextResponse.json(
+        {
+          error:
+            "Für diese E-Mail-Adresse besteht bereits eine Anmeldung für dieses Event. Bitte warte auf die Bestätigung oder prüfe deine Status-Seite.",
+        },
+        { status: 409 }
+      );
+    }
+
     if (existing && existing.status !== "cancelled") {
       // Check remaining slots for this email (already registered, adding more persons)
       const remaining = await getRemainingSlots(event_id, normalizedEmail, maxPerEmail);
