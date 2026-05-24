@@ -116,7 +116,38 @@ export default function TeilnahmebedingungenPage() {
             </ul>
           </Section>
 
-          <Section title="4. Haftungsausschluss & Verletzungsrisiko">
+          <Section title="4. Nicht-Erscheinen (No-Show)">
+            <ul className="text-sm leading-relaxed list-disc pl-6 space-y-2">
+              <li>
+                Die Anmeldung zu einer Veranstaltung ist verbindlich. Mit der
+                Bestätigung durch den Verein entsteht eine Zahlungspflicht für
+                den jeweiligen Unkostenbeitrag.
+              </li>
+              <li>
+                Erscheint eine angemeldete Person nicht zur Veranstaltung, ohne
+                sich fristgerecht abgemeldet zu haben, bleibt der
+                Teilnahmebetrag in voller Höhe fällig und wird entsprechend in
+                Rechnung gestellt.
+              </li>
+              <li>
+                Bei zweimaligem unentschuldigten Nicht-Erscheinen trotz
+                bestehender Anmeldung wird die betroffene Person von der
+                Anmeldung zu zukünftigen Veranstaltungen ausgeschlossen, bis die
+                Angelegenheit geklärt ist.
+              </li>
+              <li>
+                Eine Beschwerde gegen diesen Ausschluss ist ausschließlich
+                schriftlich (per Post oder E-Mail an die Vereinsadresse)
+                einzureichen.
+              </li>
+              <li>
+                Über eingereichte Beschwerden und Ausnahmen entscheidet die
+                Mitgliederversammlung. Deren Beschluss ist bindend.
+              </li>
+            </ul>
+          </Section>
+
+          <Section title="5. Haftungsausschluss & Verletzungsrisiko">
             <ul className="text-sm leading-relaxed list-disc pl-6 space-y-2">
               <li>Die Teilnahme an sportlichen Aktivitäten erfolgt auf eigene Gefahr.</li>
               <li>
@@ -141,7 +172,7 @@ export default function TeilnahmebedingungenPage() {
             </ul>
           </Section>
 
-          <Section title="5. Verhaltensregeln & Hausordnung">
+          <Section title="6. Verhaltensregeln & Hausordnung">
             <ul className="text-sm leading-relaxed list-disc pl-6 space-y-2">
               <li>
                 Ein respektvoller und fairer Umgang mit allen Teilnehmenden,
@@ -174,7 +205,7 @@ export default function TeilnahmebedingungenPage() {
             </ul>
           </Section>
 
-          <Section title="6. Foto- & Videoaufnahmen">
+          <Section title="7. Foto- & Videoaufnahmen">
             <ul className="text-sm leading-relaxed list-disc pl-6 space-y-2">
               <li>
                 Der Verein kann im Rahmen von Veranstaltungen Foto- und
@@ -203,7 +234,7 @@ export default function TeilnahmebedingungenPage() {
             </ul>
           </Section>
 
-          <Section title="7. Datenschutz">
+          <Section title="8. Datenschutz">
             <p className="text-sm leading-relaxed">
               Die im Rahmen der Anmeldung erhobenen personenbezogenen Daten
               werden ausschließlich zur Organisation und Durchführung der
@@ -219,7 +250,7 @@ export default function TeilnahmebedingungenPage() {
             </p>
           </Section>
 
-          <Section title="8. Änderungen der Teilnahmebedingungen">
+          <Section title="9. Änderungen der Teilnahmebedingungen">
             <p className="text-sm leading-relaxed">
               Der Verein behält sich vor, diese Teilnahmebedingungen jederzeit
               anzupassen. Die jeweils aktuelle Fassung ist auf der
