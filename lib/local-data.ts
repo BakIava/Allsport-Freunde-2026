@@ -214,7 +214,10 @@ export function getLocalRegistrationCount(eventId: number): number {
 }
 
 export function findLocalRegistration(eventId: number, email: string) {
-  return localRegistrations.find((r) => r.event_id === eventId && r.email === email);
+  const e = email.toLowerCase();
+  return localRegistrations.find(
+    (r) => r.event_id === eventId && r.email?.toLowerCase() === e
+  );
 }
 
 export function createLocalRegistration(data: {

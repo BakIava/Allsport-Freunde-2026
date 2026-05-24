@@ -36,7 +36,17 @@ export async function findRegistration(
   const sql = getSQL();
   const rows = await sql`
     SELECT id, status, status_token FROM registrations
-    WHERE event_id = ${eventId} AND email = ${email}
+    WHERE event_id = ${eventId} AND LOWER(email) = LOWER(${email})
+    ORDER BY
+      CASE status
+        WHEN 'pending' THEN 0
+        WHEN 'approved' THEN 1
+        WHEN 'rejected' THEN 2
+        WHEN 'cancelled' THEN 3
+        ELSE 4
+      END,
+      id DESC
+    LIMIT 1
   `;
 
   return (rows[0] as { id: number; status: string; status_token: string | null }) ?? null;
