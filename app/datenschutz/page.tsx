@@ -235,7 +235,7 @@ export default function DatenschutzPage() {
               </p>
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-1">
                 <p className="font-semibold text-gray-900">
-                  AllsportFreunde 2026 e.V.
+                  Allsport Freunde 2026 e.V.
                 </p>
                 <p>
                   Wackernheimer Straße 35

@@ -4,9 +4,9 @@ import { ArrowLeft } from "lucide-react";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "Teilnahmebedingungen – AllsportFreunde 2026 e.V.",
+  title: "Teilnahmebedingungen – Allsport Freunde 2026 e.V.",
   description:
-    "Verbindliche Teilnahmebedingungen für Veranstaltungen und Sportangebote des AllsportFreunde 2026 e.V.",
+    "Verbindliche Teilnahmebedingungen für Veranstaltungen und Sportangebote des Allsport Freunde 2026 e.V.",
 };
 
 function Section({
@@ -52,7 +52,7 @@ export default function TeilnahmebedingungenPage() {
         {/* Content */}
         <div className="max-w-4xl mx-auto px-4 py-12 text-gray-700">
           <p className="text-sm leading-relaxed mb-10">
-            Mit der Anmeldung zu einer Veranstaltung des Vereins AllsportFreunde
+            Mit der Anmeldung zu einer Veranstaltung des Vereins Allsport Freunde
             2026 e.V. erkennen Teilnehmende diese Teilnahmebedingungen
             verbindlich an.
           </p>
@@ -61,7 +61,7 @@ export default function TeilnahmebedingungenPage() {
             <div className="text-sm leading-relaxed space-y-3">
               <p>
                 Diese Teilnahmebedingungen gelten für alle Veranstaltungen und
-                Sportangebote des Vereins AllsportFreunde 2026 e.V.,
+                Sportangebote des Vereins Allsport Freunde 2026 e.V.,
                 einschließlich:
               </p>
               <ul className="list-disc pl-6 space-y-1">
