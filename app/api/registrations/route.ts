@@ -9,10 +9,25 @@ import { sendRegistrationReceivedEmail } from "@/lib/email";
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import type { RegistrationRequest } from "@/lib/types";
+import { checkRateLimit, getClientIp, RATE_LIMITS } from "@/lib/ratelimit";
+import { validateHoneypot } from "@/lib/honeypot";
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request.headers);
+  if (!checkRateLimit(ip, RATE_LIMITS.registration)) {
+    return NextResponse.json(
+      { error: "Zu viele Anfragen. Bitte warte einige Minuten." },
+      { status: 429 }
+    );
+  }
+
   try {
-    const body: RegistrationRequest = await request.json();
+    const body: RegistrationRequest & { _hp?: string; _ts?: string } = await request.json();
+
+    if (!validateHoneypot({ _hp: body._hp, _ts: body._ts })) {
+      return NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 });
+    }
+
     const { event_id, email, phone, persons } = body;
 
     if (!event_id || !email?.trim() || !phone?.trim()) {
