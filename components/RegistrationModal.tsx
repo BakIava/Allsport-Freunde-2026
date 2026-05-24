@@ -311,9 +311,16 @@ export default function RegistrationModal({
                   className="mt-1 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer"
                 />
                 <Label htmlFor="accepted" className="text-sm text-gray-600 cursor-pointer">
-                  Ich akzeptiere die Teilnahmebedingungen und bin damit
-                  einverstanden, dass meine Daten zur Organisation des Events
-                  verwendet werden. *
+                  Ich akzeptiere die{" "}
+                  <Link
+                    href="/teilnahmebedingungen"
+                    target="_blank"
+                    className="underline hover:text-gray-900"
+                  >
+                    Teilnahmebedingungen
+                  </Link>{" "}
+                  und bin damit einverstanden, dass meine Daten zur
+                  Organisation des Events verwendet werden. *
                 </Label>
               </div>
 
