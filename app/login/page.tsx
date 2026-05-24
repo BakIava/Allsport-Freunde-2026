@@ -29,7 +29,7 @@ export default async function LoginPage() {
           </div>
           <CardTitle className="text-xl">AllsportFreunde 2026</CardTitle>
           <CardDescription>
-            Melde dich per Magic Link an deine E-Mail an.
+            Melde dich per Login-Link oder Code an deine E-Mail an.
           </CardDescription>
         </CardHeader>
         <CardContent>
