@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import {
   getEventCosts,
   createEventCost,
@@ -13,8 +13,9 @@ export async function GET(
   _request: NextRequest,
   { params }: Params
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
 
   const { id } = await params;
   const eventId = Number(id);
@@ -32,8 +33,9 @@ export async function POST(
   request: NextRequest,
   { params }: Params
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
 
   const { id } = await params;
   const eventId = Number(id);
@@ -52,7 +54,7 @@ export async function POST(
 
     const cost = await createEventCost(eventId, description, amount);
 
-    await logAudit(session.user?.name ?? null, "CREATE_EVENT_COST", "EVENT_COST", cost.id, {
+    await logAudit(user.email ?? null, "CREATE_EVENT_COST", "EVENT_COST", cost.id, {
       event_id: eventId,
       description,
       amount,

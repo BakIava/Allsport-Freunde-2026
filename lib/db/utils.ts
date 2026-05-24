@@ -1,5 +1,4 @@
 import { neon } from "@neondatabase/serverless";
-import type { AdminUser } from "../types";
 
 function getDatabaseUrl(): string | undefined {
   return process.env.POSTGRES_URL || process.env.DATABASE_URL;
@@ -13,19 +12,6 @@ export function getSQL() {
   const url = getDatabaseUrl();
   if (!url) throw new Error("Keine Datenbank-URL konfiguriert");
   return neon(url);
-}
-
-export async function getAdminUser(username: string): Promise<AdminUser | null> {
-  if (!isPostgresConfigured()) {
-    const { getLocalAdminUser } = await import("../local-data");
-    return getLocalAdminUser(username);
-  }
-
-  const sql = getSQL();
-  const rows = await sql`
-    SELECT * FROM admin_users WHERE username = ${username}
-  `;
-  return (rows[0] as AdminUser) ?? null;
 }
 
 export async function logAudit(

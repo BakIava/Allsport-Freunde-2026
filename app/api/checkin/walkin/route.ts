@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { createWalkInRegistration } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
   }
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const adminName = session.user?.name ?? "admin";
+    const adminName = user.email ?? "admin";
     const result = await createWalkInRegistration({
       event_id,
       persons: persons.map((p) => ({ firstName: p.firstName.trim(), lastName: p.lastName.trim() })),

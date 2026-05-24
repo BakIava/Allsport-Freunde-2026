@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { getAllHelpers, createHelper } from "@/lib/db";
 import type { HelperQualification } from "@/lib/types";
 
@@ -10,8 +10,9 @@ const VALID_QUALIFICATIONS: HelperQualification[] = [
 ];
 
 export async function GET() {
-  const session = await auth();
-  if (!session) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
   }
 
@@ -25,8 +26,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
   }
 

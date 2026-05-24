@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { getContactInquiry, addInquiryMessage, updateInquiryStatus } from "@/lib/db";
 import { sendContactResponseEmail } from "@/lib/email";
 
@@ -7,8 +7,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
   }
 

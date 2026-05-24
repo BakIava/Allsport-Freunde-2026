@@ -196,13 +196,6 @@ export interface CheckinStatusResponse {
   participants: CheckinParticipant[];
 }
 
-export interface AdminUser {
-  id: number;
-  username: string;
-  password_hash: string;
-  created_at: string;
-}
-
 export interface AdminStats {
   total_events: number;
   upcoming_events: number;

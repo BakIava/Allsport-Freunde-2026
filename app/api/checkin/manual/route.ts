@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { manualCheckin } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
   }
 
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "registrationId fehlt." }, { status: 400 });
     }
 
-    const result = await manualCheckin(registrationId, session.user?.name ?? "admin");
+    const result = await manualCheckin(registrationId, user.email ?? "admin");
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Ein Fehler ist aufgetreten.";

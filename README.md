@@ -8,9 +8,9 @@ Moderner Onepager für den gemeinnützigen Sportverein **Allsport Freunde 2026 e
 - **TypeScript**
 - **Tailwind CSS v4**
 - **shadcn/ui** (manuell integriert)
-- **Vercel Postgres** (@vercel/postgres)
+- **Neon Postgres** (@neondatabase/serverless)
 - **Framer Motion** für Animationen
-- **NextAuth.js v5** (Auth.js) für Authentifizierung
+- **Supabase Auth** (Magic Link) für die Admin-Authentifizierung
 - **Lucide React** für Icons
 
 ## Lokale Entwicklung
@@ -52,9 +52,16 @@ Die App läuft dann unter [http://localhost:3000](http://localhost:3000).
    npx tsx scripts/seed.ts
    ```
 
-7. **Deployen:** `git push` – Vercel baut automatisch
+7. **Supabase-Variablen setzen:** `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_SUPABASE_ANON_KEY` im Vercel-Dashboard hinterlegen (siehe Abschnitt „Supabase Setup").
 
-8. **Cron-Job aktivieren (Erinnerungsmails):**
+8. **Bei Upgrade von NextAuth:** Alte `admin_users`-Tabelle entfernen:
+   ```bash
+   npm run db:migrate-drop-admin-users
+   ```
+
+9. **Deployen:** `git push` – Vercel baut automatisch
+
+10. **Cron-Job aktivieren (Erinnerungsmails):**
    - Erzeuge ein sicheres Secret: `openssl rand -base64 32`
    - Vercel-Dashboard → Project Settings → Environment Variables → `CRON_SECRET` setzen
    - Der Job läuft täglich um 08:00 UTC (09:00 MEZ / 10:00 MESZ) und sendet Erinnerungsmails an alle bestätigten Teilnehmer, deren Event am nächsten Tag stattfindet
@@ -62,17 +69,39 @@ Die App läuft dann unter [http://localhost:3000](http://localhost:3000).
 
 ## Admin-Bereich
 
-Der Admin-Bereich ist unter `/admin` erreichbar und durch Login geschützt.
+Der Admin-Bereich ist unter `/admin` erreichbar und durch **Supabase Magic Link Login** geschützt – kein Passwort, sondern ein Login-Link per E-Mail.
 
-**Standard-Login:** `admin` / `admin`
+### Login-Flow
+
+1. `/login` öffnen (außerhalb von `/admin`, daher ohne Auth erreichbar)
+2. E-Mail-Adresse eintragen → „Magic Link senden"
+3. Link aus der E-Mail anklicken → Supabase tauscht den Code via `/auth/callback` gegen eine Session und redirectet zu `/admin`
+4. Abmelden via Sidebar-Button (Server Action, kein Client-State)
+
+Schutzschichten:
+- **Middleware** (`middleware.ts`): redirectet unauthentifizierte Requests auf `/admin/*` zu `/login` und gibt für `/api/admin/*` `401 Unauthorized` zurück
+- **Server-Component-Check** in `app/admin/layout.tsx` als zweite Absicherung (`supabase.auth.getUser()`)
+
+### Supabase Setup
+
+1. Projekt auf [supabase.com](https://supabase.com) anlegen (Free Tier reicht)
+2. **Project Settings → API**: `Project URL` und `anon public key` kopieren
+3. Werte als Environment Variables setzen (lokal in `.env.local`, in Production in Vercel):
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=https://DEIN-PROJEKT.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+   ```
+4. **Authentication → URL Configuration**:
+   - `Site URL`: `https://deine-domain.de` (in Production) bzw. `http://localhost:3000` (lokal)
+   - `Redirect URLs`: zusätzlich `https://deine-domain.de/auth/callback` (bzw. `http://localhost:3000/auth/callback`) eintragen
+5. **Authentication → Providers**: „Email" aktivieren, „Confirm email" anlassen (Magic Link funktioniert ohne weitere Konfiguration)
+6. **Authentication → Users**: berechtigte Admin-E-Mail-Adressen manuell als User anlegen (alternativ via Invite-Flow)
 
 Funktionen:
 - **Dashboard** mit Statistiken und letzten Anmeldungen
 - **Event-Verwaltung** – Erstellen, Bearbeiten, Löschen mit Filter und Suche
 - **Anmeldungs-Verwaltung** – Übersicht, Filterung, CSV-Export, Löschen
 - Responsive Sidebar-Navigation
-
-Die Admin-Credentials können über Environment Variables überschrieben werden (`ADMIN_USERNAME`, `ADMIN_PASSWORD`).
 
 ## Features
 
@@ -83,13 +112,16 @@ Die Admin-Credentials können über Environment Variables überschrieben werden 
 - Duplikat-Prüfung bei Anmeldungen
 - Smooth Scrolling und dezente Scroll-Animationen
 - Komplett auf Deutsch
-- Admin-Bereich mit Login, Dashboard, Event- und Anmeldungsverwaltung
+- Admin-Bereich mit Magic-Link-Login, Dashboard, Event- und Anmeldungsverwaltung
 
 ## API-Endpunkte
 
 ### Öffentlich
 - `GET /api/events` – Alle kommenden Events mit Teilnehmerzahlen
 - `POST /api/registrations` – Neue Anmeldung erstellen
+
+### Auth (Supabase)
+- `GET /auth/callback` – Tauscht den Magic-Link-Code gegen eine Session und redirectet zu `/admin`
 
 ### Cron (Bearer CRON_SECRET)
 - `GET /api/cron/send-reminders` – Erinnerungsmails versenden (täglich 08:00 UTC via Vercel Cron)
@@ -123,29 +155,37 @@ Die Admin-Credentials können über Environment Variables überschrieben werden 
   Footer.tsx                   # Footer mit Kontakt
 /app
   /admin
-    layout.tsx                   # Admin-Layout mit Sidebar
+    layout.tsx                   # Server Component: prüft Supabase-Session, rendert AdminShell
     page.tsx                     # Dashboard
-    /login/page.tsx              # Login-Seite
+    /actions/auth.ts             # Logout Server Action
     /events/page.tsx             # Event-Übersicht
     /events/new/page.tsx         # Neues Event
     /events/[id]/edit/page.tsx   # Event bearbeiten
     /events/[id]/registrations/  # Anmeldungen pro Event
     /registrations/page.tsx      # Alle Anmeldungen
-  /api/admin/                    # Geschützte Admin-API-Routes
+  /login/page.tsx                # Magic-Link-Login (außerhalb /admin)
+  /auth/callback/route.ts        # Tauscht Code gegen Session
+  /api/admin/                    # Geschützte Admin-API-Routes (Middleware + getUser())
 /components/admin
-  Sidebar.tsx                    # Sidebar-Navigation
+  AdminShell.tsx                 # Client-Wrapper: Sidebar + Toast Provider
+  Sidebar.tsx                    # Sidebar-Navigation, Logout via Server Action
   StatsCards.tsx                 # Dashboard-Statistiken
   EventForm.tsx                  # Event-Formular
   EventTable.tsx                 # Event-Tabelle mit Filter
   RegistrationTable.tsx          # Anmeldungs-Tabelle
   RecentRegistrations.tsx        # Letzte Anmeldungen
 /lib
-  auth.ts                        # NextAuth-Konfiguration
+  /supabase
+    client.ts                    # Browser-Client (Client Components)
+    server.ts                    # Server-Client (Server Components, Route Handlers)
+    middleware.ts                # Session-Refresh + Redirect-Logik
   db.ts                          # Datenbank-Abstraktionsschicht
   local-data.ts                  # In-Memory-Fallback für lokale Entwicklung
   types.ts                       # TypeScript Typen
   utils.ts                       # Hilfsfunktionen
+middleware.ts                    # Schützt /admin/* (Redirect) und /api/admin/* (401)
 /scripts
-  setup-db.ts                    # Erstellt Tabellen + Admin-User
+  setup-db.ts                    # Erstellt Tabellen
+  migrate-drop-admin-users.ts    # Entfernt die alte NextAuth admin_users Tabelle
   seed.ts                        # Fügt Beispiel-Events ein
 ```
