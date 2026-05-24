@@ -27,7 +27,7 @@ export default async function LoginPage() {
           <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <Mail className="w-6 h-6 text-green-600" />
           </div>
-          <CardTitle className="text-xl">AllsportFreunde 2026</CardTitle>
+          <CardTitle className="text-xl">Allsport Freunde 2026 e.V.</CardTitle>
           <CardDescription>
             Melde dich per Login-Link oder Code an deine E-Mail an.
           </CardDescription>
