@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { flushSync } from "react-dom";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -336,6 +337,14 @@ export default function RegistrationModal({
                   `${persons.length} ${persons.length === 1 ? "Person" : "Personen"} anmelden`
                 )}
               </Button>
+
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                Mit der Anmeldung akzeptierst du unsere{" "}
+                <Link href="/teilnahmebedingungen" className="underline hover:text-foreground">
+                  Teilnahmebedingungen
+                </Link>
+                .
+              </p>
             </form>
           </>
         )}
