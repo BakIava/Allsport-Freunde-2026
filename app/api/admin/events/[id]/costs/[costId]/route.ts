@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import {
   updateEventCost,
   deleteEventCost,
@@ -13,8 +13,9 @@ export async function PUT(
   request: NextRequest,
   { params }: Params
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
 
   const { id, costId } = await params;
   const eventId = Number(id);
@@ -36,7 +37,7 @@ export async function PUT(
 
     const updated = await updateEventCost(cId, description, amount);
 
-    await logAudit(session.user?.name ?? null, "UPDATE_EVENT_COST", "EVENT_COST", cId, {
+    await logAudit(user.email ?? null, "UPDATE_EVENT_COST", "EVENT_COST", cId, {
       event_id: eventId,
       description,
       amount,
@@ -54,8 +55,9 @@ export async function DELETE(
   _request: NextRequest,
   { params }: Params
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
 
   const { id, costId } = await params;
   const eventId = Number(id);
@@ -70,7 +72,7 @@ export async function DELETE(
   try {
     await deleteEventCost(cId);
 
-    await logAudit(session.user?.name ?? null, "DELETE_EVENT_COST", "EVENT_COST", cId, {
+    await logAudit(user.email ?? null, "DELETE_EVENT_COST", "EVENT_COST", cId, {
       event_id: eventId,
       description: existing.description,
       amount: existing.amount,

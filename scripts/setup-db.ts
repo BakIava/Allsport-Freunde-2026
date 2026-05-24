@@ -1,6 +1,5 @@
 import "dotenv/config";
 import { neon } from "@neondatabase/serverless";
-import { hashSync } from "bcryptjs";
 
 const dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 if (!dbUrl) {
@@ -68,16 +67,6 @@ async function setup() {
   console.log("  ✓ Tabelle 'registrations' erstellt");
 
   await sql`
-    CREATE TABLE IF NOT EXISTS admin_users (
-      id SERIAL PRIMARY KEY,
-      username VARCHAR(100) UNIQUE NOT NULL,
-      password_hash VARCHAR(255) NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT NOW()
-    )
-  `;
-  console.log("  ✓ Tabelle 'admin_users' erstellt");
-
-  await sql`
     CREATE TABLE IF NOT EXISTS event_templates (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
@@ -119,18 +108,6 @@ async function setup() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_template_images_template_id ON template_images(template_id)`;
   console.log("  ✓ Tabelle 'template_images' erstellt");
-
-  // Insert default admin user
-  const username = process.env.ADMIN_USERNAME || "admin";
-  const password = process.env.ADMIN_PASSWORD || "admin";
-  const passwordHash = hashSync(password, 10);
-
-  await sql`
-    INSERT INTO admin_users (username, password_hash)
-    VALUES (${username}, ${passwordHash})
-    ON CONFLICT (username) DO UPDATE SET password_hash = ${passwordHash}
-  `;
-  console.log(`  ✓ Admin-User '${username}' erstellt`);
 
   console.log("\nDatenbank-Setup abgeschlossen!");
 }

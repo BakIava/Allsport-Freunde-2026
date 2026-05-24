@@ -1,8 +1,6 @@
-import { hashSync } from "bcryptjs";
 import type {
   EventWithRegistrations,
   Registration,
-  AdminUser,
   AdminStats,
   EventCreateInput,
   RegistrationWithEvent,
@@ -82,14 +80,6 @@ function initSeedRegistrations() {
   }
 }
 initSeedRegistrations();
-
-const adminPasswordHash = hashSync(process.env.ADMIN_PASSWORD || "admin", 10);
-const localAdminUser: AdminUser = {
-  id: 1,
-  username: process.env.ADMIN_USERNAME || "admin",
-  password_hash: adminPasswordHash,
-  created_at: new Date().toISOString(),
-};
 
 // Helper to recompute event participant counts
 function recomputeParticipants(eventId: number) {
@@ -361,13 +351,6 @@ export function cancelLocalRegistrationByToken(token: string): RegistrationStatu
   reg.status_note = null;
   recomputeParticipants(reg.event_id);
   return getLocalRegistrationByToken(token);
-}
-
-// ─── Auth ────────────────────────────────────────────────
-
-export function getLocalAdminUser(username: string): AdminUser | null {
-  if (username === localAdminUser.username) return localAdminUser;
-  return null;
 }
 
 // ─── Admin: Stats ────────────────────────────────────────

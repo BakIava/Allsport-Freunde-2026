@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCheckinToken } from "@/lib/checkin";
 import { getRegistrationByQRToken, markCheckedIn } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 // Simple in-memory rate limiter: 30 requests/minute per IP
 // Note: resets on serverless cold starts; sufficient for event-day use.
@@ -61,9 +61,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Diese Anmeldung ist nicht genehmigt." }, { status: 400 });
     }
 
-    // Determine who is checking in (admin session or fallback to ip)
-    const session = await auth();
-    const checkedInBy = session?.user?.name ?? body.checkedInBy ?? ip;
+    // Determine who is checking in (admin user or fallback to ip)
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const checkedInBy = user?.email ?? body.checkedInBy ?? ip;
 
     if (registration.checked_in_at) {
       return NextResponse.json({
