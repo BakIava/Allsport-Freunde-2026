@@ -2,17 +2,31 @@ import {
   getEvent,
   getRegistrationCount,
   findRegistration,
-  getRemainingSlots,
 } from "@/lib/db";
 import { getSQL } from "@/lib/db/utils";
 import { sendRegistrationReceivedEmail } from "@/lib/email";
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import type { RegistrationRequest } from "@/lib/types";
+import { checkRateLimit, getClientIp, RATE_LIMITS } from "@/lib/ratelimit";
+import { validateHoneypot } from "@/lib/honeypot";
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request.headers);
+  if (!checkRateLimit(ip, RATE_LIMITS.registration)) {
+    return NextResponse.json(
+      { error: "Zu viele Anfragen. Bitte warte einige Minuten." },
+      { status: 429 }
+    );
+  }
+
   try {
-    const body: RegistrationRequest = await request.json();
+    const body: RegistrationRequest & { _hp?: string; _ts?: string } = await request.json();
+
+    if (!validateHoneypot({ _hp: body._hp, _ts: body._ts })) {
+      return NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 });
+    }
+
     const { event_id, email, phone, persons } = body;
 
     if (!event_id || !email?.trim() || !phone?.trim()) {
@@ -66,19 +80,28 @@ export async function POST(request: NextRequest) {
 
     const existing = await findRegistration(event_id, normalizedEmail);
 
-    if (existing && existing.status !== "cancelled") {
-      // Check remaining slots for this email (already registered, adding more persons)
-      const remaining = await getRemainingSlots(event_id, normalizedEmail, maxPerEmail);
-      if (persons.length > remaining) {
-        return NextResponse.json(
-          {
-            error: remaining === 0
-              ? `Du hast das Limit von ${maxPerEmail} Personen pro E-Mail für dieses Event erreicht.`
-              : `Du kannst noch ${remaining} weitere Person${remaining !== 1 ? "en" : ""} anmelden (Limit: ${maxPerEmail} pro E-Mail).`,
-          },
-          { status: 409 }
-        );
-      }
+    if (existing && existing.status === "pending") {
+      return NextResponse.json(
+        {
+          error:
+            "Deine Anmeldung wird gerade geprüft. Du erhältst eine E-Mail, sobald sie bestätigt ist.",
+        },
+        { status: 409 }
+      );
+    }
+
+    if (existing && existing.status === "approved") {
+      return NextResponse.json(
+        { error: "Diese E-Mail ist bereits für das Event angemeldet." },
+        { status: 409 }
+      );
+    }
+
+    if (existing && existing.status === "rejected") {
+      return NextResponse.json(
+        { error: "Für diese E-Mail-Adresse ist keine Anmeldung möglich." },
+        { status: 403 }
+      );
     }
 
     const currentCount = await getRegistrationCount(event_id);
@@ -103,8 +126,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const statusToken = randomUUID();
     const sql = getSQL();
+    const statusToken = randomUUID();
     let registrationId: number;
 
     if (existing && existing.status === "cancelled") {

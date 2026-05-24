@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { X, CheckCircle2, Loader2, MessageSquare } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
+import HoneypotFields from "@/components/HoneypotFields";
 
 interface ContactFormModalProps {
   open: boolean;
@@ -136,6 +137,11 @@ export default function ContactFormModal({
         return;
       }
 
+      const formEl = e.currentTarget as HTMLFormElement;
+      const fd = new FormData(formEl);
+      const _hp = (fd.get("_hp") as string | null) ?? "";
+      const _ts = (fd.get("_ts") as string | null) ?? "";
+
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -147,6 +153,8 @@ export default function ContactFormModal({
           message: form.message.trim(),
           event_id: form.event_id ? Number(form.event_id) : null,
           consent_to_store: form.consent_to_store,
+          _hp,
+          _ts,
         }),
       });
 
@@ -364,6 +372,8 @@ export default function ContactFormModal({
                           werden dürfen (freiwillig, ohne Auswirkung auf deine Anfrage).
                         </span>
                       </label>
+
+                      <HoneypotFields />
 
                       <Button
                         type="submit"

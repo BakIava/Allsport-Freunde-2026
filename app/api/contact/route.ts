@@ -5,13 +5,28 @@ import {
   sendContactAdminEmail,
 } from "@/lib/email";
 import { getEvents } from "@/lib/db";
+import { checkRateLimit, getClientIp, RATE_LIMITS } from "@/lib/ratelimit";
+import { validateHoneypot } from "@/lib/honeypot";
 
 const ADMIN_EMAIL =
   process.env.ADMIN_EMAIL || process.env.EMAIL_FROM?.match(/<(.+)>/)?.[1] || "";
 
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req.headers);
+  if (!checkRateLimit(ip, RATE_LIMITS.contact)) {
+    return NextResponse.json(
+      { error: "Zu viele Anfragen. Bitte warte einige Minuten." },
+      { status: 429 }
+    );
+  }
+
   try {
     const body = await req.json();
+
+    if (!validateHoneypot({ _hp: body?._hp, _ts: body?._ts })) {
+      return NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 });
+    }
+
     const { first_name, last_name, email, whatsapp_number, message, event_id, consent_to_store } =
       body as {
         first_name?: string;

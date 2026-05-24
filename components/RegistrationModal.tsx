@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import type { EventWithRegistrations } from "@/lib/types";
 import { CheckCircle2, Loader2, Plus, X, Users } from "lucide-react";
 import { LastNameInput } from "@/components/ui/LastNameInput";
+import HoneypotFields from "@/components/HoneypotFields";
 
 interface Person {
   firstName: string;
@@ -94,6 +95,11 @@ export default function RegistrationModal({
     setSubmitting(true);
     setError(null);
 
+    const formEl = e.currentTarget as HTMLFormElement;
+    const fd = new FormData(formEl);
+    const _hp = (fd.get("_hp") as string | null) ?? "";
+    const _ts = (fd.get("_ts") as string | null) ?? "";
+
     try {
       const res = await fetch("/api/registrations", {
         method: "POST",
@@ -106,6 +112,8 @@ export default function RegistrationModal({
             firstName: p.firstName.trim(),
             lastName: p.lastName.trim(),
           })),
+          _hp,
+          _ts,
         }),
       });
 
@@ -329,6 +337,8 @@ export default function RegistrationModal({
                   {error}
                 </div>
               )}
+
+              <HoneypotFields />
 
               <Button
                 type="submit"
