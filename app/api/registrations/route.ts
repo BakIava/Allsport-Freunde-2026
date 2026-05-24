@@ -2,7 +2,6 @@ import {
   getEvent,
   getRegistrationCount,
   findRegistration,
-  getRemainingSlots,
 } from "@/lib/db";
 import { getSQL } from "@/lib/db/utils";
 import { sendRegistrationReceivedEmail } from "@/lib/email";
@@ -85,25 +84,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Für diese E-Mail-Adresse besteht bereits eine Anmeldung für dieses Event. Bitte warte auf die Bestätigung oder prüfe deine Status-Seite.",
+            "Deine Anmeldung wird gerade geprüft. Du erhältst eine E-Mail, sobald sie bestätigt ist.",
         },
         { status: 409 }
       );
     }
 
-    if (existing && existing.status !== "cancelled") {
-      // Check remaining slots for this email (already registered, adding more persons)
-      const remaining = await getRemainingSlots(event_id, normalizedEmail, maxPerEmail);
-      if (persons.length > remaining) {
-        return NextResponse.json(
-          {
-            error: remaining === 0
-              ? `Du hast das Limit von ${maxPerEmail} Personen pro E-Mail für dieses Event erreicht.`
-              : `Du kannst noch ${remaining} weitere Person${remaining !== 1 ? "en" : ""} anmelden (Limit: ${maxPerEmail} pro E-Mail).`,
-          },
-          { status: 409 }
-        );
-      }
+    if (existing && existing.status === "approved") {
+      return NextResponse.json(
+        { error: "Diese E-Mail ist bereits für das Event angemeldet." },
+        { status: 409 }
+      );
+    }
+
+    if (existing && existing.status === "rejected") {
+      return NextResponse.json(
+        { error: "Für diese E-Mail-Adresse ist keine Anmeldung möglich." },
+        { status: 403 }
+      );
     }
 
     const currentCount = await getRegistrationCount(event_id);
@@ -129,11 +127,10 @@ export async function POST(request: NextRequest) {
     }
 
     const sql = getSQL();
+    const statusToken = randomUUID();
     let registrationId: number;
-    let statusToken: string;
 
     if (existing && existing.status === "cancelled") {
-      statusToken = randomUUID();
       const rows = await sql`
         UPDATE registrations SET
           phone = ${phone.trim()},
@@ -146,17 +143,7 @@ export async function POST(request: NextRequest) {
       `;
       registrationId = (rows[0] as { id: number }).id;
       await sql`DELETE FROM registration_persons WHERE registration_id = ${registrationId}`;
-    } else if (existing) {
-      registrationId = existing.id;
-      statusToken = existing.status_token ?? randomUUID();
-      await sql`
-        UPDATE registrations SET
-          phone = ${phone.trim()},
-          status_token = ${statusToken}
-        WHERE id = ${registrationId}
-      `;
     } else {
-      statusToken = randomUUID();
       const rows = await sql`
         INSERT INTO registrations (event_id, email, phone, status, status_token)
         VALUES (${event_id}, ${normalizedEmail}, ${phone.trim()}, 'pending', ${statusToken})
