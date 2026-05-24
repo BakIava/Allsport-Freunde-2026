@@ -92,6 +92,9 @@ export default function Footer() {
             <Link href="/datenschutz" className="hover:text-white transition-colors">
               Datenschutz
             </Link>
+            <Link href="/teilnahmebedingungen" className="hover:text-white transition-colors">
+              Teilnahmebedingungen
+            </Link>
           </div>
         </div>
       </div>
