@@ -118,11 +118,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const statusToken = randomUUID();
     const sql = getSQL();
     let registrationId: number;
+    let statusToken: string;
 
     if (existing && existing.status === "cancelled") {
+      statusToken = randomUUID();
       const rows = await sql`
         UPDATE registrations SET
           phone = ${phone.trim()},
@@ -135,7 +136,17 @@ export async function POST(request: NextRequest) {
       `;
       registrationId = (rows[0] as { id: number }).id;
       await sql`DELETE FROM registration_persons WHERE registration_id = ${registrationId}`;
+    } else if (existing) {
+      registrationId = existing.id;
+      statusToken = existing.status_token ?? randomUUID();
+      await sql`
+        UPDATE registrations SET
+          phone = ${phone.trim()},
+          status_token = ${statusToken}
+        WHERE id = ${registrationId}
+      `;
     } else {
+      statusToken = randomUUID();
       const rows = await sql`
         INSERT INTO registrations (event_id, email, phone, status, status_token)
         VALUES (${event_id}, ${normalizedEmail}, ${phone.trim()}, 'pending', ${statusToken})

@@ -26,20 +26,20 @@ export async function getRegistrationCount(eventId: number): Promise<number> {
 export async function findRegistration(
   eventId: number,
   email: string
-): Promise<{ id: number, status: string } | null> {
+): Promise<{ id: number; status: string; status_token: string | null } | null> {
   if (!isPostgresConfigured()) {
     const { findLocalRegistration } = await import("../local-data");
     const reg = findLocalRegistration(eventId, email);
-    return reg ? { id: reg.id, status: reg.status } : null;
+    return reg ? { id: reg.id, status: reg.status, status_token: reg.status_token ?? null } : null;
   }
 
   const sql = getSQL();
   const rows = await sql`
-    SELECT id, status FROM registrations
+    SELECT id, status, status_token FROM registrations
     WHERE event_id = ${eventId} AND email = ${email}
   `;
 
-  return (rows[0] as { id: number, status: string }) ?? null;
+  return (rows[0] as { id: number; status: string; status_token: string | null }) ?? null;
 }
 
 export async function getRemainingSlots(
