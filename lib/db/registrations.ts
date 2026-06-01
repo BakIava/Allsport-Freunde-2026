@@ -4,6 +4,7 @@ import type {
   RegistrationDetail,
   RegistrationStatusInfo,
   RegistrationStatus,
+  RegistrationPerson,
   EventPerson,
 } from "../types";
 
@@ -363,7 +364,27 @@ export async function getRegistrationDetail(id: number): Promise<RegistrationDet
   if (!isPostgresConfigured()) {
     const base = await getRegistrationWithEvent(id);
     if (!base) return null;
-    return { ...base, event_time: "", event_location: "" };
+    const persons: RegistrationPerson[] = [
+      {
+        id: `local-${base.id}-0`,
+        registration_id: base.id,
+        first_name: base.first_name,
+        last_name: base.last_name,
+        checked_in_at: base.checked_in_at,
+        cancelled_at: null,
+        created_at: base.created_at,
+      },
+      ...Array.from({ length: Math.max(0, base.person_count - 1) }, (_, i) => ({
+        id: `local-${base.id}-${i + 1}`,
+        registration_id: base.id,
+        first_name: "Begleitperson",
+        last_name: `${i + 1}`,
+        checked_in_at: null,
+        cancelled_at: null,
+        created_at: base.created_at,
+      })),
+    ];
+    return { ...base, event_time: "", event_location: "", persons };
   }
 
   const sql = getSQL();
@@ -385,7 +406,17 @@ export async function getRegistrationDetail(id: number): Promise<RegistrationDet
     JOIN events e ON r.event_id = e.id
     WHERE r.id = ${id}
   `;
-  return (rows[0] as RegistrationDetail) ?? null;
+  if (!rows[0]) return null;
+
+  const detail = rows[0] as RegistrationDetail;
+  const persons = await sql`
+    SELECT id, registration_id, first_name, last_name, checked_in_at, cancelled_at, created_at
+    FROM registration_persons
+    WHERE registration_id = ${id} AND cancelled_at IS NULL
+    ORDER BY created_at ASC
+  `;
+  detail.persons = persons as RegistrationPerson[];
+  return detail;
 }
 
 export async function bulkUpdateRegistrationStatus(

@@ -127,6 +127,8 @@ export interface RegistrationWithEvent extends Registration {
 export interface RegistrationDetail extends RegistrationWithEvent {
   event_time: string;
   event_location: string;
+  /** All persons registered under this email (incl. main person), ordered by created_at */
+  persons: RegistrationPerson[];
 }
 
 export interface EventPerson {
