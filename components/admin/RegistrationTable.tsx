@@ -323,7 +323,7 @@ export default function RegistrationTable({ eventId, upcomingOnly = false }: Reg
                       </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">{r.email}</TableCell>
-                    <TableCell className="hidden lg:table-cell">{r.person_count - 1}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{Math.max(0, r.person_count - 1)}</TableCell>
                     <TableCell>
                       <StatusBadge status={r.status || "pending"} />
                     </TableCell>
