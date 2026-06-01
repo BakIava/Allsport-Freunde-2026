@@ -181,7 +181,9 @@ export async function getEventFinancials(eventId: number): Promise<EventFinancia
     actual_revenue: actualRevenue,
     total_donations: totalDonations,
     donation_count: donations.length,
-    balance: actualRevenue + totalDonations - totalCosts,
+    // When a Kassenabschluss (physical cash count) exists, the balance uses the
+    // actually counted cash instead of the calculated actual revenue.
+    balance: (cashCounted != null ? cashCounted : actualRevenue) + totalDonations - totalCosts,
     costs,
     donations,
     cash_counted: cashCounted,

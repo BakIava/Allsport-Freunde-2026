@@ -799,9 +799,18 @@ export default function CheckinDashboardPage() {
                       {financials.entry_price != null && financials.entry_price > 0 ? (
                         <div className="bg-green-50 rounded-lg p-3 space-y-1">
                           <p className="text-xs text-green-700">Tats. Umsatz</p>
-                          <p className="text-base font-bold text-green-900">{formatEuro(financials.actual_revenue)}</p>
+                          {financials.cash_counted != null ? (
+                            <p className="text-base font-bold text-green-900 flex items-baseline gap-1.5 flex-wrap">
+                              <span className="line-through text-green-700/60 font-medium">{formatEuro(financials.actual_revenue)}</span>
+                              <span>{formatEuro(financials.cash_counted)}</span>
+                            </p>
+                          ) : (
+                            <p className="text-base font-bold text-green-900">{formatEuro(financials.actual_revenue)}</p>
+                          )}
                           <p className="text-xs text-green-600">
-                            ({financials.checkedin_persons} eingecheckt{financials.checkedin_guests > 0 ? ` + ${financials.checkedin_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}
+                            {financials.cash_counted != null
+                              ? "Kassenabschluss"
+                              : <>({financials.checkedin_persons} eingecheckt{financials.checkedin_guests > 0 ? ` + ${financials.checkedin_guests} Bgl.` : ""}) × {formatEuro(financials.entry_price)}</>}
                           </p>
                         </div>
                       ) : (
