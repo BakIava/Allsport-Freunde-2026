@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { X, Loader2, User, Calendar, CheckCircle2, Info } from "lucide-react";
+import { X, Loader2, User, Users, Calendar, CheckCircle2, Info } from "lucide-react";
 import StatusBadge from "@/components/status/StatusBadge";
 import type { RegistrationDetail } from "@/lib/types";
 
@@ -156,6 +156,53 @@ export default function RegistrationDetailModal({
                 <Row label="Nachname" value={data.last_name} />
                 <Row label="E-Mail" value={data.email} />
                 <Row label="Telefonnummer" value={data.phone} />
+              </Section>
+
+              {/* Angemeldete Personen */}
+              <Section
+                title={`Angemeldete Personen (${data.persons?.length ?? 0})`}
+                icon={Users}
+              >
+                {data.persons && data.persons.length > 0 ? (
+                  data.persons.map((person, idx) => (
+                    <div
+                      key={person.id}
+                      className="flex items-center justify-between gap-3 py-2 border-b border-gray-100 last:border-0"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm text-gray-900 break-words">
+                          {person.first_name} {person.last_name}
+                          {idx === 0 && (
+                            <span className="ml-1.5 text-xs text-gray-400 font-normal">
+                              (Hauptperson)
+                            </span>
+                          )}
+                        </p>
+                        {person.checked_in_at && (
+                          <p className="text-xs text-green-700 mt-0.5">
+                            Eingecheckt · {formatDateTime(person.checked_in_at)}
+                          </p>
+                        )}
+                      </div>
+                      {person.checked_in_at ? (
+                        <span className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-green-700">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Ein
+                        </span>
+                      ) : (
+                        <span className="shrink-0 text-xs text-gray-400">
+                          Ausstehend
+                        </span>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-2">
+                    <span className="text-sm text-gray-400">
+                      Keine Personen vorhanden
+                    </span>
+                  </div>
+                )}
               </Section>
 
               {/* Anmeldungs-Details */}
