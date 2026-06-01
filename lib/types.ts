@@ -66,6 +66,29 @@ export interface RegistrationPerson {
   checked_in_at: string | null;
   cancelled_at: string | null;
   created_at: string;
+  /** Number of recorded incidents for this person's name (check-in context). */
+  incident_count?: number;
+}
+
+// ─── Vorfälle / Incidents ─────────────────────────────────
+
+export interface PersonIncident {
+  id: number;
+  first_name: string;
+  last_name: string;
+  /** Normalised "firstname lastname" used to match a person across events. */
+  name_key: string;
+  description: string;
+  incident_date: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface PersonIncidentInput {
+  first_name: string;
+  last_name: string;
+  description: string;
+  incident_date?: string | null;
 }
 
 export interface Registration {
