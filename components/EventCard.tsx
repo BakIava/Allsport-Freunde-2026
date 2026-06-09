@@ -128,10 +128,9 @@ export default function EventCard({
           <Button
             className="flex-1"
             onClick={() => onRegister(event)}
-            disabled={isFull}
             variant={isFull ? "secondary" : "default"}
           >
-            {isFull ? "Ausgebucht" : "Anmelden"}
+            {isFull ? "Auf die Warteliste" : "Anmelden"}
           </Button>
         </CardFooter>
       </Card>

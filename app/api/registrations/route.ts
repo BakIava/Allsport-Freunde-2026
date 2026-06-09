@@ -1,6 +1,5 @@
 import {
   getEvent,
-  getRegistrationCount,
   findRegistration,
 } from "@/lib/db";
 import { getSQL } from "@/lib/db/utils";
@@ -104,20 +103,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const currentCount = await getRegistrationCount(event_id);
-    const spotsAvailable = event.max_participants - currentCount;
-
-    if (persons.length > spotsAvailable) {
-      return NextResponse.json(
-        {
-          error:
-            spotsAvailable === 0
-              ? "Dieses Event ist leider ausgebucht."
-              : `Es sind nur noch ${spotsAvailable} Plätze verfügbar.`,
-        },
-        { status: 409 }
-      );
-    }
+    // Hinweis: Es gibt bewusst keine harte Kapazitätsgrenze mehr. Ist ein Event
+    // ausgebucht, landen weitere Anmeldungen als normale "pending"-Anmeldungen
+    // auf der Warteliste und können vom Team angenommen werden – auch über die
+    // Kapazität hinaus.
 
     if (persons.length > maxPerEmail) {
       return NextResponse.json(

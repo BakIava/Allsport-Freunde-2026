@@ -313,10 +313,15 @@ export default function EventDetailModal({
                         : progressColors[event.category]
                     }
                   />
-                  {!isFull && (
+                  {!isFull ? (
                     <p className="text-xs text-green-700 font-medium">
                       Noch {available}{" "}
                       {available === 1 ? "Platz" : "Plätze"} verfügbar
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-700 font-medium">
+                      Dieses Event ist ausgebucht. Trage dich in die Warteliste
+                      ein – wir benachrichtigen dich, sobald ein Platz frei wird.
                     </p>
                   )}
                 </div>
@@ -325,14 +330,13 @@ export default function EventDetailModal({
                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <Button
                     className="flex-1 h-12 text-base"
-                    disabled={isFull}
                     variant={isFull ? "secondary" : "default"}
                     onClick={() => {
                       onClose();
                       onRegister(event);
                     }}
                   >
-                    {isFull ? "Ausgebucht" : "Jetzt anmelden"}
+                    {isFull ? "In die Warteliste einschreiben" : "Jetzt anmelden"}
                   </Button>
                   <Button
                     variant="outline"

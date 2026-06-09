@@ -136,6 +136,8 @@ export default function RegistrationModal({
 
   if (!event) return null;
 
+  const isFull = event.current_participants >= event.max_participants;
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="mx-4 max-h-[90vh] overflow-y-auto">
@@ -143,10 +145,12 @@ export default function RegistrationModal({
           <div className="text-center py-6">
             <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-gray-900 mb-2">
-              Anmeldung eingegangen!
+              {isFull ? "Auf der Warteliste!" : "Anmeldung eingegangen!"}
             </h3>
             <p className="text-gray-600 mb-1">
-              Deine Anmeldung wird nun geprüft:
+              {isFull
+                ? "Deine Anmeldung für die Warteliste wird nun geprüft:"
+                : "Deine Anmeldung wird nun geprüft:"}
             </p>
             <p className="font-semibold text-gray-900 mb-2">{event.title}</p>
             <div className="text-sm text-gray-500 space-y-1 mb-2">
@@ -164,7 +168,8 @@ export default function RegistrationModal({
             {persons.length > 0 && (
               <div className="bg-green-50 rounded-lg p-3 mb-3 text-left">
                 <p className="text-xs font-semibold text-green-700 mb-1">
-                  {persons.length} {persons.length === 1 ? "Person" : "Personen"} angemeldet:
+                  {persons.length} {persons.length === 1 ? "Person" : "Personen"}{" "}
+                  {isFull ? "auf der Warteliste" : "angemeldet"}:
                 </p>
                 {persons.map((p, i) => (
                   <p key={i} className="text-sm text-green-900">
@@ -174,7 +179,9 @@ export default function RegistrationModal({
               </div>
             )}
             <p className="text-sm text-amber-600 bg-amber-50 rounded-lg p-3 mb-4">
-              Du erhältst eine E-Mail, sobald deine Anmeldung bestätigt wurde.
+              {isFull
+                ? "Du stehst auf der Warteliste. Wir melden uns per E-Mail, sobald ein Platz frei wird oder deine Anmeldung bestätigt wurde."
+                : "Du erhältst eine E-Mail, sobald deine Anmeldung bestätigt wurde."}
             </p>
             {statusToken && (
               <a
@@ -193,13 +200,24 @@ export default function RegistrationModal({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Anmeldung: {event.title}</DialogTitle>
+              <DialogTitle>
+                {isFull ? "Warteliste" : "Anmeldung"}: {event.title}
+              </DialogTitle>
               <DialogDescription>
-                Fülle das Formular aus, um dich für dieses Event anzumelden.
+                {isFull
+                  ? "Dieses Event ist ausgebucht. Trage dich in die Warteliste ein – wir benachrichtigen dich, sobald ein Platz frei wird."
+                  : "Fülle das Formular aus, um dich für dieses Event anzumelden."}
               </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {isFull && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg p-3">
+                  Das Event ist aktuell ausgebucht. Mit dieser Anmeldung setzen
+                  wir dich auf die Warteliste und melden uns, sobald ein Platz
+                  frei wird.
+                </div>
+              )}
               {/* Contact */}
               <div className="space-y-3">
                 <div className="space-y-2">
@@ -350,6 +368,8 @@ export default function RegistrationModal({
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     Wird gesendet...
                   </>
+                ) : isFull ? (
+                  "In die Warteliste einschreiben"
                 ) : (
                   `${persons.length} ${persons.length === 1 ? "Person" : "Personen"} anmelden`
                 )}
