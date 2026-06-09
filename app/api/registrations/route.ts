@@ -1,9 +1,13 @@
 import {
   getEvent,
+  getRegistrationCount,
   findRegistration,
 } from "@/lib/db";
 import { getSQL } from "@/lib/db/utils";
-import { sendRegistrationReceivedEmail } from "@/lib/email";
+import {
+  sendRegistrationReceivedEmail,
+  sendWaitlistReceivedEmail,
+} from "@/lib/email";
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import type { RegistrationRequest } from "@/lib/types";
@@ -106,7 +110,11 @@ export async function POST(request: NextRequest) {
     // Hinweis: Es gibt bewusst keine harte Kapazitätsgrenze mehr. Ist ein Event
     // ausgebucht, landen weitere Anmeldungen als normale "pending"-Anmeldungen
     // auf der Warteliste und können vom Team angenommen werden – auch über die
-    // Kapazität hinaus.
+    // Kapazität hinaus. Wir merken uns nur, ob das Event bereits voll war, um
+    // die passende Bestätigungs-E-Mail (Warteliste vs. normale Anmeldung) zu
+    // verschicken. Dieselbe Definition wie im Frontend-Button.
+    const currentCount = await getRegistrationCount(event_id);
+    const isWaitlist = currentCount >= event.max_participants;
 
     if (persons.length > maxPerEmail) {
       return NextResponse.json(
@@ -148,7 +156,7 @@ export async function POST(request: NextRequest) {
       `;
     }
 
-    sendRegistrationReceivedEmail({
+    const emailData = {
       to: normalizedEmail,
       firstName: persons[0].firstName.trim(),
       lastName: persons[0].lastName.trim(),
@@ -158,7 +166,13 @@ export async function POST(request: NextRequest) {
       eventLocation: event.location,
       statusToken,
       persons: persons.map((p) => ({ firstName: p.firstName.trim(), lastName: p.lastName.trim() })),
-    });
+    };
+
+    if (isWaitlist) {
+      sendWaitlistReceivedEmail(emailData);
+    } else {
+      sendRegistrationReceivedEmail(emailData);
+    }
 
     return NextResponse.json(
       {

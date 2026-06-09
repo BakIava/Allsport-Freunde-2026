@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { RegistrationReceivedEmail } from "@/emails/registration-received";
+import { WaitlistReceivedEmail } from "@/emails/waitlist-received";
 import { RegistrationApprovedEmail } from "@/emails/registration-approved";
 import { RegistrationRejectedEmail } from "@/emails/registration-rejected";
 import { RegistrationCancelledEmail } from "@/emails/registration-cancelled";
@@ -67,6 +68,25 @@ export async function sendRegistrationReceivedEmail(data: EmailData) {
     subject,
     data.to,
     RegistrationReceivedEmail({
+      firstName: data.firstName,
+      eventTitle: data.eventTitle,
+      eventDate: formatDateDE(data.eventDate),
+      eventTime: data.eventTime,
+      eventLocation: data.eventLocation,
+      statusUrl,
+      persons: data.persons,
+    })
+  );
+}
+
+export async function sendWaitlistReceivedEmail(data: EmailData) {
+  const statusUrl = `${appUrl}/status/${data.statusToken}`;
+  const subject = `Du stehst auf der Warteliste – ${data.eventTitle}`;
+
+  sendEmail(
+    subject,
+    data.to,
+    WaitlistReceivedEmail({
       firstName: data.firstName,
       eventTitle: data.eventTitle,
       eventDate: formatDateDE(data.eventDate),
