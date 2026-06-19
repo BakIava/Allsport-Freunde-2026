@@ -109,6 +109,21 @@ async function setup() {
   await sql`CREATE INDEX IF NOT EXISTS idx_template_images_template_id ON template_images(template_id)`;
   console.log("  ✓ Tabelle 'template_images' erstellt");
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS person_incidents (
+      id            SERIAL PRIMARY KEY,
+      first_name    VARCHAR(100) NOT NULL,
+      last_name     VARCHAR(100) NOT NULL,
+      name_key      VARCHAR(220) NOT NULL,
+      description   TEXT NOT NULL,
+      incident_date DATE,
+      created_by    VARCHAR(255),
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_person_incidents_name_key ON person_incidents(name_key)`;
+  console.log("  ✓ Tabelle 'person_incidents' erstellt");
+
   console.log("\nDatenbank-Setup abgeschlossen!");
 }
 

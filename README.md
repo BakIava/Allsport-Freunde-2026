@@ -59,6 +59,11 @@ Die App läuft dann unter [http://localhost:3000](http://localhost:3000).
    npm run db:migrate-drop-admin-users
    ```
 
+9. **Vorfälle/Ereignisse aktivieren:** Tabelle `person_incidents` anlegen (in `db:setup` bereits enthalten, für bestehende Datenbanken separat):
+   ```bash
+   npm run db:migrate-incidents
+   ```
+
 9. **Deployen:** `git push` – Vercel baut automatisch
 
 10. **Cron-Job aktivieren (Erinnerungsmails):**
@@ -187,5 +192,6 @@ middleware.ts                    # Schützt /admin/* (Redirect) und /api/admin/*
 /scripts
   setup-db.ts                    # Erstellt Tabellen
   migrate-drop-admin-users.ts    # Entfernt die alte NextAuth admin_users Tabelle
+  migrate-incidents.ts           # Legt person_incidents (Vorfälle/Markierungen) an
   seed.ts                        # Fügt Beispiel-Events ein
 ```

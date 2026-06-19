@@ -17,6 +17,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import type { RegistrationPerson } from "@/lib/types";
+import IncidentBadge from "@/components/admin/IncidentBadge";
+import { incidentStyle } from "@/lib/incident-marker";
 
 interface ScanError {
   type: "error";
@@ -301,6 +303,10 @@ export default function ScannerPage() {
 
   const previewAllCheckedIn = preview ? preview.persons.every((p) => p.checked_in_at !== null) : false;
   const previewCheckedCount = preview ? preview.persons.filter((p) => p.checked_in_at !== null).length : 0;
+  // Persons with recorded incidents → alert staff at scan time
+  const flaggedPersons = preview ? preview.persons.filter((p) => (p.incident_count ?? 0) > 0) : [];
+  const maxIncidentCount = flaggedPersons.reduce((m, p) => Math.max(m, p.incident_count ?? 0), 0);
+  const flagStyle = incidentStyle(maxIncidentCount);
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -422,6 +428,24 @@ export default function ScannerPage() {
               </div>
             </div>
 
+            {/* Incident alert banner */}
+            {flaggedPersons.length > 0 && flagStyle && (
+              <div className="px-5 py-3 bg-red-950/60 border-b border-red-800 flex items-start gap-2.5 flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-red-200">
+                    Achtung: {flagStyle.label}
+                  </p>
+                  <p className="text-xs text-red-300/80 mt-0.5">
+                    {flaggedPersons
+                      .map((p) => `${p.first_name} ${p.last_name} (${p.incident_count})`)
+                      .join(", ")}{" "}
+                    – Vorfälle notiert. Details im Dashboard.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Person list */}
             <div className="flex-1 overflow-y-auto divide-y divide-gray-700">
               {preview.persons.map((person, idx) => {
@@ -435,8 +459,9 @@ export default function ScannerPage() {
                     <div className="flex items-center gap-3 min-w-0">
                       <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isChecked ? "bg-green-400" : "bg-gray-500"}`} />
                       <div className="min-w-0">
-                        <p className={`text-sm font-medium ${isChecked ? "text-green-200" : "text-white"}`}>
+                        <p className={`text-sm font-medium flex items-center gap-1.5 ${isChecked ? "text-green-200" : "text-white"}`}>
                           {person.first_name} {person.last_name}
+                          <IncidentBadge count={person.incident_count} size="xs" />
                           {idx === 0 && (
                             <span className="ml-1.5 text-xs text-gray-500 font-normal">(Hauptperson)</span>
                           )}

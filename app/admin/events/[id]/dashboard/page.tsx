@@ -29,8 +29,11 @@ import {
   Euro,
 } from "lucide-react";
 import RegistrationDetailButton from "@/components/RegistrationDetailButton";
+import IncidentBadge from "@/components/admin/IncidentBadge";
+import IncidentModal from "@/components/admin/IncidentModal";
 import { LastNameInput } from "@/components/ui/LastNameInput";
 import type { CheckinParticipant, CheckinStatusResponse, EventFinancials, EventDonation } from "@/lib/types";
+import { incidentStyle } from "@/lib/incident-marker";
 import { formatEuro } from "@/lib/finance";
 
 function formatTime(iso: string | null) {
@@ -116,6 +119,9 @@ export default function CheckinDashboardPage() {
 
   // Person-detail overlay (lifted here so data refreshes don't close it)
   const [overlayParticipantId, setOverlayParticipantId] = useState<number | null>(null);
+
+  // Incident (Vorfall) management modal — target person by name
+  const [incidentPerson, setIncidentPerson] = useState<{ firstName: string; lastName: string } | null>(null);
 
   // Tab state
   type Tab = "anmeldungen" | "finanzen" | "spenden";
@@ -725,6 +731,7 @@ export default function CheckinDashboardPage() {
                         onPersonUndo={handlePersonUndo}
                         personLoadingId={personLoadingId}
                         onOpenOverlay={setOverlayParticipantId}
+                        onOpenIncidents={setIncidentPerson}
                       />
                     ))}
                   </>
@@ -746,6 +753,7 @@ export default function CheckinDashboardPage() {
                         onPersonUndo={handlePersonUndo}
                         personLoadingId={personLoadingId}
                         onOpenOverlay={setOverlayParticipantId}
+                        onOpenIncidents={setIncidentPerson}
                       />
                     ))}
                   </>
@@ -1446,27 +1454,41 @@ export default function CheckinDashboardPage() {
                       <span className={`text-sm font-medium truncate ${personChecked ? "text-green-900" : "text-gray-800"}`}>
                         {person.first_name} {person.last_name}
                       </span>
+                      <IncidentBadge
+                        count={person.incident_count}
+                        size="xs"
+                        onClick={() => setIncidentPerson({ firstName: person.first_name, lastName: person.last_name })}
+                      />
                       {personChecked && (
                         <span className="text-xs text-green-600 shrink-0">{formatTime(person.checked_in_at)}</span>
                       )}
                     </div>
-                    <button
-                      onClick={() => personChecked ? handlePersonUndo(person.id) : handlePersonCheckin(person.id)}
-                      disabled={personBusy}
-                      className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-50 ${
-                        personChecked
-                          ? "border-red-200 text-red-600 hover:bg-red-50"
-                          : "border-green-200 text-green-700 hover:bg-green-50 bg-white"
-                      }`}
-                    >
-                      {personBusy ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : personChecked ? (
-                        <><Undo2 className="w-3.5 h-3.5" /> Zurück</>
-                      ) : (
-                        <><UserCheck className="w-3.5 h-3.5" /> Einchecken</>
-                      )}
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => setIncidentPerson({ firstName: person.first_name, lastName: person.last_name })}
+                        title="Vorfälle / Ereignisse"
+                        className="flex items-center justify-center w-8 h-8 text-xs rounded-lg border border-gray-200 text-amber-600 hover:bg-amber-50 hover:border-amber-300 transition-colors"
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => personChecked ? handlePersonUndo(person.id) : handlePersonCheckin(person.id)}
+                        disabled={personBusy}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-50 ${
+                          personChecked
+                            ? "border-red-200 text-red-600 hover:bg-red-50"
+                            : "border-green-200 text-green-700 hover:bg-green-50 bg-white"
+                        }`}
+                      >
+                        {personBusy ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : personChecked ? (
+                          <><Undo2 className="w-3.5 h-3.5" /> Zurück</>
+                        ) : (
+                          <><UserCheck className="w-3.5 h-3.5" /> Einchecken</>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -1497,6 +1519,13 @@ export default function CheckinDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Incident (Vorfall) management modal */}
+      <IncidentModal
+        person={incidentPerson}
+        onClose={() => setIncidentPerson(null)}
+        onChanged={fetchStatus}
+      />
     </div>
   );
 }
@@ -1511,6 +1540,7 @@ function ParticipantRow({
   onPersonUndo,
   personLoadingId,
   onOpenOverlay,
+  onOpenIncidents,
 }: {
   participant: CheckinParticipant;
   onManualCheckin: (id: number) => void;
@@ -1521,6 +1551,7 @@ function ParticipantRow({
   onPersonUndo: (personId: string) => void;
   personLoadingId: string | null;
   onOpenOverlay: (id: number) => void;
+  onOpenIncidents: (person: { firstName: string; lastName: string }) => void;
 }) {
   const checked = participant.checked_in_at !== null;
   const loadingCheckin = loadingId === participant.id;
@@ -1531,9 +1562,15 @@ function ParticipantRow({
   const checkedPersons = persons.filter((p) => p.checked_in_at !== null).length;
   const subtitle = participant.email ?? participant.phone ?? "–";
 
+  // Highest incident count among this registration's persons → row prominence
+  const maxIncidentCount = persons.reduce((m, p) => Math.max(m, p.incident_count ?? 0), 0);
+  const rowIncidentStyle = incidentStyle(maxIncidentCount);
+
   return (
     <div
       className={`rounded-xl border transition-colors ${
+        rowIncidentStyle ? rowIncidentStyle.ring + " " : ""
+      }${
         checked ? "bg-green-50 border-green-100" : "bg-white border-gray-100"
       }`}
     >
@@ -1560,6 +1597,11 @@ function ParticipantRow({
                   Walk-in
                 </span>
               )}
+              <IncidentBadge
+                count={persons[0]?.incident_count}
+                size="xs"
+                onClick={() => onOpenIncidents({ firstName: participant.first_name, lastName: participant.last_name })}
+              />
             </p>
             <p className="text-xs text-gray-400 truncate">{subtitle}</p>
             {participant.notes && (
@@ -1633,31 +1675,45 @@ function ParticipantRow({
                   <span className={`text-xs truncate ${personChecked ? "text-green-800" : "text-gray-700"}`}>
                     {person.first_name} {person.last_name}
                   </span>
+                  <IncidentBadge
+                    count={person.incident_count}
+                    size="xs"
+                    onClick={() => onOpenIncidents({ firstName: person.first_name, lastName: person.last_name })}
+                  />
                   {personChecked && (
                     <span className="text-xs text-green-600 shrink-0">
                       {formatTime(person.checked_in_at)}
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={() =>
-                    personChecked ? onPersonUndo(person.id) : onPersonCheckin(person.id)
-                  }
-                  disabled={personBusy}
-                  className={`shrink-0 flex items-center gap-1 px-2 py-1 text-xs rounded-lg border transition-colors disabled:opacity-50 ${
-                    personChecked
-                      ? "border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-600 hover:bg-red-50"
-                      : "border-gray-200 text-gray-600 hover:border-green-300 hover:text-green-700 hover:bg-green-50"
-                  }`}
-                >
-                  {personBusy ? (
-                    <RefreshCw className="w-3 h-3 animate-spin" />
-                  ) : personChecked ? (
-                    <Undo2 className="w-3 h-3" />
-                  ) : (
-                    <UserCheck className="w-3 h-3" />
-                  )}
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => onOpenIncidents({ firstName: person.first_name, lastName: person.last_name })}
+                    title="Vorfälle / Ereignisse"
+                    className="flex items-center justify-center w-7 h-7 text-xs rounded-lg border border-gray-200 text-amber-600 hover:bg-amber-50 hover:border-amber-300 transition-colors"
+                  >
+                    <AlertTriangle className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      personChecked ? onPersonUndo(person.id) : onPersonCheckin(person.id)
+                    }
+                    disabled={personBusy}
+                    className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg border transition-colors disabled:opacity-50 ${
+                      personChecked
+                        ? "border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-600 hover:bg-red-50"
+                        : "border-gray-200 text-gray-600 hover:border-green-300 hover:text-green-700 hover:bg-green-50"
+                    }`}
+                  >
+                    {personBusy ? (
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                    ) : personChecked ? (
+                      <Undo2 className="w-3 h-3" />
+                    ) : (
+                      <UserCheck className="w-3 h-3" />
+                    )}
+                  </button>
+                </div>
               </div>
             );
           })}

@@ -166,8 +166,23 @@ export async function getRegistrationWithPersonsByQRToken(token: string): Promis
     FROM registration_persons
     WHERE registration_id = ${reg.id} AND cancelled_at IS NULL
     ORDER BY created_at ASC
-  `;
-  return { ...reg, persons: persons as import("../types").RegistrationPerson[] };
+  ` as import("../types").RegistrationPerson[];
+
+  // Enrich with incident counts (tolerant of missing table pre-migration)
+  try {
+    const { getIncidentCountsForNames, incidentNameKey } = await import("./incidents");
+    const counts = await getIncidentCountsForNames(persons);
+    if (counts.size > 0) {
+      for (const p of persons) {
+        const c = counts.get(incidentNameKey(p.first_name, p.last_name));
+        if (c) p.incident_count = c;
+      }
+    }
+  } catch {
+    /* person_incidents table not yet migrated */
+  }
+
+  return { ...reg, persons };
 }
 
 export async function markCheckedIn(
@@ -256,6 +271,21 @@ export async function getCheckinStatus(eventId: number): Promise<CheckinStatusRe
         AND cancelled_at IS NULL
       ORDER BY created_at ASC
     ` as PersonRow[];
+  }
+
+  // Enrich each person with the number of recorded incidents for their name.
+  // Tolerant of a missing table (pre-migration) so check-in never breaks.
+  try {
+    const { getIncidentCountsForNames, incidentNameKey } = await import("./incidents");
+    const counts = await getIncidentCountsForNames(personRows);
+    if (counts.size > 0) {
+      for (const p of personRows) {
+        const c = counts.get(incidentNameKey(p.first_name, p.last_name));
+        if (c) p.incident_count = c;
+      }
+    }
+  } catch {
+    /* person_incidents table not yet migrated */
   }
 
   const personsByReg = new Map<number, import("../types").RegistrationPerson[]>();
