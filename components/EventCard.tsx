@@ -55,7 +55,7 @@ export default function EventCard({
     100,
     (event.current_participants / event.max_participants) * 100
   );
-  const available = event.max_participants - event.current_participants;
+  const bookedPercentage = Math.round(percentage);
 
   // Teaser: first sentence or first 100 chars
   const teaser = event.description
@@ -106,7 +106,7 @@ export default function EventCard({
               >
                 {isFull
                   ? "Ausgebucht"
-                  : `Noch ${available} frei`}
+                  : `${bookedPercentage}% vergeben`}
               </span>
             </div>
             <Progress
