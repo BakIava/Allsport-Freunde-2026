@@ -104,12 +104,9 @@ export default function EventDetailModal({
   if (!event) return null;
 
   const config = categoryConfig[event.category];
-  const isFull = event.current_participants >= event.max_participants;
-  const percentage = Math.min(
-    100,
-    (event.current_participants / event.max_participants) * 100
-  );
-  const available = event.max_participants - event.current_participants;
+  const isFull = event.is_full ?? false;
+  const percentage = event.occupancy_percentage ?? 0;
+  const bookedPercentage = percentage;
   const hasImages = (event.images?.length ?? 0) > 0;
 
   return (
@@ -297,12 +294,7 @@ export default function EventDetailModal({
                         isFull ? "text-red-600" : "text-gray-700"
                       }`}
                     >
-                      {event.current_participants >= event.max_participants ? 
-                      "Ausgebucht" : 
-                      `${event.current_participants} von ${event.max_participants} Plätzen belegt`}
-                      {event.pending_participants
-                        ? ` (${event.pending_participants} ausstehend)`
-                        : ""}
+                      {isFull ? "Ausgebucht" : `${bookedPercentage}% vergeben`}
                     </span>
                   </div>
                   <Progress
@@ -315,8 +307,7 @@ export default function EventDetailModal({
                   />
                   {!isFull ? (
                     <p className="text-xs text-green-700 font-medium">
-                      Noch {available}{" "}
-                      {available === 1 ? "Platz" : "Plätze"} verfügbar
+                      Es sind noch Plätze verfügbar
                     </p>
                   ) : (
                     <p className="text-xs text-amber-700 font-medium">

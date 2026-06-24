@@ -42,6 +42,13 @@ export interface EventWithRegistrations extends Event {
   current_participants: number;
   pending_participants?: number;
   images?: EventImage[];
+  /**
+   * Occupancy as a percentage (0–100). Used by the public site instead of the
+   * raw participant counts, so the exact number of spots is never exposed.
+   */
+  occupancy_percentage?: number;
+  /** Whether the event is fully booked. Public flag that avoids exposing raw counts. */
+  is_full?: boolean;
   /** Finance summary – included in admin getAllEvents query */
   total_costs?: number;
   expected_revenue?: number;
@@ -54,6 +61,36 @@ export interface EventWithRegistrations extends Event {
   total_registrations?: number;  // approved non-walk-in registrations
   checkin_count?: number;        // checked-in non-walk-in registrations
   walk_in_count?: number;        // approved walk-in registrations
+}
+
+/**
+ * Strip raw participant counts from an event and replace them with a percentage
+ * + full flag. Used for the public events list so the exact number of spots
+ * (max / current / pending) is never sent to the browser.
+ */
+export function toPublicEvent(e: EventWithRegistrations): EventWithRegistrations {
+  const current = e.current_participants ?? 0;
+  const max = e.max_participants ?? 0;
+  const isFull = max > 0 && current >= max;
+  // Never round up to 100 % unless the event is actually full.
+  let occupancy = 0;
+  if (max > 0) {
+    occupancy = isFull ? 100 : Math.min(99, Math.round((current / max) * 100));
+  }
+
+  // Remove the raw counts so they never reach the public client.
+  const {
+    max_participants: _max,
+    current_participants: _current,
+    pending_participants: _pending,
+    ...rest
+  } = e;
+
+  return {
+    ...rest,
+    occupancy_percentage: occupancy,
+    is_full: isFull,
+  } as EventWithRegistrations;
 }
 
 export type RegistrationStatus = "pending" | "approved" | "rejected" | "cancelled";

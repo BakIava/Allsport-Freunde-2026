@@ -136,7 +136,7 @@ export default function RegistrationModal({
 
   if (!event) return null;
 
-  const isFull = event.current_participants >= event.max_participants;
+  const isFull = event.is_full ?? false;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
