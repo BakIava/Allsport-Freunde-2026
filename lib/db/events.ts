@@ -8,6 +8,7 @@ import type {
   EventImage,
   EventImageInput,
 } from "../types";
+import { toPublicEvent } from "../types";
 
 export async function getEvents(): Promise<EventWithRegistrations[]> {
   if (!isPostgresConfigured()) {
@@ -29,7 +30,9 @@ export async function getEvents(): Promise<EventWithRegistrations[]> {
     GROUP BY e.id
     ORDER BY e.date ASC, e.time ASC
   `;
-  return rows as EventWithRegistrations[];
+  // Strip raw participant counts before the data leaves the server – the public
+  // site only ever sees an occupancy percentage + a "full" flag.
+  return (rows as EventWithRegistrations[]).map(toPublicEvent);
 }
 
 export async function getEvent(

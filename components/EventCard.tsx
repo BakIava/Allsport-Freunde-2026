@@ -50,12 +50,9 @@ export default function EventCard({
   onShowDetails,
 }: EventCardProps) {
   const config = categoryConfig[event.category];
-  const isFull = event.current_participants >= event.max_participants;
-  const percentage = Math.min(
-    100,
-    (event.current_participants / event.max_participants) * 100
-  );
-  const bookedPercentage = Math.round(percentage);
+  const isFull = event.is_full ?? false;
+  const percentage = event.occupancy_percentage ?? 0;
+  const bookedPercentage = percentage;
 
   // Teaser: first sentence or first 100 chars
   const teaser = event.description

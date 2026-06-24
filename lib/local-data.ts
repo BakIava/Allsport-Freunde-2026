@@ -14,6 +14,7 @@ import type {
   EventImageInput,
   EventPerson,
 } from "./types";
+import { toPublicEvent } from "./types";
 
 const NOW = new Date().toISOString();
 const seedEvents: EventWithRegistrations[] = [
@@ -200,7 +201,7 @@ export function getLocalEvents(): EventWithRegistrations[] {
   return localEvents
     .filter((e) => e.status === "published" && e.date >= new Date().toISOString().split("T")[0])
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
-    .map((e) => ({ ...e, images: getImagesForEvent(e.id) }));
+    .map((e) => toPublicEvent({ ...e, images: getImagesForEvent(e.id) }));
 }
 
 export function getLocalEvent(id: number) {

@@ -104,12 +104,9 @@ export default function EventDetailModal({
   if (!event) return null;
 
   const config = categoryConfig[event.category];
-  const isFull = event.current_participants >= event.max_participants;
-  const percentage = Math.min(
-    100,
-    (event.current_participants / event.max_participants) * 100
-  );
-  const bookedPercentage = Math.round(percentage);
+  const isFull = event.is_full ?? false;
+  const percentage = event.occupancy_percentage ?? 0;
+  const bookedPercentage = percentage;
   const hasImages = (event.images?.length ?? 0) > 0;
 
   return (
