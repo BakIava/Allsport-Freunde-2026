@@ -20,10 +20,10 @@ import {
   MessageSquare,
 } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
-import ImageCarousel from "./ImageCarousel";
+import ImageCarousel from "@/components/shared/ImageCarousel";
 
 // Leaflet must only run client-side (no SSR)
-const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false });
+const LeafletMap = dynamic(() => import("@/components/shared/LeafletMap"), { ssr: false });
 
 const categoryConfig = {
   fussball: { label: "Fußball ⚽", variant: "fussball" as const },

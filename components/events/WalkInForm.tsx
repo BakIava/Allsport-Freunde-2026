@@ -11,7 +11,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import { LastNameInput } from "@/components/ui/LastNameInput";
+import { LastNameInput } from "@/components/shared/LastNameInput";
 import type { PersonName } from "@/lib/types";
 
 interface WalkInFormProps {

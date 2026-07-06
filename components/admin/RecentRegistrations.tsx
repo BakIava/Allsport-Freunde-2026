@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
+import { ResponsiveTable } from "@/components/shared/ResponsiveTable";
 import StatusBadge from "@/components/status/StatusBadge";
 import type { RegistrationWithEvent } from "@/lib/types";
 

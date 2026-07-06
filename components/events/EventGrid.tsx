@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import EventCard from "./EventCard";
-import RegistrationModal from "./RegistrationModal";
+import RegistrationModal from "@/components/registrations/RegistrationModal";
 import EventDetailModal from "./EventDetailModal";
-import ContactFormModal from "./ContactFormModal";
+import ContactFormModal from "@/components/contact/ContactFormModal";
 import type { EventWithRegistrations } from "@/lib/types";
 import { motion } from "framer-motion";
 import { Loader2, MessageSquare } from "lucide-react";

@@ -1,8 +1,8 @@
-import Hero from "@/components/Hero";
-import AboutUs from "@/components/AboutUs";
-import EventGrid from "@/components/EventGrid";
-import GeneralInfo from "@/components/GeneralInfo";
-import Footer from "@/components/Footer";
+import Hero from "@/components/home/Hero";
+import AboutUs from "@/components/home/AboutUs";
+import EventGrid from "@/components/events/EventGrid";
+import GeneralInfo from "@/components/home/GeneralInfo";
+import Footer from "@/components/shared/Footer";
 
 export default function Home() {
   return (

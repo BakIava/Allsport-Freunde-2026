@@ -28,8 +28,8 @@ import {
   Banknote,
   Euro,
 } from "lucide-react";
-import RegistrationDetailButton from "@/components/RegistrationDetailButton";
-import { LastNameInput } from "@/components/ui/LastNameInput";
+import RegistrationDetailButton from "@/components/registrations/RegistrationDetailButton";
+import { LastNameInput } from "@/components/shared/LastNameInput";
 import type { CheckinParticipant, CheckinStatusResponse, EventFinancials, EventDonation, PersonName } from "@/lib/types";
 import { formatEuro } from "@/lib/finance";
 

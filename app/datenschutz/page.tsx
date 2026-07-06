@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import Footer from "@/components/Footer";
+import Footer from "@/components/shared/Footer";
 import {
   Accordion,
   AccordionItem,

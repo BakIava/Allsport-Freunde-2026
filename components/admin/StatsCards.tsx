@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { CalendarDays, Calendar, Users, TrendingUp, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { MetricGrid } from "@/components/ui/MetricGrid";
-import { MetricCard, type MetricColor } from "@/components/ui/MetricCard";
+import { MetricGrid } from "@/components/shared/MetricGrid";
+import { MetricCard, type MetricColor } from "@/components/shared/MetricCard";
 import type { AdminStats } from "@/lib/types";
 
 type StatKey = keyof AdminStats;

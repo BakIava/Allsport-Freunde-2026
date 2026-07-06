@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import RegistrationDetailModal from "@/components/RegistrationDetailModal";
+import RegistrationDetailModal from "@/components/registrations/RegistrationDetailModal";
 import type { RegistrationDetail } from "@/lib/types";
 
 interface Props {

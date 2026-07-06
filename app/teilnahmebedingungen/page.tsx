@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import Footer from "@/components/Footer";
+import Footer from "@/components/shared/Footer";
 
 export const metadata: Metadata = {
   title: "Teilnahmebedingungen – Allsport Freunde 2026 e.V.",
