@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyWalkInToken } from "@/lib/checkin";
 import { createWalkInRegistration, getEvent } from "@/lib/db";
+import type { PersonName } from "@/lib/types";
 
 // Rate limiter: 10 self-service registrations per minute per IP
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       eventId: number;
       token: string;
-      persons: Array<{ firstName: string; lastName: string }>;
+      persons: PersonName[];
       email?: string;
       phone?: string;
       notes?: string;

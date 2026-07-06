@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import EventCard from "./EventCard";
-import RegistrationModal from "./RegistrationModal";
-import EventDetailModal from "./EventDetailModal";
-import ContactFormModal from "./ContactFormModal";
+import EventCard from "./event-card";
+import RegistrationModal from "@/components/registrations/registration-modal";
+import EventDetailModal from "./event-detail-modal";
+import ContactFormModal from "@/components/contact/contact-form-modal";
 import type { EventWithRegistrations } from "@/lib/types";
 import { motion } from "framer-motion";
 import { Loader2, MessageSquare } from "lucide-react";

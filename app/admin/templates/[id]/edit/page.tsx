@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import TemplateForm from "@/components/admin/TemplateForm";
+import TemplateForm from "@/components/admin/template-form";
 import type { EventTemplate } from "@/lib/types";
 import { Loader2 } from "lucide-react";
 

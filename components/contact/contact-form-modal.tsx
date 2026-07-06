@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { X, CheckCircle2, Loader2, MessageSquare } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
-import HoneypotFields from "@/components/HoneypotFields";
+import HoneypotFields from "@/components/shared/honeypot-fields";
 
 interface ContactFormModalProps {
   open: boolean;

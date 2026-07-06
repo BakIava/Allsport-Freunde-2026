@@ -6,6 +6,10 @@ import type {
   RegistrationStatus,
   RegistrationPerson,
   EventPerson,
+  CancellationTokenInfo,
+  RegistrationDueForReminder,
+  RegistrationDueForSurvey,
+  PersonName,
 } from "../types";
 
 export async function getRegistrationCount(eventId: number): Promise<number> {
@@ -51,6 +55,55 @@ export async function findRegistration(
   `;
 
   return (rows[0] as { id: number; status: string; status_token: string | null }) ?? null;
+}
+
+/**
+ * Create a new pending registration with its persons. When
+ * `reactivateRegistrationId` is set (a previously cancelled registration for
+ * the same event/email), that row is reset to pending and its persons are
+ * replaced instead of inserting a new registration.
+ */
+export async function createPendingRegistration(data: {
+  event_id: number;
+  email: string;
+  phone: string;
+  persons: PersonName[];
+  reactivateRegistrationId?: number;
+}): Promise<{ id: number; statusToken: string }> {
+  const sql = getSQL();
+  const statusToken = crypto.randomUUID();
+  let registrationId: number;
+
+  if (data.reactivateRegistrationId != null) {
+    const rows = await sql`
+      UPDATE registrations SET
+        phone = ${data.phone},
+        status = 'pending',
+        status_token = ${statusToken},
+        status_changed_at = NOW(),
+        status_note = NULL
+      WHERE id = ${data.reactivateRegistrationId}
+      RETURNING id
+    `;
+    registrationId = (rows[0] as { id: number }).id;
+    await sql`DELETE FROM registration_persons WHERE registration_id = ${registrationId}`;
+  } else {
+    const rows = await sql`
+      INSERT INTO registrations (event_id, email, phone, status, status_token)
+      VALUES (${data.event_id}, ${data.email}, ${data.phone}, 'pending', ${statusToken})
+      RETURNING id
+    `;
+    registrationId = (rows[0] as { id: number }).id;
+  }
+
+  for (const p of data.persons) {
+    await sql`
+      INSERT INTO registration_persons (registration_id, first_name, last_name)
+      VALUES (${registrationId}, ${p.firstName}, ${p.lastName})
+    `;
+  }
+
+  return { id: registrationId, statusToken };
 }
 
 export async function getRemainingSlots(
@@ -461,21 +514,6 @@ export async function generateCancellationToken(
   return token;
 }
 
-export interface CancellationTokenInfo {
-  registrationId: number;
-  expiresAt: string;
-  usedAt: string | null;
-  registrationStatus: string;
-  firstName: string;
-  lastName: string;
-  email: string | null;
-  statusToken: string;
-  eventTitle: string;
-  eventDate: string;
-  eventTime: string;
-  eventLocation: string;
-}
-
 export async function getCancellationTokenInfo(
   token: string
 ): Promise<CancellationTokenInfo | null> {
@@ -539,18 +577,6 @@ export async function markCancellationTokenUsed(token: string): Promise<boolean>
     RETURNING registration_id
   `;
   return rows.length > 0;
-}
-
-export interface RegistrationDueForReminder {
-  id: number;
-  first_name: string;
-  last_name: string;
-  email: string;
-  status_token: string;
-  event_title: string;
-  event_date: string;
-  event_time: string;
-  event_location: string;
 }
 
 export async function getRegistrationsDueForReminder(): Promise<RegistrationDueForReminder[]> {
@@ -643,11 +669,6 @@ export async function sendReminderEmail(registrationId: number): Promise<void> {
 }
 
 // ─── Survey Emails ────────────────────────────────────────
-
-export interface RegistrationDueForSurvey {
-  id: number;
-  email: string;
-}
 
 export async function getRegistrationsDueForSurvey(): Promise<RegistrationDueForSurvey[]> {
   const sql = getSQL();

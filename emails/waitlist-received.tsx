@@ -9,6 +9,7 @@ import {
   Hr,
 } from "@react-email/components";
 import * as React from "react";
+import type { PersonName } from "@/lib/types";
 
 interface Props {
   firstName: string;
@@ -17,7 +18,7 @@ interface Props {
   eventTime: string;
   eventLocation: string;
   statusUrl: string;
-  persons?: Array<{ firstName: string; lastName: string }>;
+  persons?: PersonName[];
 }
 
 export function WaitlistReceivedEmail({

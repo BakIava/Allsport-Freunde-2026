@@ -11,7 +11,8 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import { LastNameInput } from "@/components/ui/LastNameInput";
+import { LastNameInput } from "@/components/shared/last-name-input";
+import type { PersonName } from "@/lib/types";
 
 interface WalkInFormProps {
   eventId: number;
@@ -22,13 +23,8 @@ interface WalkInFormProps {
   maxPersons: number;
 }
 
-interface Person {
-  firstName: string;
-  lastName: string;
-}
-
 interface FormState {
-  persons: Person[];
+  persons: PersonName[];
   email: string;
   phone: string;
   notes: string;
@@ -74,7 +70,7 @@ export function WalkInForm({
   const removePerson = (idx: number) =>
     setForm((f) => ({ ...f, persons: f.persons.filter((_, i) => i !== idx) }));
 
-  const updatePerson = (idx: number, field: keyof Person, value: string) =>
+  const updatePerson = (idx: number, field: keyof PersonName, value: string) =>
     setForm((f) => ({
       ...f,
       persons: f.persons.map((p, i) => (i === idx ? { ...p, [field]: value } : p)),

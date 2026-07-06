@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import TemplateList from "@/components/admin/TemplateList";
+import TemplateList from "@/components/admin/template-list";
 import { Plus } from "lucide-react";
 
 export default function TemplatesPage() {

@@ -15,9 +15,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import StatusBadge from "@/components/status/StatusBadge";
+import StatusBadge from "@/components/status/status-badge";
 import { Trash2, Loader2, Search, Download, CheckCircle2, XCircle, Clock } from "lucide-react";
-import RegistrationDetailButton from "@/components/RegistrationDetailButton";
+import RegistrationDetailButton from "@/components/registrations/registration-detail-button";
 import type { RegistrationWithEvent, RegistrationStatus } from "@/lib/types";
 
 interface RegistrationTableProps {

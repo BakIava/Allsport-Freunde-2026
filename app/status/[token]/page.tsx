@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import StatusPage from "@/components/status/StatusPage";
+import StatusPage from "@/components/status/status-page";
 import { Loader2 } from "lucide-react";
 import type { RegistrationStatusInfo } from "@/lib/types";
 

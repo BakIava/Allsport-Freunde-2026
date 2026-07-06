@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import EventTable from "@/components/admin/EventTable";
+import EventTable from "@/components/admin/event-table";
 import { Plus } from "lucide-react";
 
 export default function EventsPage() {

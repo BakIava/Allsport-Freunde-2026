@@ -5,8 +5,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
-import StatusBadge from "@/components/status/StatusBadge";
+import { ResponsiveTable } from "@/components/shared/responsive-table";
+import StatusBadge from "@/components/status/status-badge";
 import type { RegistrationWithEvent } from "@/lib/types";
 
 export default function RecentRegistrations() {

@@ -28,9 +28,9 @@ import {
   Banknote,
   Euro,
 } from "lucide-react";
-import RegistrationDetailButton from "@/components/RegistrationDetailButton";
-import { LastNameInput } from "@/components/ui/LastNameInput";
-import type { CheckinParticipant, CheckinStatusResponse, EventFinancials, EventDonation } from "@/lib/types";
+import RegistrationDetailButton from "@/components/registrations/registration-detail-button";
+import { LastNameInput } from "@/components/shared/last-name-input";
+import type { CheckinParticipant, CheckinStatusResponse, EventFinancials, EventDonation, PersonName } from "@/lib/types";
 import { formatEuro } from "@/lib/finance";
 
 function formatTime(iso: string | null) {
@@ -38,13 +38,8 @@ function formatTime(iso: string | null) {
   return new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 }
 
-interface WalkInPerson {
-  firstName: string;
-  lastName: string;
-}
-
 interface WalkInForm {
-  persons: WalkInPerson[];
+  persons: PersonName[];
   email: string;
   phone: string;
   notes: string;

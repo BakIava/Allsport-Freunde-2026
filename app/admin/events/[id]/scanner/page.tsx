@@ -16,23 +16,15 @@ import {
   RefreshCw,
   CheckCircle2,
 } from "lucide-react";
-import type { RegistrationPerson } from "@/lib/types";
+import type { CheckinLookupRegistration } from "@/lib/types";
 
 interface ScanError {
   type: "error";
   message: string;
 }
 
-interface ScanPreview {
-  id: number;
-  first_name: string;
-  last_name: string;
-  email: string | null;
-  is_walk_in: boolean;
-  checked_in_at: string | null;
-  persons: RegistrationPerson[];
-  token: string;
-}
+/** Lookup result shown in the scanner preview, plus the scanned token. */
+type ScanPreview = CheckinLookupRegistration & { token: string };
 
 interface OfflineScan {
   token: string;

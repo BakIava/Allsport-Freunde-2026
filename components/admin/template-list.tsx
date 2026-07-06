@@ -13,7 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
+import { ResponsiveTable } from "@/components/shared/responsive-table";
 import { Pencil, Trash2, Copy, Loader2, Plus } from "lucide-react";
 import type { EventTemplate } from "@/lib/types";
 

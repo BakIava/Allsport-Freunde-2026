@@ -1,28 +1,17 @@
 import { getSQL, isPostgresConfigured } from "./utils";
 import { findRegistration } from "./registrations";
-import type { CheckinParticipant, CheckinStatusResponse } from "../types";
+import type {
+  CheckinParticipant,
+  CheckinStatusResponse,
+  CheckinEventRow,
+  CheckinEventsOverview,
+  CheckinLookupRegistration,
+  PersonName,
+  RegistrationPerson,
+  RegistrationWithEvent,
+} from "../types";
 
-export interface CheckinEventRow {
-  id: number;
-  title: string;
-  category: string;
-  date: string;
-  time: string;
-  location: string;
-  entry_price: number | null;
-  approved_count: number;
-  checked_in_count: number;
-  total_costs: number;
-  total_donations: number;
-  expected_revenue: number;
-  actual_revenue: number;
-}
-
-export async function getCheckinEvents(): Promise<{
-  today: CheckinEventRow[];
-  upcoming: CheckinEventRow[];
-  past: CheckinEventRow[];
-}> {
+export async function getCheckinEvents(): Promise<CheckinEventsOverview> {
   if (!isPostgresConfigured()) {
     const { getLocalCheckinEvents } = await import("../local-data");
     return getLocalCheckinEvents();
@@ -121,7 +110,7 @@ export async function saveQRCode(
 
 export async function getRegistrationByQRToken(
   qrToken: string
-): Promise<import("../types").RegistrationWithEvent | null> {
+): Promise<RegistrationWithEvent | null> {
   const sql = getSQL();
   const rows = await sql`
     SELECT
@@ -137,19 +126,12 @@ export async function getRegistrationByQRToken(
     JOIN events e ON r.event_id = e.id
     WHERE r.qr_token = ${qrToken}
   `;
-  return (rows[0] as import("../types").RegistrationWithEvent) ?? null;
+  return (rows[0] as RegistrationWithEvent) ?? null;
 }
 
-export async function getRegistrationWithPersonsByQRToken(token: string): Promise<{
-  id: number;
-  first_name: string;
-  last_name: string;
-  email: string | null;
-  status: string;
-  checked_in_at: string | null;
-  is_walk_in: boolean;
-  persons: import("../types").RegistrationPerson[];
-} | null> {
+export async function getRegistrationWithPersonsByQRToken(
+  token: string
+): Promise<CheckinLookupRegistration | null> {
   const sql = getSQL();
   const rows = await sql`
     SELECT
@@ -167,7 +149,7 @@ export async function getRegistrationWithPersonsByQRToken(token: string): Promis
     WHERE registration_id = ${reg.id} AND cancelled_at IS NULL
     ORDER BY created_at ASC
   `;
-  return { ...reg, persons: persons as import("../types").RegistrationPerson[] };
+  return { ...reg, persons: persons as RegistrationPerson[] };
 }
 
 export async function markCheckedIn(
@@ -246,7 +228,7 @@ export async function getCheckinStatus(eventId: number): Promise<CheckinStatusRe
 
   // Fetch all persons for these registrations in one query
   const regIds = participantsBase.map((r) => r.id);
-  type PersonRow = import("../types").RegistrationPerson & { registration_id: number };
+  type PersonRow = RegistrationPerson & { registration_id: number };
   let personRows: PersonRow[] = [];
   if (regIds.length > 0) {
     personRows = await sql`
@@ -258,7 +240,7 @@ export async function getCheckinStatus(eventId: number): Promise<CheckinStatusRe
     ` as PersonRow[];
   }
 
-  const personsByReg = new Map<number, import("../types").RegistrationPerson[]>();
+  const personsByReg = new Map<number, RegistrationPerson[]>();
   for (const p of personRows) {
     if (!personsByReg.has(p.registration_id)) personsByReg.set(p.registration_id, []);
     personsByReg.get(p.registration_id)!.push(p);
@@ -295,7 +277,7 @@ export async function getCheckinStatus(eventId: number): Promise<CheckinStatusRe
 
 export async function createWalkInRegistration(data: {
   event_id: number;
-  persons: Array<{ firstName: string; lastName: string }>;
+  persons: PersonName[];
   email: string | null;
   phone: string | null;
   notes: string | null;

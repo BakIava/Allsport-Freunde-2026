@@ -15,28 +15,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { formatEuro } from "@/lib/finance";
-
-interface CheckinEvent {
-  id: number;
-  title: string;
-  category: string;
-  date: string;
-  time: string;
-  location: string;
-  approved_count: number;
-  checked_in_count: number;
-  entry_price: number | null;
-  total_costs: number;
-  total_donations: number;
-  expected_revenue: number;
-  actual_revenue: number;
-}
-
-interface CheckinEventsResponse {
-  today: CheckinEvent[];
-  upcoming: CheckinEvent[];
-  past: CheckinEvent[];
-}
+import type { CheckinEventRow, CheckinEventsOverview } from "@/lib/types";
 
 const categoryLabels: Record<string, string> = {
   fussball: "Fußball",
@@ -70,7 +49,7 @@ function ProgressBar({ value, max }: { value: number; max: number }) {
   );
 }
 
-function TodayCard({ event }: { event: CheckinEvent }) {
+function TodayCard({ event }: { event: CheckinEventRow }) {
   return (
     <div className="bg-white rounded-xl border border-green-200 shadow-sm p-5 space-y-4">
       <div>
@@ -141,7 +120,7 @@ function TodayCard({ event }: { event: CheckinEvent }) {
   );
 }
 
-function UpcomingCard({ event }: { event: CheckinEvent }) {
+function UpcomingCard({ event }: { event: CheckinEventRow }) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between gap-4">
       <div className="min-w-0">
@@ -169,12 +148,12 @@ function UpcomingCard({ event }: { event: CheckinEvent }) {
   );
 }
 
-function PastCard({ event }: { event: CheckinEvent }) {
+function PastCard({ event }: { event: CheckinEventRow }) {
   return UpcomingCard({ event });
 }
 
 export default function CheckinOverviewPage() {
-  const [data, setData] = useState<CheckinEventsResponse | null>(null);
+  const [data, setData] = useState<CheckinEventsOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import EventForm from "@/components/admin/EventForm";
+import EventForm from "@/components/admin/event-form";
 import type { EventWithRegistrations } from "@/lib/types";
 import { Loader2 } from "lucide-react";
 

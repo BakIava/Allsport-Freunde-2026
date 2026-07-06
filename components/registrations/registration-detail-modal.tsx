@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { X, Loader2, User, Users, Calendar, CheckCircle2, Info } from "lucide-react";
-import StatusBadge from "@/components/status/StatusBadge";
+import StatusBadge from "@/components/status/status-badge";
 import type { RegistrationDetail } from "@/lib/types";
 
 interface Props {
