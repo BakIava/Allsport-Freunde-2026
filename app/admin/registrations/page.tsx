@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import RegistrationTable from "@/components/admin/RegistrationTable";
+import RegistrationTable from "@/components/admin/registration-table";
 import { Button } from "@/components/ui/button";
 import { History, CalendarClock } from "lucide-react";
 

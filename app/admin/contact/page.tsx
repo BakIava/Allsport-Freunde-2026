@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, MessageSquare, RefreshCw } from "lucide-react";
-import { ResponsiveTable } from "@/components/shared/ResponsiveTable";
+import { ResponsiveTable } from "@/components/shared/responsive-table";
 import type { ContactInquiryWithEvent, InquiryStatus } from "@/lib/types";
 
 const statusConfig: Record<

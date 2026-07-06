@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Sidebar from "@/components/admin/Sidebar";
-import AdminMain from "@/components/admin/AdminMain";
+import Sidebar from "@/components/admin/sidebar";
+import AdminMain from "@/components/admin/admin-main";
 import { ToastProvider } from "@/components/ui/toast";
 
 export default function AdminShell({

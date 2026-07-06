@@ -1,4 +1,4 @@
-import HelferForm from "@/components/admin/HelferForm";
+import HelferForm from "@/components/admin/helfer-form";
 
 export default function NewHelferPage() {
   return (

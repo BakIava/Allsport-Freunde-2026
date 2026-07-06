@@ -1,6 +1,6 @@
 import { getEvent } from "@/lib/db";
 import { verifyWalkInToken } from "@/lib/checkin";
-import { WalkInForm } from "@/components/events/WalkInForm";
+import { WalkInForm } from "@/components/events/walk-in-form";
 import { AlertTriangle, Clock } from "lucide-react";
 
 function formatEventDate(dateStr: string, timeStr: string): string {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import StatusBadge from "./StatusBadge";
+import StatusBadge from "./status-badge";
 import { Calendar, Clock, MapPin, Euro, Shirt, Mail, Users, X, CheckCircle2 } from "lucide-react";
 import type { RegistrationStatusInfo, RegistrationPerson, RegistrationStatus } from "@/lib/types";
 

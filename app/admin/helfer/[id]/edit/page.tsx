@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import HelferForm from "@/components/admin/HelferForm";
+import HelferForm from "@/components/admin/helfer-form";
 import type { Helper } from "@/lib/types";
 
 export default function EditHelferPage() {

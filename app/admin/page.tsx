@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import StatsCards from "@/components/admin/StatsCards";
-import RecentRegistrations from "@/components/admin/RecentRegistrations";
+import StatsCards from "@/components/admin/stats-cards";
+import RecentRegistrations from "@/components/admin/recent-registrations";
 import { Plus, CalendarDays, Users } from "lucide-react";
 
 export default function AdminDashboard() {

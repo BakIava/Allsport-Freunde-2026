@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import LoginForm from "@/components/auth/LoginForm";
+import LoginForm from "@/components/auth/login-form";
 
 export default async function LoginPage() {
   const supabase = await createClient();

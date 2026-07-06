@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import StatusBadge from "@/components/status/StatusBadge";
+import StatusBadge from "@/components/status/status-badge";
 import { Loader2, Search, CheckCircle2, User } from "lucide-react";
 import type { EventPerson } from "@/lib/types";
 

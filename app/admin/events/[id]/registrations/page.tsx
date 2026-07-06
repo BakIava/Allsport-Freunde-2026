@@ -7,8 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import RegistrationTable from "@/components/admin/RegistrationTable";
-import PersonsTable from "@/components/admin/PersonsTable";
+import RegistrationTable from "@/components/admin/registration-table";
+import PersonsTable from "@/components/admin/persons-table";
 import { ArrowLeft, Loader2, QrCode, LayoutDashboard, Users, ClipboardList } from "lucide-react";
 import type { EventWithRegistrations } from "@/lib/types";
 

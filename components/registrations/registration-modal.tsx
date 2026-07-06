@@ -15,8 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EventWithRegistrations, PersonName } from "@/lib/types";
 import { CheckCircle2, Loader2, Plus, X, Users } from "lucide-react";
-import { LastNameInput } from "@/components/shared/LastNameInput";
-import HoneypotFields from "@/components/shared/HoneypotFields";
+import { LastNameInput } from "@/components/shared/last-name-input";
+import HoneypotFields from "@/components/shared/honeypot-fields";
 
 interface RegistrationModalProps {
   event: EventWithRegistrations | null;
