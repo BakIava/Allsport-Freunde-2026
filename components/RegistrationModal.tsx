@@ -13,15 +13,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { EventWithRegistrations } from "@/lib/types";
+import type { EventWithRegistrations, PersonName } from "@/lib/types";
 import { CheckCircle2, Loader2, Plus, X, Users } from "lucide-react";
 import { LastNameInput } from "@/components/ui/LastNameInput";
 import HoneypotFields from "@/components/HoneypotFields";
-
-interface Person {
-  firstName: string;
-  lastName: string;
-}
 
 interface RegistrationModalProps {
   event: EventWithRegistrations | null;
@@ -38,7 +33,7 @@ export default function RegistrationModal({
 }: RegistrationModalProps) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [persons, setPersons] = useState<Person[]>([{ firstName: "", lastName: "" }]);
+  const [persons, setPersons] = useState<PersonName[]>([{ firstName: "", lastName: "" }]);
   const firstNameRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -77,7 +72,7 @@ export default function RegistrationModal({
     setPersons((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const updatePerson = (idx: number, field: keyof Person, value: string) => {
+  const updatePerson = (idx: number, field: keyof PersonName, value: string) => {
     setPersons((prev) =>
       prev.map((p, i) => (i === idx ? { ...p, [field]: value } : p))
     );

@@ -10,6 +10,7 @@ import { ContactAdminEmail } from "@/emails/contact-admin";
 import { ContactResponseEmail } from "@/emails/contact-response";
 import { ReminderEmail } from "@/emails/reminder";
 import { SurveyEmail } from "@/emails/survey";
+import type { PersonName } from "@/lib/types";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -37,7 +38,7 @@ interface EmailData {
   eventLocation: string;
   statusToken: string;
   /** All persons in this registration */
-  persons?: Array<{ firstName: string; lastName: string }>;
+  persons?: PersonName[];
 }
 
 async function sendEmail(subject: string, to: string, react: React.ReactElement) {

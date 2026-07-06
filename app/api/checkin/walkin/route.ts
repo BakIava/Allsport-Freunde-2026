@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createWalkInRegistration } from "@/lib/db";
+import type { PersonName } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {
       event_id: number;
-      persons: Array<{ firstName: string; lastName: string }>;
+      persons: PersonName[];
       email: string;
       phone?: string;
       notes?: string;

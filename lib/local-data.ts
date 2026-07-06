@@ -13,6 +13,7 @@ import type {
   EventImage,
   EventImageInput,
   EventPerson,
+  PersonName,
 } from "./types";
 import { toPublicEvent } from "./types";
 
@@ -254,7 +255,7 @@ export function createLocalRegistration(data: {
 
 export function createLocalWalkInRegistration(data: {
   event_id: number;
-  persons: Array<{ firstName: string; lastName: string }>;
+  persons: PersonName[];
   email: string | null;
   phone: string | null;
   notes: string | null;

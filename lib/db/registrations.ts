@@ -6,6 +6,9 @@ import type {
   RegistrationStatus,
   RegistrationPerson,
   EventPerson,
+  CancellationTokenInfo,
+  RegistrationDueForReminder,
+  RegistrationDueForSurvey,
 } from "../types";
 
 export async function getRegistrationCount(eventId: number): Promise<number> {
@@ -461,21 +464,6 @@ export async function generateCancellationToken(
   return token;
 }
 
-export interface CancellationTokenInfo {
-  registrationId: number;
-  expiresAt: string;
-  usedAt: string | null;
-  registrationStatus: string;
-  firstName: string;
-  lastName: string;
-  email: string | null;
-  statusToken: string;
-  eventTitle: string;
-  eventDate: string;
-  eventTime: string;
-  eventLocation: string;
-}
-
 export async function getCancellationTokenInfo(
   token: string
 ): Promise<CancellationTokenInfo | null> {
@@ -539,18 +527,6 @@ export async function markCancellationTokenUsed(token: string): Promise<boolean>
     RETURNING registration_id
   `;
   return rows.length > 0;
-}
-
-export interface RegistrationDueForReminder {
-  id: number;
-  first_name: string;
-  last_name: string;
-  email: string;
-  status_token: string;
-  event_title: string;
-  event_date: string;
-  event_time: string;
-  event_location: string;
 }
 
 export async function getRegistrationsDueForReminder(): Promise<RegistrationDueForReminder[]> {
@@ -643,11 +619,6 @@ export async function sendReminderEmail(registrationId: number): Promise<void> {
 }
 
 // ─── Survey Emails ────────────────────────────────────────
-
-export interface RegistrationDueForSurvey {
-  id: number;
-  email: string;
-}
 
 export async function getRegistrationsDueForSurvey(): Promise<RegistrationDueForSurvey[]> {
   const sql = getSQL();
