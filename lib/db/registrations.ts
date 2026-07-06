@@ -9,6 +9,7 @@ import type {
   CancellationTokenInfo,
   RegistrationDueForReminder,
   RegistrationDueForSurvey,
+  PersonName,
 } from "../types";
 
 export async function getRegistrationCount(eventId: number): Promise<number> {
@@ -54,6 +55,55 @@ export async function findRegistration(
   `;
 
   return (rows[0] as { id: number; status: string; status_token: string | null }) ?? null;
+}
+
+/**
+ * Create a new pending registration with its persons. When
+ * `reactivateRegistrationId` is set (a previously cancelled registration for
+ * the same event/email), that row is reset to pending and its persons are
+ * replaced instead of inserting a new registration.
+ */
+export async function createPendingRegistration(data: {
+  event_id: number;
+  email: string;
+  phone: string;
+  persons: PersonName[];
+  reactivateRegistrationId?: number;
+}): Promise<{ id: number; statusToken: string }> {
+  const sql = getSQL();
+  const statusToken = crypto.randomUUID();
+  let registrationId: number;
+
+  if (data.reactivateRegistrationId != null) {
+    const rows = await sql`
+      UPDATE registrations SET
+        phone = ${data.phone},
+        status = 'pending',
+        status_token = ${statusToken},
+        status_changed_at = NOW(),
+        status_note = NULL
+      WHERE id = ${data.reactivateRegistrationId}
+      RETURNING id
+    `;
+    registrationId = (rows[0] as { id: number }).id;
+    await sql`DELETE FROM registration_persons WHERE registration_id = ${registrationId}`;
+  } else {
+    const rows = await sql`
+      INSERT INTO registrations (event_id, email, phone, status, status_token)
+      VALUES (${data.event_id}, ${data.email}, ${data.phone}, 'pending', ${statusToken})
+      RETURNING id
+    `;
+    registrationId = (rows[0] as { id: number }).id;
+  }
+
+  for (const p of data.persons) {
+    await sql`
+      INSERT INTO registration_persons (registration_id, first_name, last_name)
+      VALUES (${registrationId}, ${p.firstName}, ${p.lastName})
+    `;
+  }
+
+  return { id: registrationId, statusToken };
 }
 
 export async function getRemainingSlots(

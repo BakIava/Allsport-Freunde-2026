@@ -2,13 +2,12 @@ import {
   getEvent,
   getRegistrationCount,
   findRegistration,
+  createPendingRegistration,
 } from "@/lib/db";
-import { getSQL } from "@/lib/db/utils";
 import {
   sendRegistrationReceivedEmail,
   sendWaitlistReceivedEmail,
 } from "@/lib/email";
-import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import type { RegistrationRequest } from "@/lib/types";
 import { checkRateLimit, getClientIp, RATE_LIMITS } from "@/lib/ratelimit";
@@ -123,49 +122,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const sql = getSQL();
-    const statusToken = randomUUID();
-    let registrationId: number;
+    const trimmedPersons = persons.map((p) => ({
+      firstName: p.firstName.trim(),
+      lastName: p.lastName.trim(),
+    }));
 
-    if (existing && existing.status === "cancelled") {
-      const rows = await sql`
-        UPDATE registrations SET
-          phone = ${phone.trim()},
-          status = 'pending',
-          status_token = ${statusToken},
-          status_changed_at = NOW(),
-          status_note = NULL
-        WHERE id = ${existing.id}
-        RETURNING id
-      `;
-      registrationId = (rows[0] as { id: number }).id;
-      await sql`DELETE FROM registration_persons WHERE registration_id = ${registrationId}`;
-    } else {
-      const rows = await sql`
-        INSERT INTO registrations (event_id, email, phone, status, status_token)
-        VALUES (${event_id}, ${normalizedEmail}, ${phone.trim()}, 'pending', ${statusToken})
-        RETURNING id
-      `;
-      registrationId = (rows[0] as { id: number }).id;
-    }
-
-    for (const p of persons) {
-      await sql`
-        INSERT INTO registration_persons (registration_id, first_name, last_name)
-        VALUES (${registrationId}, ${p.firstName.trim()}, ${p.lastName.trim()})
-      `;
-    }
+    const { statusToken } = await createPendingRegistration({
+      event_id,
+      email: normalizedEmail,
+      phone: phone.trim(),
+      persons: trimmedPersons,
+      reactivateRegistrationId:
+        existing && existing.status === "cancelled" ? existing.id : undefined,
+    });
 
     const emailData = {
       to: normalizedEmail,
-      firstName: persons[0].firstName.trim(),
-      lastName: persons[0].lastName.trim(),
+      firstName: trimmedPersons[0].firstName,
+      lastName: trimmedPersons[0].lastName,
       eventTitle: event.title,
       eventDate: event.date,
       eventTime: event.time,
       eventLocation: event.location,
       statusToken,
-      persons: persons.map((p) => ({ firstName: p.firstName.trim(), lastName: p.lastName.trim() })),
+      persons: trimmedPersons,
     };
 
     if (isWaitlist) {
