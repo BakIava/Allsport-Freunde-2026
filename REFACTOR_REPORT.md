@@ -327,4 +327,52 @@ Baseline vor Beginn: `tsc --noEmit` ✓ · `npm run build` ✓ (Next 16, alle Ro
 
 ## 7. Umsetzungs-Log & offene Punkte
 
-_(wird nach Abschluss der Schritte ergänzt)_
+### Durchgeführt (je ein Commit pro Schritt, jeweils Build + tsc + Tests grün)
+
+| Commit | Schritt | Inhalt |
+|---|---|---|
+| `022b78c` | Analyse | Dieser Report (vor jeder Code-Änderung) |
+| `edc8b00` | 1 Types | `lib/types.ts` (445 Z.) → 8 Entitäts-Module + Index unter `lib/types/`. Duplikate entfernt: `Person`/`WalkInPerson` (3 Komponenten) → `PersonName`; `CheckinEvent`/`CheckinEventsResponse` → `CheckinEventRow`/`CheckinEventsOverview`; `ScanPreview` → `CheckinLookupRegistration & { token }`; Kategorie-Union 4× → `EventCategory`. DTO-Typen aus `lib/db/` (`CheckinEventRow`, `CancellationTokenInfo`, `RegistrationDueForReminder`, `RegistrationDueForSurvey`) in die Typ-Module verschoben. Inline-Personenform in `lib/email.ts`, `lib/local-data.ts`, beiden Walk-in-Routen und 2 E-Mail-Templates → `PersonName`. Alle bisherigen `@/lib/types`-Imports blieben über den Index gültig. |
+| `fb93d7e` | 2 Repositories | Inline-SQL aus `app/api/registrations/route.ts` → neue Funktion `createPendingRegistration()` in `lib/db/registrations.ts` (inkl. Reaktivierung stornierter Anmeldungen und Personen-Inserts). Route enthält nur noch Validierung, Rate-Limit, Honeypot, E-Mail-Versand. Doppelter Einstiegspunkt `lib/db.ts` gelöscht (`@/lib/db` → `lib/db/index.ts`). Kein App-Code importiert mehr `lib/db`-Untermodule oder `getSQL` direkt. |
+| `35ffa6e` | 3 Struktur | 20 Komponenten per `git mv` in Domänen-Ordner: `home/`, `events/`, `registrations/`, `contact/`, `auth/`, `shared/`; `LoginForm` und `WalkInForm` aus `app/` herausgezogen; `components/ui/` auf Design-System-Primitives reduziert. ~35 Import-Stellen angepasst (inkl. `next/dynamic`-Import der LeafletMap). Routen/URLs unverändert. |
+| `4748e0f` | 4 Benennung | 34 Dateien per `git mv` auf kebab-case (Tabelle in Kap. 4), Exporte unverändert PascalCase, alle Imports nachgezogen. git erkennt alle 34 als Renames (Historie erhalten). |
+| — | 5 CSS | **Keine Änderung nötig** (Verifikation): `app/globals.css` unverändert und regelkonform (nur Tailwind-Import, `@theme`, globale Basics); keine weitere CSS-Datei; Scanner-`<style>` (html5-qrcode-Fremd-DOM) und Leaflet-CSS-Import bleiben komponentenlokal. |
+
+Verifikation nach jedem Schritt: `npm run build` ✓ · `npx tsc --noEmit` ✓ · `npm test` (52 Tests) ✓
+
+### Bewusst NICHT gemacht (mit Begründung)
+
+- **Kein `src/`-Umzug** — Repo-Konvention ist Root-Layout; die `src/`-Pfade des Auftrags
+  beschreiben das andere Projekt (Kap. 0/3). Ein Umzug wäre ein Riesen-Diff ohne
+  strukturellen Gewinn.
+- **Keine `flow/`→`create/`-Konsolidierung** — Ordner existieren hier nicht (N/A).
+- **Keine Supabase-Typgenerierung** — Datenzugriff läuft über Neon/raw SQL; Generator wäre
+  neues Tooling (Auftrag: keine neuen Dependencies).
+- **Keine RPC-Kapselung** — es gibt keine RPCs in dieser App (N/A).
+- **117 physische Richtungs-Utilities (`pl-/pr-/ml-/mr-`) belassen** — es wurde kein CSS
+  umgezogen, daher greift die Logical-Properties-Auflage nicht; die App hat keine
+  RTL-Anforderung (einsprachig Deutsch, kein next-intl). Eine Massenumstellung wäre eine
+  „Verbesserung nebenbei".
+- **Lokal belassene Typen** — Props-/Formular-State-Typen, JWT-Payloads (`lib/checkin.ts`),
+  Infrastruktur-Typen (Cache/RateLimit/Honeypot/EmailData) und die internen Row-Typen des
+  Dev-Fallbacks `lib/local-data.ts` (Begründung Kap. 1).
+- **`emails/` nicht verschoben** — React-Email-Templates, keine UI-Komponenten.
+- **`scripts/`-SQL nicht in `lib/db/` gekapselt** — einmalige Migrations-/Seed-Skripte
+  (Ops-Tooling), kein App-Datenzugriff.
+- **`components/ui/toast.tsx` in `ui/` belassen** — eigenentwickelt, wird aber von 7 Modulen
+  als Design-System-Primitive konsumiert.
+
+### Offene Punkte / Empfehlungen (ohne Umsetzung)
+
+1. **Import-Grenzen absichern:** Eine Lint-Regel (z. B. `no-restricted-imports` für
+   `@/lib/db/*` außerhalb von `lib/db/` und für `getSQL`) würde das Repository-Pattern
+   dauerhaft erzwingen.
+2. **Falls je RTL/i18n eingeführt wird:** die 117 physischen Richtungs-Utilities auf
+   logische (`ps-/pe-/ms-/me-`) umstellen — Fundstellenliste per
+   `grep -rn "\b(pl|pr|ml|mr)-[0-9]" --include="*.tsx"`.
+3. **Falls der Datenzugriff je auf Supabase umzieht:** generierte DB-Typen als Single
+   Source of Truth einführen und die Entitätstypen in `lib/types/` daraus ableiten.
+4. Der Auftragstext passt in weiten Teilen auf ein anderes Projekt („Zack Zack Rechnung");
+   falls dieses Refactoring dort ebenfalls ansteht, ist dieser Report als Vorlage
+   wiederverwendbar — die dortigen Spezifika (`[locale]`, `flow/`+`create/`, RPCs,
+   Supabase-Typen) sind hier in Kap. 0 ausgewiesen.
