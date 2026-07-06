@@ -1,9 +1,9 @@
-import { updateRegistrationStatus, getRegistrationWithEvent, getEvent, saveQRCode } from "@/lib/db";
+import { updateRegistrationStatus, getRegistrationWithEvent, getEvent } from "@/lib/db";
 import {
   sendRegistrationApprovedEmail,
   sendRegistrationRejectedEmail,
 } from "@/lib/email";
-import { generateCheckinToken, generateQRCode } from "@/lib/checkin";
+import { generateAndSaveCheckinQR } from "@/lib/checkin-qr";
 import { NextRequest, NextResponse } from "next/server";
 import type { RegistrationStatus } from "@/lib/types";
 
@@ -49,18 +49,7 @@ export async function PATCH(
 
       // Generate QR code when approving
       if (status === "approved") {
-        try {
-          const token = generateCheckinToken(
-            { eventId: event.id, participantId: regId, registrationId: regId },
-            event.date,
-            event.time
-          );
-          qrCodeBase64 = await generateQRCode(token);
-          await saveQRCode(regId, qrCodeBase64, token);
-        } catch (err) {
-          console.error("Fehler bei QR-Code-Generierung:", err);
-          // Non-fatal: continue with approval even if QR fails
-        }
+        qrCodeBase64 = await generateAndSaveCheckinQR(regId, event);
       }
 
       const emailData = {
