@@ -8,6 +8,13 @@ import type {
   EventPerson,
 } from "../types";
 
+/**
+ * Number of spots that are effectively taken for an event: approved *and*
+ * still-pending sign-ups. A pending sign-up already reserves a spot, so it
+ * has to count towards "is the event full?" – otherwise the public occupancy
+ * indicator and the waitlist confirmation e-mail would disagree. Kept in sync
+ * with the same definition in `toPublicEvent`.
+ */
 export async function getRegistrationCount(eventId: number): Promise<number> {
   if (!isPostgresConfigured()) {
     const { getLocalRegistrationCount } = await import("../local-data");
@@ -19,7 +26,7 @@ export async function getRegistrationCount(eventId: number): Promise<number> {
     SELECT COUNT(rp.id)::int AS count
     FROM registrations r
     JOIN registration_persons rp ON rp.registration_id = r.id AND rp.cancelled_at IS NULL
-    WHERE r.event_id = ${eventId} AND r.status = 'approved'
+    WHERE r.event_id = ${eventId} AND r.status IN ('approved', 'pending')
   `;
   return (rows[0] as { count: number }).count;
 }

@@ -209,8 +209,14 @@ export function getLocalEvent(id: number) {
 }
 
 export function getLocalRegistrationCount(eventId: number): number {
+  // Approved *and* pending sign-ups count towards the taken spots – see
+  // getRegistrationCount / toPublicEvent for the rationale.
   return localRegistrations
-    .filter((r) => r.event_id === eventId && r.status === "approved")
+    .filter(
+      (r) =>
+        r.event_id === eventId &&
+        (r.status === "approved" || r.status === "pending")
+    )
     .reduce((sum, r) => sum + 1 + r.guests, 0);
 }
 
