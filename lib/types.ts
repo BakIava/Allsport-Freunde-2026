@@ -69,13 +69,17 @@ export interface EventWithRegistrations extends Event {
  * (max / current / pending) is never sent to the browser.
  */
 export function toPublicEvent(e: EventWithRegistrations): EventWithRegistrations {
-  const current = e.current_participants ?? 0;
+  // Count both approved and still-pending sign-ups towards the occupancy. A
+  // pending sign-up already reserves a spot, so ignoring it made the event
+  // look emptier than it really is and confused visitors. Now the public
+  // indicator reflects how many spots are effectively taken.
+  const occupied = (e.current_participants ?? 0) + (e.pending_participants ?? 0);
   const max = e.max_participants ?? 0;
-  const isFull = max > 0 && current >= max;
+  const isFull = max > 0 && occupied >= max;
   // Never round up to 100 % unless the event is actually full.
   let occupancy = 0;
   if (max > 0) {
-    occupancy = isFull ? 100 : Math.min(99, Math.round((current / max) * 100));
+    occupancy = isFull ? 100 : Math.min(99, Math.round((occupied / max) * 100));
   }
 
   // Remove the raw counts so they never reach the public client.
